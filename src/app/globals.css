@@ -2,36 +2,127 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --bg: #f7f7f4;
-  --surface: #ffffff;
-  --ink: #111827;
-  --muted: #64748b;
-  --line: rgba(15, 23, 42, 0.1);
+@layer base {
+  :root {
+    --background: 40 30% 98%;
+    --foreground: 30 12% 9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 30 12% 9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 30 12% 9%;
+
+    --primary: 24 9% 11%;
+    --primary-foreground: 40 30% 98%;
+
+    --secondary: 30 10% 95%;
+    --secondary-foreground: 24 9% 16%;
+
+    --muted: 30 10% 95%;
+    --muted-foreground: 30 6% 44%;
+
+    --accent: 158 64% 30%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 30 12% 90%;
+    --input: 30 12% 90%;
+    --ring: 24 9% 11%;
+
+    --radius: 0.75rem;
+
+    --chart-1: 158 64% 38%;
+    --chart-2: 199 89% 48%;
+    --chart-3: 24 95% 53%;
+    --chart-4: 262 83% 58%;
+    --chart-5: 47 96% 53%;
+
+    --sidebar: 40 24% 97%;
+    --sidebar-foreground: 30 10% 24%;
+    --sidebar-border: 30 12% 90%;
+    --sidebar-accent: 30 10% 93%;
+  }
+
+  .dark {
+    --background: 24 10% 6%;
+    --foreground: 40 20% 96%;
+    --card: 24 9% 9%;
+    --card-foreground: 40 20% 96%;
+    --popover: 24 9% 9%;
+    --popover-foreground: 40 20% 96%;
+    --primary: 40 30% 96%;
+    --primary-foreground: 24 9% 11%;
+    --secondary: 24 7% 15%;
+    --secondary-foreground: 40 20% 96%;
+    --muted: 24 7% 15%;
+    --muted-foreground: 30 6% 60%;
+    --accent: 158 64% 40%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 24 7% 18%;
+    --input: 24 7% 18%;
+    --ring: 40 30% 80%;
+    --chart-1: 158 64% 48%;
+    --chart-2: 199 89% 58%;
+    --chart-3: 24 95% 60%;
+    --chart-4: 262 83% 68%;
+    --chart-5: 47 96% 60%;
+    --sidebar: 24 9% 8%;
+    --sidebar-foreground: 40 14% 80%;
+    --sidebar-border: 24 7% 16%;
+    --sidebar-accent: 24 7% 14%;
+  }
 }
 
-html { scroll-behavior: smooth; }
-body {
-  background: radial-gradient(circle at top left, #e8fff5 0, transparent 28rem), radial-gradient(circle at top right, #efe7ff 0, transparent 26rem), var(--bg);
-  color: var(--ink);
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
-.askiva-grid {
-  background-image: linear-gradient(rgba(17,24,39,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(17,24,39,.04) 1px, transparent 1px);
-  background-size: 26px 26px;
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display), Georgia, serif;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .dotted-grid {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.08) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+  .line-grid {
+    background-image:
+      linear-gradient(hsl(var(--foreground) / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--foreground) / 0.04) 1px, transparent 1px);
+    background-size: 26px 26px;
+  }
 }
 
+/* Retained domain-specific helpers used by feature canvases */
 .glass {
-  background: rgba(255,255,255,.82);
-  backdrop-filter: blur(22px);
+  background: hsl(var(--card) / 0.72);
+  backdrop-filter: blur(18px);
 }
-
 .workflow-canvas {
-  background-color: #fbfbf8;
-  background-image: radial-gradient(rgba(15,23,42,.14) 1px, transparent 1px);
+  background-color: hsl(var(--muted) / 0.4);
+  background-image: radial-gradient(hsl(var(--foreground) / 0.12) 1px, transparent 1px);
   background-size: 24px 24px;
 }
-
 .react-like-node {
   position: relative;
 }
@@ -40,8 +131,10 @@ body {
   position: absolute;
   width: 38px;
   height: 2px;
-  background: linear-gradient(90deg, rgba(124,58,237,.6), rgba(14,165,233,.6));
+  background: linear-gradient(90deg, hsl(var(--accent) / 0.6), hsl(var(--chart-2) / 0.6));
   right: -38px;
   top: 50%;
 }
-.react-like-node:last-child:after { display: none; }
+.react-like-node:last-child:after {
+  display: none;
+}

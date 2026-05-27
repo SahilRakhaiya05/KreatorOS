@@ -20,6 +20,7 @@ export const creator = {
 export const nav = {
   creator: [
     { href: "/creator", label: "Command", icon: LayoutDashboard },
+    { href: "/creator/chat", label: "AI Chat", icon: MessageCircle },
     { href: "/creator/ai-operator", label: "AI Operator", icon: Bot },
     { href: "/creator/builder", label: "Bio Builder", icon: LinkIcon },
     { href: "/creator/preview", label: "Preview", icon: Globe2 },

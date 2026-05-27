@@ -24,8 +24,9 @@ returns boolean language sql stable security definer as $$
   select exists(select 1 from workspace_members wm where wm.workspace_id = wid and wm.user_id = auth.uid());
 $$;
 
-create policy "own profile" on profiles for select using (id = auth.uid());
-create policy "update own profile" on profiles for update using (id = auth.uid());
+create policy "own profile" on profiles for select using (id = (select auth.uid()));
+create policy "insert own profile" on profiles for insert with check (id = (select auth.uid()));
+create policy "update own profile" on profiles for update using (id = (select auth.uid())) with check (id = (select auth.uid()));
 
 create policy "workspace members read" on workspaces for select using (is_workspace_member(id));
 create policy "workspace owner insert" on workspaces for insert with check (owner_id = auth.uid());

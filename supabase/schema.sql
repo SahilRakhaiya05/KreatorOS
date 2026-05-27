@@ -14,6 +14,10 @@ create table profiles (
   email text,
   full_name text,
   avatar_url text,
+  account_type text check (account_type is null or account_type in ('user', 'creator', 'business', 'admin')),
+  onboarding_completed boolean not null default false,
+  preferences jsonb not null default '{}',
+  updated_at timestamptz default now(),
   created_at timestamptz default now()
 );
 
