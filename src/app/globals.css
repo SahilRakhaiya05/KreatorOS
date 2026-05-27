@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f7f7f4;
+  --surface: #ffffff;
+  --ink: #111827;
+  --muted: #64748b;
+  --line: rgba(15, 23, 42, 0.1);
+}
+
+html { scroll-behavior: smooth; }
+body {
+  background: radial-gradient(circle at top left, #e8fff5 0, transparent 28rem), radial-gradient(circle at top right, #efe7ff 0, transparent 26rem), var(--bg);
+  color: var(--ink);
+}
+
+.askiva-grid {
+  background-image: linear-gradient(rgba(17,24,39,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(17,24,39,.04) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+
+.glass {
+  background: rgba(255,255,255,.82);
+  backdrop-filter: blur(22px);
+}
+
+.workflow-canvas {
+  background-color: #fbfbf8;
+  background-image: radial-gradient(rgba(15,23,42,.14) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.react-like-node {
+  position: relative;
+}
+.react-like-node:after {
+  content: "";
+  position: absolute;
+  width: 38px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(124,58,237,.6), rgba(14,165,233,.6));
+  right: -38px;
+  top: 50%;
+}
+.react-like-node:last-child:after { display: none; }

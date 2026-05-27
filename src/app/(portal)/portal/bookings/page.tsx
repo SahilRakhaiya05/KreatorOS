@@ -1,0 +1,3 @@
+import { AppShell } from "@/components/layout/appShell";
+import { PageTitle, Card, Badge } from "@/components/ui";
+export default function Page(){return <AppShell role="portal"><div className="space-y-6"><PageTitle eyebrow="My bookings" title="Upcoming sessions, prep forms, calendar links, and recordings."/><Card className="p-5">{["AI Strategy Call — Jun 4, 10:30", "Member Office Hours — Jun 8, 18:00"].map(x=><div key={x} className="flex items-center justify-between border-t border-slate-100 py-4"><p className="font-black">{x}</p><Badge tone="green">Confirmed</Badge></div>)}</Card></div></AppShell>}

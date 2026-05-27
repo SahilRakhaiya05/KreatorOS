@@ -1,0 +1,3 @@
+import { AppShell } from "@/components/layout/appShell";
+import { PageTitle, Card, Badge } from "@/components/ui";
+export default function Page(){return <AppShell role="portal"><div className="space-y-6"><PageTitle eyebrow="My products" title="Purchased files, templates, bundles, and receipts."/><div className="grid gap-4 md:grid-cols-3">{["Creator AI Templates","Prompt Vault Pro","Business Audit Bundle"].map(x=><Card key={x} className="p-5"><Badge tone="green">Owned</Badge><h2 className="mt-4 font-black">{x}</h2><button className="mt-4 rounded-2xl bg-slate-950 px-4 py-2 text-sm font-black text-white">Open</button></Card>)}</div></div></AppShell>}

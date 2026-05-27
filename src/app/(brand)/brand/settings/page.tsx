@@ -1,0 +1,3 @@
+import { AppShell } from "@/components/layout/appShell";
+import { PageTitle, Card, Badge } from "@/components/ui";
+export default function Page(){return <AppShell role="brand"><div className="space-y-6"><PageTitle eyebrow="Brand settings" title="Brand profile, billing, team roles, approvals, and campaign defaults."/><div className="grid gap-4 md:grid-cols-3">{["Team roles","Billing + escrow","Approval policy","Brand safety rules","Creator shortlist","Webhook integrations"].map(x=><Card key={x} className="p-5"><Badge tone="blue">Config</Badge><h2 className="mt-4 font-black">{x}</h2><p className="mt-2 text-sm text-slate-600">Configure workspace-level defaults and permissions.</p></Card>)}</div></div></AppShell>}

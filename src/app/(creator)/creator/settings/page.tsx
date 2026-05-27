@@ -1,0 +1,4 @@
+import { AppShell } from "@/components/layout/appShell";
+import { providerServices } from "@/shared/mock/data";
+import { Badge, Card, PageTitle } from "@/components/ui";
+export default function Page(){return <AppShell role="creator"><div className="space-y-6"><PageTitle eyebrow="Settings + providers" title="Connect every provider the business needs." text="KreatorOS should be provider-flexible: start with Supabase, Stripe, Google Calendar, Resend, WhatsApp, and OpenAI, then add adapters."/><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{providerServices.map(p=><Card key={p.category} className="p-5"><Badge tone="blue">{p.category}</Badge><h2 className="mt-4 font-black">{p.providers}</h2><p className="mt-2 text-sm leading-6 text-slate-600">{p.use}</p></Card>)}</div></div></AppShell>}
