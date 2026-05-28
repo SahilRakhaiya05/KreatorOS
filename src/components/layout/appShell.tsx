@@ -5,15 +5,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
+  Building2,
   ChevronsLeft,
   ChevronsRight,
+  ChevronsUpDown,
   LogOut,
   Menu,
   Settings,
   Sparkles,
   UserRound,
 } from "lucide-react";
-import { creator, nav } from "@/shared/mock/data";
+import { creator, demoWorkspaces, nav } from "@/shared/mock/data";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/features/auth/server/actions";
 import { Button } from "@/components/ui/button";
@@ -136,6 +138,44 @@ function Brand({ role, collapsed }: { role: Role; collapsed: boolean }) {
   );
 }
 
+function WorkspaceSwitcher({ role }: { role: Role }) {
+  const workspaces = demoWorkspaces[role];
+  const activeWorkspace = workspaces[0];
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="hidden min-w-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-left transition hover:bg-secondary md:flex">
+          <Building2 className="h-[18px] w-[18px] shrink-0 text-muted-foreground" />
+          <div className="min-w-0 leading-tight">
+            <p className="truncate text-sm font-semibold">{activeWorkspace.name}</p>
+            <p className="truncate text-xs text-muted-foreground">{activeWorkspace.type} workspace</p>
+          </div>
+          <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuLabel>Workspace</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {workspaces.map((workspace) => (
+          <DropdownMenuItem asChild key={`${workspace.name}-${workspace.href}`}>
+            <Link href={workspace.href} className="flex items-center justify-between gap-3">
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium">{workspace.name}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {workspace.type} / {workspace.plan}
+                </span>
+              </span>
+            </Link>
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem disabled>Create workspace</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function AppShell({ role, children }: { role: Role; children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -215,6 +255,8 @@ export function AppShell({ role, children }: { role: Role; children: React.React
                     <SidebarNav role={role} collapsed={false} />
                   </SheetContent>
                 </Sheet>
+
+                <WorkspaceSwitcher role={role} />
 
                 <div className="ml-auto flex items-center gap-2">
                   <Button asChild variant="default" size="sm" className="hidden sm:inline-flex">

@@ -17,6 +17,46 @@ export const creator = {
   mrr: "$3,280",
 };
 
+export const demoWorkspaces = {
+  creator: [
+    { name: "Aarav Studio", type: "Creator", plan: "Pro", href: "/creator" },
+    { name: "Launch Collective", type: "Agency", plan: "Demo", href: "/creator" },
+  ],
+  brand: [
+    { name: "Brand HQ", type: "Brand", plan: "Business", href: "/brand" },
+    { name: "Launch Collective", type: "Agency", plan: "Demo", href: "/brand" },
+  ],
+  portal: [{ name: "Aarav Portal", type: "Client", plan: "Member", href: "/portal" }],
+};
+
+export const providerStatuses = [
+  { name: "Stripe", status: "not_configured", label: "Not connected", requiredFor: "Payments and subscriptions" },
+  { name: "Google Calendar", status: "not_configured", label: "Not connected", requiredFor: "Calendar events" },
+  { name: "Cal.com", status: "sandbox", label: "Sandbox available", requiredFor: "Booking webhooks" },
+  { name: "WhatsApp Business", status: "not_configured", label: "Not connected", requiredFor: "WhatsApp reminders" },
+  { name: "Email", status: "mock_mode", label: "Local mock mode", requiredFor: "Transactional email" },
+];
+
+export const approvalQueue = [
+  { title: "Publish new membership offer", risk: "High", status: "Pending", target: "Offer" },
+  { title: "Rewrite hero headline", risk: "Low", status: "Auto-applicable", target: "Page" },
+  { title: "Send booking follow-up campaign", risk: "High", status: "Pending", target: "Messaging" },
+];
+
+export const workflowEvents = [
+  { type: "page.viewed", source: "Public page", status: "Stored" },
+  { type: "offer.created", source: "Store", status: "Automation queued" },
+  { type: "ai.suggestion.created", source: "AI Operator", status: "Approval queue" },
+  { type: "checkout.started", source: "Payments", status: "Provider gated" },
+];
+
+export const assistantMetrics = [
+  { label: "Assistant chats", value: "128", detail: "Public visitors routed this month" },
+  { label: "Offer recommendations", value: "312", detail: "Products, calls, and memberships suggested" },
+  { label: "Leads captured", value: "46", detail: "Saved to leads table" },
+  { label: "Approval-safe actions", value: "100%", detail: "No private data exposed" },
+];
+
 export type NavItem = { href: string; label: string; icon: typeof LayoutDashboard };
 export type NavGroup = { group: string; items: NavItem[] };
 

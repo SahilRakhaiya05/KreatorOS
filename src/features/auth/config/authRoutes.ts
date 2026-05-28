@@ -7,7 +7,7 @@ export const authRoutes = {
   afterLogin: "/creator",
 } as const;
 
-export const protectedRoutePrefixes = ["/creator", "/brand", "/portal", "/profile"] as const;
+export const protectedRoutePrefixes = ["/creator", "/brand", "/portal", "/profile", "/admin"] as const;
 
 export function isProtectedPath(pathname: string) {
   return protectedRoutePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));

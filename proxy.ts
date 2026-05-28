@@ -3,6 +3,13 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getDashboardForAccountType } from "./src/features/auth/config/accountTypes";
 import { authRoutes, isProtectedPath } from "./src/features/auth/config/authRoutes";
+import {
+  canAccountTypeAccessSurface,
+  canWorkspaceAccessSurface,
+  getRouteSurface,
+  type AccountType,
+  type WorkspaceAccessRecord,
+} from "./src/server/auth/routeAccess";
 import { hasSupabaseConfig } from "./src/server/supabase/config";
 
 export async function proxy(request: NextRequest) {
@@ -43,7 +50,7 @@ export async function proxy(request: NextRequest) {
   if (userId && isProtectedPath(pathname)) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("account_type,full_name,onboarding_completed")
+      .select("account_type,full_name,onboarding_completed,active_workspace_id")
       .eq("id", userId)
       .maybeSingle();
 
@@ -60,6 +67,62 @@ export async function proxy(request: NextRequest) {
       const dashboardUrl = request.nextUrl.clone();
       dashboardUrl.pathname = getDashboardForAccountType(profile.account_type);
       return NextResponse.redirect(dashboardUrl);
+    }
+
+    const surface = getRouteSurface(pathname);
+
+    if (surface) {
+      const { data: memberships } = await supabase
+        .from("workspace_members")
+        .select("role, workspaces(id, type, status)")
+        .eq("user_id", userId)
+        .eq("status", "active");
+
+      const workspace = Array.isArray(memberships)
+        ? memberships
+            .map((membership) => {
+              const workspaceRecord = Array.isArray(membership.workspaces)
+                ? membership.workspaces[0]
+                : membership.workspaces;
+
+              if (!workspaceRecord) return null;
+
+              return {
+                id: workspaceRecord.id,
+                type: workspaceRecord.type,
+                status: workspaceRecord.status,
+                role: membership.role,
+              } satisfies WorkspaceAccessRecord;
+            })
+            .find((candidate) => candidate?.id === profile?.active_workspace_id) ??
+          memberships
+            .map((membership) => {
+              const workspaceRecord = Array.isArray(membership.workspaces)
+                ? membership.workspaces[0]
+                : membership.workspaces;
+
+              if (!workspaceRecord) return null;
+
+              return {
+                id: workspaceRecord.id,
+                type: workspaceRecord.type,
+                status: workspaceRecord.status,
+                role: membership.role,
+              } satisfies WorkspaceAccessRecord;
+            })
+            .find(Boolean) ??
+          null
+        : null;
+
+      const canAccessWithWorkspace = canWorkspaceAccessSurface(workspace, surface);
+      const canAccessWithLegacyProfile = canAccountTypeAccessSurface(profile?.account_type as AccountType | null, surface);
+
+      if (!canAccessWithWorkspace && !canAccessWithLegacyProfile) {
+        const unauthorizedUrl = request.nextUrl.clone();
+        unauthorizedUrl.pathname = "/unauthorized";
+        unauthorizedUrl.searchParams.set("next", pathname);
+        return NextResponse.redirect(unauthorizedUrl);
+      }
     }
   }
 

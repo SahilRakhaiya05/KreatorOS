@@ -1,8 +1,8 @@
 import { AppShell, PageHeader } from "@/components/layout/appShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { stats } from "@/shared/mock/data";
-import { TrendingUp } from "lucide-react";
+import { stats, workflowEvents } from "@/shared/mock/data";
+import { Activity, TrendingUp } from "lucide-react";
 
 const insights = [
   "Booking clicks are high, checkout is weak. Add proof and a lower-priced intro option.",
@@ -51,6 +51,26 @@ export default function Page() {
               <div key={x} className="rounded-xl border border-border bg-accent/10 p-4">
                 <Badge variant="accent">Recommended action</Badge>
                 <p className="mt-3 text-sm leading-6 text-foreground">{x}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5 text-muted-foreground" />
+            Event spine
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-4">
+            {workflowEvents.map((event) => (
+              <div key={event.type} className="rounded-xl border border-border bg-secondary/40 p-4">
+                <p className="font-mono text-xs text-muted-foreground">{event.type}</p>
+                <p className="mt-2 text-sm font-semibold">{event.source}</p>
+                <Badge variant="outline" className="mt-3">{event.status}</Badge>
               </div>
             ))}
           </div>

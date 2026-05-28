@@ -461,6 +461,7 @@ export function BioBuilderClient({
       ends.setMinutes(starts.getMinutes() + durationMinutes);
       return {
         block_id: block.id,
+        workspace_id: page.workspace_id ?? null,
         page_id: page.id,
         starts_at: starts.toISOString(),
         ends_at: ends.toISOString(),
@@ -494,6 +495,7 @@ export function BioBuilderClient({
         .from("creator_page_blocks")
         .insert({
           page_id: page.id,
+          workspace_id: page.workspace_id ?? null,
           type,
           title,
           subtitle,

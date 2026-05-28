@@ -9,6 +9,7 @@ export type PageBlockType =
 
 export type CreatorPageRecord = {
   id: string;
+  workspace_id?: string | null;
   owner_id: string;
   slug: string;
   display_name: string;
@@ -24,6 +25,7 @@ export type CreatorPageRecord = {
 
 export type CreatorPageBlockRecord = {
   id: string;
+  workspace_id?: string | null;
   page_id: string;
   type: PageBlockType;
   title: string;
@@ -33,12 +35,15 @@ export type CreatorPageBlockRecord = {
   sort_order: number;
   clicks: number;
   metadata: Record<string, unknown>;
+  ref_type?: string | null;
+  ref_id?: string | null;
   created_at?: string;
   updated_at?: string;
 };
 
 export type CreatorCalendarSlotRecord = {
   id: string;
+  workspace_id?: string | null;
   block_id: string;
   page_id: string;
   starts_at: string;

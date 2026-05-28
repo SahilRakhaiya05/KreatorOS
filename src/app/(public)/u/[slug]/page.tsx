@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PublicPreview } from "@/features/bioBuilder/components/bioBuilder";
+import { PublicAssistantWidget } from "@/features/assistant/components/publicAssistantWidget";
 import { Button } from "@/components/ui/button";
 import { getPublicCreatorPage } from "@/server/pageBuilder/pageBuilderService";
 
@@ -20,6 +21,7 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
           </Link>
         </Button>
       </div>
+      <PublicAssistantWidget pageId={page.id} welcomeMessage="Tell me your goal and I will recommend the best next step from this creator." />
     </main>
   );
 }

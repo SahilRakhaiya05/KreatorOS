@@ -7,7 +7,9 @@ import {
   Video,
   Loader2,
   ArrowUpRight,
+  PlugZap,
 } from "lucide-react";
+import { providerStatuses } from "@/shared/mock/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -152,6 +154,38 @@ function StripeCard({ stripeConnected }: { stripeConnected: boolean }) {
   );
 }
 
+function statusVariant(status: string) {
+  if (status === "connected") return "success" as const;
+  if (status === "sandbox" || status === "mock_mode") return "warning" as const;
+  if (status === "error" || status === "needs_reauth") return "destructive" as const;
+  return "secondary" as const;
+}
+
+function ProviderStatusShell() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <PlugZap className="h-5 w-5 text-muted-foreground" />
+          Provider status
+        </CardTitle>
+        <CardDescription>Production features stay blocked until the required provider is configured.</CardDescription>
+      </CardHeader>
+      <CardContent className="divide-y divide-border pt-0">
+        {providerStatuses.map((provider) => (
+          <div key={provider.name} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">{provider.name}</p>
+              <p className="text-sm text-muted-foreground">{provider.requiredFor}</p>
+            </div>
+            <Badge variant={statusVariant(provider.status)}>{provider.label}</Badge>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function SettingsClient({ stripeConnected }: { stripeConnected: boolean }) {
   return (
     <Tabs defaultValue="account" className="w-full">
@@ -196,7 +230,8 @@ export function SettingsClient({ stripeConnected }: { stripeConnected: boolean }
         <StripeCard stripeConnected={stripeConnected} />
       </TabsContent>
 
-      <TabsContent value="connectors">
+      <TabsContent value="connectors" className="space-y-6">
+        <ProviderStatusShell />
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Optional add-ons</CardTitle>

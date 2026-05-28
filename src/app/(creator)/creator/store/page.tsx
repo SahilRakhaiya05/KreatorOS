@@ -3,7 +3,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { products } from "@/shared/mock/data";
-import { ShoppingBag, Sparkles, Plus } from "lucide-react";
+import { BookOpen, CalendarClock, LockKeyhole, ShoppingBag, Sparkles, Plus } from "lucide-react";
+
+const offerTypes = [
+  { label: "Products", icon: ShoppingBag, status: "DB-backed offers" },
+  { label: "Bookings", icon: CalendarClock, status: "Calendar gated" },
+  { label: "Memberships", icon: LockKeyhole, status: "Access grants" },
+  { label: "Courses", icon: BookOpen, status: "Content model ready" },
+];
 
 export default function Page() {
   return (
@@ -18,6 +25,24 @@ export default function Page() {
           </Button>
         }
       />
+      <div className="mb-6 grid gap-3 md:grid-cols-4">
+        {offerTypes.map((type) => {
+          const Icon = type.icon;
+          return (
+            <Card key={type.label}>
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className="grid h-10 w-10 place-items-center rounded-lg bg-secondary text-muted-foreground">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{type.label}</p>
+                  <p className="text-xs text-muted-foreground">{type.status}</p>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {products.map((p) => (
           <Card key={p.name} className="transition hover:shadow-soft">

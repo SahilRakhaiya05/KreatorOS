@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import type { CreatorPageBlockRecord, CreatorPageRecord } from "../../features/bioBuilder/types";
+import { getActiveWorkspace } from "../auth/getActiveWorkspace";
 import { requireUser } from "../profile/profileService";
 import { createSupabaseServerClient } from "../supabase/serverClient";
 
@@ -17,6 +18,7 @@ function slugify(value: string) {
 export async function getBuilderPageData() {
   const { user, profile } = await requireUser();
   const supabase = await createSupabaseServerClient();
+  const activeWorkspace = await getActiveWorkspace(user.id);
   const displayName = profile?.full_name || user.email?.split("@")[0] || "KreatorOS Creator";
   const slug = slugify(profile?.full_name || user.email || user.id);
 
@@ -32,6 +34,7 @@ export async function getBuilderPageData() {
     const { data: createdPage, error } = await supabase
       .from("creator_pages")
       .insert({
+        workspace_id: activeWorkspace?.id ?? null,
         owner_id: user.id,
         slug,
         display_name: displayName,
@@ -51,6 +54,7 @@ export async function getBuilderPageData() {
     await supabase.from("creator_page_blocks").insert([
       {
         page_id: page.id,
+        workspace_id: page.workspace_id ?? activeWorkspace?.id ?? null,
         type: "link",
         title: "Start here",
         subtitle: "Explore my latest offer",
@@ -59,6 +63,7 @@ export async function getBuilderPageData() {
       },
       {
         page_id: page.id,
+        workspace_id: page.workspace_id ?? activeWorkspace?.id ?? null,
         type: "calendar",
         title: "Book a strategy call",
         subtitle: "30 minute intro session",
