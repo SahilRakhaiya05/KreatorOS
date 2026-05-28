@@ -538,6 +538,8 @@ export default function KreatorOSV2() {
         .nav-a:hover { color: #0f172a; }
         
         .btn-dark {
+          white-space: nowrap !important;
+          flex-shrink: 0 !important;
           display: inline-flex;
           align-items: center;
           gap: 8px;
@@ -560,6 +562,8 @@ export default function KreatorOSV2() {
         }
         
         .btn-light {
+          white-space: nowrap !important;
+          flex-shrink: 0 !important;
           display: inline-flex;
           align-items: center;
           gap: 8px;
@@ -636,6 +640,34 @@ export default function KreatorOSV2() {
           position: relative;
           animation: contentShow 0.3s cubic-bezier(.16,1,.3,1);
         }
+        .header-buttons {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-shrink: 0 !important;
+        }
+        @media (max-width: 900px) {
+          .header-buttons .nav-a {
+            display: none !important;
+          }
+        }
+
+        .hero-buttons, .cta-buttons {
+          display: flex;
+          gap: 14px;
+          flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+          .hero-buttons, .cta-buttons {
+            flex-direction: column !important;
+            width: 100% !important;
+            max-width: 320px !important;
+            margin: 0 auto !important;
+            gap: 12px !important;
+          }
+        }
+
         @media (max-width: 480px) {
           .modal-container {
             padding: 24px 20px !important;
@@ -648,22 +680,13 @@ export default function KreatorOSV2() {
             font-size: 13px !important;
             margin-bottom: 20px !important;
           }
-          .hero-container .btn-dark,
-          .hero-container .btn-light {
-            width: 100% !important;
-            justify-content: center !important;
-          }
-          .hero-container div[style*="flexWrap"] {
-            width: 100% !important;
-            flex-direction: column !important;
-            gap: 10px !important;
-          }
           .btn-dark, .btn-light {
             width: 100% !important;
             justify-content: center !important;
             text-align: center !important;
             padding: 14px 24px !important;
             display: inline-flex !important;
+            white-space: nowrap !important;
           }
           footer > div {
             flex-direction: column !important;
@@ -808,7 +831,12 @@ export default function KreatorOSV2() {
             padding: 60px 20px !important;
           }
           header nav {
-            padding: 0 20px !important;
+            padding: 0 12px !important;
+          }
+          .header-buttons .btn-dark {
+            padding: 8px 14px !important;
+            font-size: 12px !important;
+            flex-shrink: 0 !important;
           }
           .stats-grid > div {
             border-right: none !important;
@@ -844,7 +872,7 @@ export default function KreatorOSV2() {
             <a href="#pricing" className="nav-a">Pricing</a>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="header-buttons">
             <button onClick={openBetaModal} className="nav-a" style={{ background: "none", border: "none", cursor: "pointer", padding: "8px 16px" }}>Sign In</button>
             <button onClick={openBetaModal} className="btn-dark" style={{ padding: "10px 22px", fontSize: 13 }}>Join Waitlist →</button>
           </div>
@@ -869,7 +897,7 @@ export default function KreatorOSV2() {
             KreatorOS links your audience store, custom Calendar sessions, paid members rooms, and brand outreach campaigns under a unified, secure AI operator.
           </p>
 
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 44 }}>
+          <div className="hero-buttons" style={{ marginBottom: 44 }}>
             <button onClick={openBetaModal} className="btn-dark">Access Private Beta →</button>
             <a href="#how-it-works" className="btn-light">See How it Works</a>
           </div>
@@ -1202,7 +1230,7 @@ export default function KreatorOSV2() {
               Synchronize booking scopes, connect custom client checkouts, and let your AI operator scale payouts securely.
             </p>
 
-            <div style={{ display: "flex", gap: 14, justifyContent: "center" }}>
+            <div className="cta-buttons" style={{ justifyContent: "center" }}>
               <button onClick={openBetaModal} className="btn-dark" style={{ background: "#ffffff", color: "#090d16" }}>Get Beta Invite</button>
               <a href="#features" className="btn-light" style={{ background: "transparent", color: "#ffffff", borderColor: "rgba(255,255,255,0.15)" }}>Explore Ecosystem</a>
             </div>
