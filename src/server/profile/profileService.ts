@@ -5,7 +5,7 @@ import type { UserProfile } from "../../features/auth/types";
 import { hasSupabaseConfig } from "../supabase/config";
 import { createSupabaseServerClient } from "../supabase/serverClient";
 
-const profileColumns = "id,email,full_name,avatar_url,account_type,onboarding_completed,preferences,created_at,updated_at";
+const profileColumns = "id,email,full_name,avatar_url,account_type,onboarding_completed,preferences,active_workspace_id,created_at,updated_at";
 
 export async function getCurrentUserAndProfile() {
   if (!hasSupabaseConfig()) {

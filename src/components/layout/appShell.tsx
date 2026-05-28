@@ -33,6 +33,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 type Role = "creator" | "brand" | "portal";
+type WorkspaceSummary = {
+  id: string;
+  name: string;
+  type: string;
+  plan: string;
+  href: string;
+};
 
 const roleMeta: Record<Role, { title: string; subtitle: string }> = {
   creator: { title: "KreatorOS", subtitle: "Creator workspace" },
@@ -139,8 +146,55 @@ function Brand({ role, collapsed }: { role: Role; collapsed: boolean }) {
 }
 
 function WorkspaceSwitcher({ role }: { role: Role }) {
-  const workspaces = demoWorkspaces[role];
+  const [realWorkspaces, setRealWorkspaces] = useState<WorkspaceSummary[]>([]);
+  const workspaces = realWorkspaces.length ? realWorkspaces : demoWorkspaces[role];
   const activeWorkspace = workspaces[0];
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadWorkspaces() {
+      try {
+        const res = await fetch("/api/workspaces");
+        const json = await res.json();
+        if (!json?.ok || cancelled) return;
+
+        const next = (json.data.workspaces ?? [])
+          .map((membership: { workspaces?: { id: string; name: string; type: string; plan: string } | Array<{ id: string; name: string; type: string; plan: string }> }) => {
+            const workspace = Array.isArray(membership.workspaces) ? membership.workspaces[0] : membership.workspaces;
+            if (!workspace) return null;
+            return {
+              id: workspace.id,
+              name: workspace.name,
+              type: workspace.type,
+              plan: workspace.plan,
+              href: workspace.type === "brand" || workspace.type === "agency" ? "/brand" : workspace.type === "admin" ? "/brand" : "/creator",
+            };
+          })
+          .filter(Boolean) as WorkspaceSummary[];
+
+        setRealWorkspaces(next);
+      } catch {
+        /* demo fallback stays visible */
+      }
+    }
+
+    loadWorkspaces();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function switchWorkspace(workspace: WorkspaceSummary) {
+    if (workspace.id) {
+      await fetch("/api/workspaces/switch", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ workspaceId: workspace.id }),
+      });
+    }
+    window.location.href = workspace.href;
+  }
 
   return (
     <DropdownMenu>
@@ -158,15 +212,15 @@ function WorkspaceSwitcher({ role }: { role: Role }) {
         <DropdownMenuLabel>Workspace</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {workspaces.map((workspace) => (
-          <DropdownMenuItem asChild key={`${workspace.name}-${workspace.href}`}>
-            <Link href={workspace.href} className="flex items-center justify-between gap-3">
+          <DropdownMenuItem key={`${workspace.name}-${workspace.href}`} onSelect={() => switchWorkspace(workspace as WorkspaceSummary)}>
+            <button type="button" className="flex w-full items-center justify-between gap-3 text-left">
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{workspace.name}</span>
                 <span className="block truncate text-xs text-muted-foreground">
                   {workspace.type} / {workspace.plan}
                 </span>
               </span>
-            </Link>
+            </button>
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />

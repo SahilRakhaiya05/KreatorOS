@@ -67,6 +67,25 @@ export const workspaceSwitchSchema = z.object({
   workspaceId: z.string().uuid(),
 });
 
+export const workspaceInviteSchema = z.object({
+  workspaceId: z.string().uuid(),
+  email: z.string().email(),
+  role: z.enum(["owner", "admin", "manager", "editor", "analyst", "member", "viewer", "client", "brand_user"]),
+});
+
+export const workspaceMemberUpdateSchema = z.object({
+  workspaceId: z.string().uuid(),
+  userId: z.string().uuid(),
+  role: z.enum(["owner", "admin", "manager", "editor", "analyst", "member", "viewer", "client", "brand_user"]).optional(),
+  status: z.enum(["invited", "active", "suspended", "removed"]).optional(),
+  permissions: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const permissionCheckSchema = z.object({
+  workspaceId: z.string().uuid(),
+  surface: z.enum(["creator", "brand", "portal", "admin"]),
+});
+
 export const offerCreateSchema = z.object({
   workspaceId: z.string().uuid(),
   pageId: z.string().uuid().optional(),
@@ -149,4 +168,14 @@ export const assistantLeadSchema = z.object({
   email: z.string().email(),
   name: z.string().optional(),
   intent: z.string().optional(),
+});
+
+export const assistantKnowledgeSourceSchema = z.object({
+  workspaceId: z.string().uuid(),
+  assistantId: z.string().uuid(),
+  sourceType: z.enum(["page", "offer", "faq", "manual", "file", "url"]),
+  title: z.string().min(1),
+  content: z.string().optional(),
+  sourceRef: z.string().optional(),
+  status: z.enum(["active", "disabled", "archived"]).default("active"),
 });

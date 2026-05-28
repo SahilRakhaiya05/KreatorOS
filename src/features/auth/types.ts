@@ -19,6 +19,7 @@ export type UserProfile = {
   account_type: AccountType | null;
   onboarding_completed: boolean;
   preferences: Record<string, unknown>;
+  active_workspace_id?: string | null;
   created_at: string | null;
   updated_at: string | null;
 };

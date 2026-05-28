@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Bot, Mail, Send, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -30,18 +30,7 @@ export function PublicAssistantWidget({
   pageId: string;
   welcomeMessage?: string | null;
 }) {
-  const visitorId = useMemo(() => {
-    try {
-      const key = "kreatoros.public.visitor";
-      const existing = window.localStorage.getItem(key);
-      if (existing) return existing;
-      const next = crypto.randomUUID();
-      window.localStorage.setItem(key, next);
-      return next;
-    } catch {
-      return "anonymous";
-    }
-  }, []);
+  const [visitorId, setVisitorId] = useState("anonymous");
   const [open, setOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -54,6 +43,22 @@ export function PublicAssistantWidget({
     },
   ]);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    try {
+      const key = "kreatoros.public.visitor";
+      const existing = window.localStorage.getItem(key);
+      if (existing) {
+        setVisitorId(existing);
+        return;
+      }
+      const next = crypto.randomUUID();
+      window.localStorage.setItem(key, next);
+      setVisitorId(next);
+    } catch {
+      setVisitorId("anonymous");
+    }
+  }, []);
 
   function sendMessage() {
     const message = input.trim();

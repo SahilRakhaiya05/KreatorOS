@@ -34,6 +34,12 @@ import type { CreatorCalendarSlotRecord, CreatorPageBlockRecord, CreatorPageReco
 
 type Theme = { name: string; bg: string; button: string };
 type AddMode = PageBlockType;
+type PageVersion = {
+  id: string;
+  version_number: number;
+  change_summary: string | null;
+  created_at: string;
+};
 
 const defaultTheme: Theme = { name: "Studio", bg: "from-[#f7f7f2] via-white to-[#ecfdf5]", button: "bg-stone-950" };
 
@@ -364,10 +370,91 @@ export function BioBuilderClient({
   const [addMode, setAddMode] = useState<AddMode>("link");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [versions, setVersions] = useState<PageVersion[]>([]);
   const [isPending, startTransition] = useTransition();
 
   const url = `kreatoros.ai/u/${page.slug}`;
   const sortedBlocks = useMemo(() => [...blocks].sort((a, b) => a.sort_order - b.sort_order), [blocks]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadVersions() {
+      try {
+        const res = await fetch(`/api/pages/${page.id}/versions`);
+        const json = await res.json();
+        if (!cancelled && json?.ok) {
+          setVersions(json.data.versions ?? []);
+        }
+      } catch {
+        /* version panel stays empty */
+      }
+    }
+
+    loadVersions();
+    return () => {
+      cancelled = true;
+    };
+  }, [page.id]);
+
+  function currentDsl() {
+    return {
+      page: {
+        theme: {
+          mode: "light",
+          accent: theme.name.toLowerCase(),
+          font: "inter",
+          radius: "xl",
+          animation: "subtle",
+        },
+        seo: {
+          title: page.display_name,
+          description: page.bio ?? "Book, buy, and connect from this creator page.",
+        },
+        blocks: sortedBlocks.map((block) => ({
+          id: block.id,
+          type: block.type,
+          props: {
+            title: block.title,
+            subtitle: block.subtitle,
+            url: block.url,
+            status: block.status,
+            metadata: block.metadata,
+          },
+        })),
+      },
+    };
+  }
+
+  function saveVersion() {
+    startTransition(async () => {
+      const res = await fetch(`/api/pages/${page.id}/versions`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          workspaceId: page.workspace_id ?? undefined,
+          pageId: page.id,
+          dsl: currentDsl(),
+          changeSummary: "Manual builder snapshot",
+        }),
+      });
+      const json = await res.json();
+      if (json?.ok) {
+        setVersions((prev) => [json.data.version, ...prev]);
+        setMessage("Page version saved.");
+      } else {
+        setMessage(json?.error?.message ?? "Could not save version.");
+      }
+    });
+  }
+
+  function requestRestore(versionId: string) {
+    startTransition(async () => {
+      const res = await fetch(`/api/pages/${page.id}/versions/${versionId}/restore`, { method: "POST" });
+      const json = await res.json();
+      setMessage(json?.ok ? "Restore request logged for review." : json?.error?.message ?? "Could not request restore.");
+    });
+  }
 
   function persistPage(update: Partial<CreatorPageRecord>) {
     startTransition(async () => {
@@ -660,6 +747,37 @@ export function BioBuilderClient({
                   </div>
                 );
               })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-black">Version history</p>
+                <p className="text-sm text-stone-500">Snapshots are stored in the Page DSL table and restore requests are audit logged.</p>
+              </div>
+              <Button variant="secondary" onClick={saveVersion} disabled={isPending}>
+                <Check className="h-4 w-4" /> Save version
+              </Button>
+            </div>
+            <div className="mt-4 space-y-2">
+              {versions.length ? (
+                versions.slice(0, 5).map((version) => (
+                  <div key={version.id} className="flex items-center justify-between gap-3 rounded-xl bg-stone-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-black">Version {version.version_number}</p>
+                      <p className="text-xs text-stone-500">{version.change_summary ?? "Builder snapshot"}</p>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => requestRestore(version.id)}>
+                      Restore
+                    </Button>
+                  </div>
+                ))
+              ) : (
+                <p className="rounded-xl bg-stone-100 px-4 py-3 text-sm font-bold text-stone-500">No saved versions yet.</p>
+              )}
             </div>
           </CardContent>
         </Card>

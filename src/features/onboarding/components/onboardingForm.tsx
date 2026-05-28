@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserProfile } from "../../auth/types";
 import { completeOnboardingAction, type ActionState } from "../../auth/server/actions";
 import { SubmitButton } from "../../auth/components/formStatus";
@@ -84,6 +85,24 @@ export function OnboardingForm({ profile }: { profile?: UserProfile | null }) {
                 <UserRound className="h-4 w-4" /> Your name
               </Label>
               <Input id="fullName" name="fullName" required defaultValue={profile?.full_name ?? ""} placeholder="Aarav Mehta" />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="workspaceType" className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" /> Workspace type
+              </Label>
+              <Select name="workspaceType" defaultValue={typeof preferences.workspaceType === "string" ? preferences.workspaceType : "creator"}>
+                <SelectTrigger id="workspaceType">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="creator">Creator</SelectItem>
+                  <SelectItem value="brand">Brand</SelectItem>
+                  <SelectItem value="agency">Agency</SelectItem>
+                  <SelectItem value="startup">Startup</SelectItem>
+                  <SelectItem value="community">Community</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1.5">
