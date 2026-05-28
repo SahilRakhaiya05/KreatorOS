@@ -16,7 +16,13 @@ export const pageDslSchema = z.object({
         radius: z.string().min(1).default("xl"),
         animation: z.string().min(1).default("subtle"),
       })
-      .default({}),
+      .default({
+        mode: "light",
+        accent: "emerald",
+        font: "inter",
+        radius: "xl",
+        animation: "subtle",
+      }),
     seo: z
       .object({
         title: z.string().min(1).max(80),

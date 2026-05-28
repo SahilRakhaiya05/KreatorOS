@@ -25,7 +25,8 @@ export async function POST(req: Request) {
 
   if (!result.ok) return apiError(result.code, result.message, 400);
   if (result.checkout.status === "provider_required" && result.order.amount_cents > 0) {
-    return apiError("provider_not_configured", result.checkout.message, 409, {
+    const errorMessage = ("message" in result.checkout && result.checkout.message) || "Connect Stripe to accept paid checkout.";
+    return apiError("provider_not_configured", errorMessage, 409, {
       checkoutIntent: result.intent,
       order: result.order,
       offer: result.offer,
