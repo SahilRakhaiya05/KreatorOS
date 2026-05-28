@@ -1,7 +1,16 @@
-import { apiOk } from "@/server/api/responses";
+import { apiError, apiOk } from "@/server/api/responses";
+import { paymentService } from "@/server/payments/paymentService";
+
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  // TODO: verify Stripe signature, update order/subscription, unlock access, emit workflow event.
-  await req.text();
+  const signature = req.headers.get("stripe-signature") || "";
+  const rawBody = await req.text();
+
+  const result = await paymentService.handleWebhook(rawBody, signature);
+  if (!result.ok) {
+    return apiError("webhook_error", result.error || "Failed to process webhook.", 400);
+  }
+
   return apiOk({ received: true });
 }

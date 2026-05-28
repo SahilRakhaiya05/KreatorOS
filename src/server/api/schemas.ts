@@ -15,6 +15,7 @@ export const bookingHoldSchema = z.object({
       name: z.string().min(1),
       email: z.string().email(),
       timezone: z.string().min(1).optional(),
+      phone: z.string().optional(),
     })
     .optional(),
 }).passthrough();
