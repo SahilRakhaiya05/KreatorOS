@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CreditCard,
   Calendar,
@@ -9,7 +9,6 @@ import {
   ArrowUpRight,
   PlugZap,
 } from "lucide-react";
-import { providerStatuses } from "@/shared/mock/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -161,7 +160,37 @@ function statusVariant(status: string) {
   return "secondary" as const;
 }
 
+type ProviderStatus = {
+  provider: string;
+  label: string;
+  status: string;
+  requiredFor: string;
+};
+
 function ProviderStatusShell() {
+  const [providers, setProviders] = useState<ProviderStatus[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProviders() {
+      try {
+        const res = await fetch("/api/providers/status");
+        const json = await res.json();
+        if (!cancelled && json?.ok) {
+          setProviders(json.data.providers ?? []);
+        }
+      } catch {
+        setProviders([]);
+      }
+    }
+
+    loadProviders();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <Card>
       <CardHeader>
@@ -172,15 +201,17 @@ function ProviderStatusShell() {
         <CardDescription>Production features stay blocked until the required provider is configured.</CardDescription>
       </CardHeader>
       <CardContent className="divide-y divide-border pt-0">
-        {providerStatuses.map((provider) => (
-          <div key={provider.name} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+        {providers.length ? providers.map((provider) => (
+          <div key={provider.provider} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-medium text-foreground">{provider.name}</p>
+              <p className="text-sm font-medium text-foreground">{provider.label}</p>
               <p className="text-sm text-muted-foreground">{provider.requiredFor}</p>
             </div>
-            <Badge variant={statusVariant(provider.status)}>{provider.label}</Badge>
+            <Badge variant={statusVariant(provider.status)}>{provider.status.replace(/_/g, " ")}</Badge>
           </div>
-        ))}
+        )) : (
+          <div className="py-4 text-sm text-muted-foreground">Provider status loads after workspace auth is available.</div>
+        )}
       </CardContent>
     </Card>
   );
@@ -204,10 +235,10 @@ export function SettingsClient({ stripeConnected }: { stripeConnected: boolean }
           </CardHeader>
           <CardContent className="divide-y divide-border pt-0">
             <SettingRow title="Display name" description="Shown on your public page and receipts.">
-              <Input defaultValue="Aarav Chetty" />
+              <Input placeholder="Your display name" />
             </SettingRow>
             <SettingRow title="Handle" description="Your unique storefront URL.">
-              <Input defaultValue="aarav" />
+              <Input placeholder="your-username" />
             </SettingRow>
             <SettingRow title="Timezone" description="Used for bookings and scheduling.">
               <Select defaultValue="ist">

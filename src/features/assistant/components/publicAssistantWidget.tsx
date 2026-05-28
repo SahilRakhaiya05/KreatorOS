@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Bot, Mail, Send, Sparkles } from "lucide-react";
+import { Bot, CalendarClock, Mail, Send, ShoppingBag, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 type AssistantOffer = {
   id: string;
+  workspace_id: string;
   title: string;
   type: string;
   description: string | null;
@@ -36,6 +37,7 @@ export function PublicAssistantWidget({
   const [input, setInput] = useState("");
   const [email, setEmail] = useState("");
   const [leadStatus, setLeadStatus] = useState("");
+  const [actionStatus, setActionStatus] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
@@ -104,6 +106,39 @@ export function PublicAssistantWidget({
     });
   }
 
+  function startOfferAction(offer: AssistantOffer) {
+    setActionStatus("");
+    startTransition(async () => {
+      if (offer.type === "booking") {
+        const res = await fetch("/api/bookings", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ offerId: offer.id, workspaceId: offer.workspace_id, customer: email ? { email } : undefined }),
+        });
+        const json = await res.json();
+        setActionStatus(json?.ok ? "Booking started." : json?.error?.message ?? "Booking is not ready yet.");
+        return;
+      }
+
+      const res = await fetch("/api/payments/checkout", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          workspaceId: offer.workspace_id,
+          offerId: offer.id,
+          customer: email ? { email } : undefined,
+          returnUrl: window.location.href,
+        }),
+      });
+      const json = await res.json();
+      if (json?.ok) {
+        setActionStatus(json.data.order?.amount_cents === 0 ? "Free access granted when an email is provided." : "Checkout intent created.");
+      } else {
+        setActionStatus(json?.error?.message ?? "Checkout could not be started.");
+      }
+    });
+  }
+
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3">
       {open ? (
@@ -138,6 +173,16 @@ export function PublicAssistantWidget({
                         <p className="text-xs font-black uppercase text-stone-500">{offer.type}</p>
                         <p className="mt-1 font-black text-stone-950">{offer.title}</p>
                         {offer.description ? <p className="mt-1 text-xs text-stone-500">{offer.description}</p> : null}
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="mt-3 w-full justify-center"
+                          onClick={() => startOfferAction(offer)}
+                          disabled={isPending}
+                        >
+                          {offer.type === "booking" ? <CalendarClock className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
+                          {offer.type === "booking" ? "Start booking" : "Start checkout"}
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -173,6 +218,7 @@ export function PublicAssistantWidget({
               </Button>
             </div>
             {leadStatus ? <p className="mt-2 text-xs font-semibold text-stone-500">{leadStatus}</p> : null}
+            {actionStatus ? <p className="mt-2 text-xs font-semibold text-stone-500">{actionStatus}</p> : null}
           </div>
         </div>
       ) : null}

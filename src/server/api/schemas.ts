@@ -27,9 +27,18 @@ export const workflowSchema = z.object({
 }).passthrough();
 
 export const checkoutSchema = z.object({
+  offerId: z.string().uuid().optional(),
   productId: z.string().min(1).optional(),
   bookingId: z.string().min(1).optional(),
-  workspaceId: z.string().min(1).optional(),
+  workspaceId: z.string().uuid().optional(),
+  couponCode: z.string().min(1).optional(),
+  returnUrl: z.string().url().optional(),
+  customer: z
+    .object({
+      email: z.string().email().optional(),
+      name: z.string().min(1).optional(),
+    })
+    .optional(),
 }).passthrough();
 
 export const campaignSchema = z.object({
@@ -130,6 +139,27 @@ export const pageVersionSchema = z.object({
   changeSummary: z.string().optional(),
 });
 
+export const pageUpdateSchema = z.object({
+  slug: z.string().min(1).regex(/^[a-z0-9-]+$/).optional(),
+  themeName: z.string().min(1).optional(),
+  layout: z.string().min(1).optional(),
+  bio: z.string().optional(),
+  displayName: z.string().min(1).optional(),
+  handle: z.string().min(1).optional(),
+  isPublished: z.boolean().optional(),
+});
+
+export const pageBlockUpdateSchema = z.object({
+  title: z.string().min(1).optional(),
+  subtitle: z.string().nullable().optional(),
+  url: z.string().nullable().optional(),
+  status: z.enum(["live", "draft"]).optional(),
+  sortOrder: z.number().int().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  refType: z.string().nullable().optional(),
+  refId: z.string().uuid().nullable().optional(),
+});
+
 export const aiSuggestionCreateSchema = z.object({
   workspaceId: z.string().uuid(),
   pageId: z.string().uuid().optional(),
@@ -178,4 +208,28 @@ export const assistantKnowledgeSourceSchema = z.object({
   content: z.string().optional(),
   sourceRef: z.string().optional(),
   status: z.enum(["active", "disabled", "archived"]).default("active"),
+});
+
+export const accessCheckSchema = z.object({
+  workspaceId: z.string().uuid(),
+  offerId: z.string().uuid(),
+  email: z.string().email(),
+});
+
+export const catalogCreateSchema = z.object({
+  workspaceId: z.string().uuid(),
+  offerId: z.string().uuid().optional(),
+  title: z.string().min(1),
+  description: z.string().optional(),
+  status: z.enum(["draft", "published", "archived"]).optional(),
+  metadata: z.record(z.string(), z.unknown()).default({}),
+});
+
+export const couponCreateSchema = z.object({
+  workspaceId: z.string().uuid(),
+  code: z.string().min(1).regex(/^[A-Za-z0-9_-]+$/),
+  name: z.string().optional(),
+  discountType: z.enum(["percent", "amount"]),
+  discountValue: z.number().int().min(0),
+  expiresAt: z.string().datetime().optional(),
 });

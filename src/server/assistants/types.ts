@@ -1,5 +1,7 @@
 export type PublicAssistantOffer = {
   id: string;
+  workspace_id: string;
+  page_id: string | null;
   title: string;
   type: string;
   description: string | null;
@@ -17,5 +19,6 @@ export type AssistantReply = {
     type: "checkout" | "booking" | "lead" | "link";
     href?: string;
     offerId?: string;
+    workspaceId?: string;
   }>;
 };

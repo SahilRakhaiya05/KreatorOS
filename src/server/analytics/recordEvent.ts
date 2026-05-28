@@ -1,4 +1,6 @@
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
+import { hasSupabaseServiceConfig } from "@/server/supabase/config";
+import { createSupabaseServiceClient } from "@/server/supabase/serviceClient";
 
 export async function recordEvent(input: {
   workspaceId?: string | null;
@@ -9,7 +11,7 @@ export async function recordEvent(input: {
   referrer?: string | null;
   metadata?: Record<string, unknown>;
 }) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = hasSupabaseServiceConfig() ? createSupabaseServiceClient() : await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("analytics_events")
     .insert({

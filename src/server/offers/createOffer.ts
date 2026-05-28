@@ -34,6 +34,35 @@ export async function createOffer(input: {
   const { data, error } = await supabase.from("offers").insert(row).select("*").single();
   if (error) return { ok: false as const, error };
 
+  if (data.type === "product") {
+    await supabase.from("products").insert({
+      workspace_id: input.workspaceId,
+      offer_id: data.id,
+      title: data.title,
+      description: data.description,
+      fulfillment_config: { delivery: "manual_until_provider_connected" },
+    });
+  }
+
+  if (data.type === "membership") {
+    await supabase.from("membership_plans").insert({
+      workspace_id: input.workspaceId,
+      offer_id: data.id,
+      name: data.title,
+      billing_interval: "month",
+      benefits: [],
+    });
+  }
+
+  if (data.type === "course") {
+    await supabase.from("courses").insert({
+      workspace_id: input.workspaceId,
+      offer_id: data.id,
+      title: data.title,
+      description: data.description,
+    });
+  }
+
   await writeAuditLog({
     workspaceId: input.workspaceId,
     pageId: input.pageId,

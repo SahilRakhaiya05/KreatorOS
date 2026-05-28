@@ -15,7 +15,7 @@ import {
   Sparkles,
   UserRound,
 } from "lucide-react";
-import { creator, demoWorkspaces, nav } from "@/shared/mock/data";
+import { nav } from "@/shared/mock/data";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/features/auth/server/actions";
 import { Button } from "@/components/ui/button";
@@ -147,8 +147,15 @@ function Brand({ role, collapsed }: { role: Role; collapsed: boolean }) {
 
 function WorkspaceSwitcher({ role }: { role: Role }) {
   const [realWorkspaces, setRealWorkspaces] = useState<WorkspaceSummary[]>([]);
-  const workspaces = realWorkspaces.length ? realWorkspaces : demoWorkspaces[role];
-  const activeWorkspace = workspaces[0];
+  const [loaded, setLoaded] = useState(false);
+  const workspaces = realWorkspaces;
+  const activeWorkspace = workspaces[0] ?? {
+    id: "",
+    name: loaded ? "No workspace" : "Loading workspace",
+    type: role,
+    plan: "",
+    href: `/${role}`,
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -157,7 +164,10 @@ function WorkspaceSwitcher({ role }: { role: Role }) {
       try {
         const res = await fetch("/api/workspaces");
         const json = await res.json();
-        if (!json?.ok || cancelled) return;
+        if (!json?.ok || cancelled) {
+          if (!cancelled) setLoaded(true);
+          return;
+        }
 
         const next = (json.data.workspaces ?? [])
           .map((membership: { workspaces?: { id: string; name: string; type: string; plan: string } | Array<{ id: string; name: string; type: string; plan: string }> }) => {
@@ -174,8 +184,9 @@ function WorkspaceSwitcher({ role }: { role: Role }) {
           .filter(Boolean) as WorkspaceSummary[];
 
         setRealWorkspaces(next);
+        setLoaded(true);
       } catch {
-        /* demo fallback stays visible */
+        if (!cancelled) setLoaded(true);
       }
     }
 
@@ -211,7 +222,7 @@ function WorkspaceSwitcher({ role }: { role: Role }) {
       <DropdownMenuContent align="start" className="w-64">
         <DropdownMenuLabel>Workspace</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {workspaces.map((workspace) => (
+        {workspaces.length ? workspaces.map((workspace) => (
           <DropdownMenuItem key={`${workspace.name}-${workspace.href}`} onSelect={() => switchWorkspace(workspace as WorkspaceSummary)}>
             <button type="button" className="flex w-full items-center justify-between gap-3 text-left">
               <span className="min-w-0">
@@ -222,7 +233,9 @@ function WorkspaceSwitcher({ role }: { role: Role }) {
               </span>
             </button>
           </DropdownMenuItem>
-        ))}
+        )) : (
+          <DropdownMenuItem disabled>{loaded ? "Create a workspace from onboarding" : "Loading..."}</DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled>Create workspace</DropdownMenuItem>
       </DropdownMenuContent>
@@ -232,6 +245,12 @@ function WorkspaceSwitcher({ role }: { role: Role }) {
 
 export function AppShell({ role, children }: { role: Role; children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [account, setAccount] = useState({
+    name: "Loading account",
+    handle: "Authenticated workspace",
+    initials: "KO",
+  });
+  const [livePageHref, setLivePageHref] = useState("/creator/builder");
 
   useEffect(() => {
     try {
@@ -240,6 +259,59 @@ export function AppShell({ role, children }: { role: Role; children: React.React
       /* ignore */
     }
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCurrentUser() {
+      try {
+        const res = await fetch("/api/me");
+        const json = await res.json();
+        if (!json?.ok || cancelled) return;
+
+        const profile = json.data.profile;
+        const email = json.data.user?.email ?? profile?.email ?? "";
+        const name = profile?.full_name || email.split("@")[0] || "KreatorOS user";
+        const handle = profile?.account_type ? `${profile.account_type} account` : email;
+        const initials = name
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part: string) => part[0]?.toUpperCase())
+          .join("") || "KO";
+
+        setAccount({ name, handle, initials });
+      } catch {
+        /* keep demo fallback only when user context cannot load */
+      }
+    }
+
+    loadCurrentUser();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (role !== "creator") return;
+    let cancelled = false;
+
+    async function loadCreatorPage() {
+      try {
+        const res = await fetch("/api/pages");
+        const json = await res.json();
+        const slug = json?.data?.pages?.[0]?.slug;
+        if (!cancelled && slug) setLivePageHref(`/u/${slug}`);
+      } catch {
+        /* builder link remains */
+      }
+    }
+
+    loadCreatorPage();
+    return () => {
+      cancelled = true;
+    };
+  }, [role]);
 
   function toggle() {
     setCollapsed((prev) => {
@@ -314,7 +386,7 @@ export function AppShell({ role, children }: { role: Role; children: React.React
 
                 <div className="ml-auto flex items-center gap-2">
                   <Button asChild variant="default" size="sm" className="hidden sm:inline-flex">
-                    <Link href="/u/aarav">Live page</Link>
+                    <Link href={livePageHref}>Live page</Link>
                   </Button>
                   <Button variant="outline" size="icon" className="relative">
                     <Bell className="h-[18px] w-[18px]" />
@@ -325,11 +397,11 @@ export function AppShell({ role, children }: { role: Role; children: React.React
                     <DropdownMenuTrigger asChild>
                       <button className="flex items-center gap-2 rounded-lg border border-border bg-card px-2 py-1.5 text-left transition hover:bg-secondary">
                         <Avatar className="h-7 w-7">
-                          <AvatarFallback className="bg-primary text-primary-foreground">AC</AvatarFallback>
+                          <AvatarFallback className="bg-primary text-primary-foreground">{account.initials}</AvatarFallback>
                         </Avatar>
                         <div className="hidden leading-tight sm:block">
-                          <p className="text-sm font-semibold">{creator.name}</p>
-                          <p className="text-xs text-muted-foreground">{creator.handle}</p>
+                          <p className="text-sm font-semibold">{account.name}</p>
+                          <p className="text-xs text-muted-foreground">{account.handle}</p>
                         </div>
                       </button>
                     </DropdownMenuTrigger>

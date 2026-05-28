@@ -14,10 +14,10 @@ import { hasSupabaseConfig } from "./src/server/supabase/config";
 
 export async function proxy(request: NextRequest) {
   if (!hasSupabaseConfig()) {
-    return NextResponse.next({ request });
+    return NextResponse.next();
   }
 
-  let response = NextResponse.next({ request });
+  const response = NextResponse.next();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,7 +29,6 @@ export async function proxy(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
         },
       },

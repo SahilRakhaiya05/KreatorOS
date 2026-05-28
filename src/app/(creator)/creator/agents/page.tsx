@@ -2,8 +2,12 @@ import { AppShell, PageHeader } from "@/components/layout/appShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { agents, approvalQueue, assistantMetrics } from "@/shared/mock/data";
-import { Bot, Plus, ShieldCheck } from "lucide-react";
+import { agents } from "@/shared/mock/data";
+import { Plus, ShieldCheck } from "lucide-react";
+import { requireUser } from "@/server/profile/profileService";
+import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
+import { createSupabaseServerClient } from "@/server/supabase/serverClient";
+import { AssistantConfigClient } from "@/features/assistant/components/assistantConfigClient";
 
 type Status = (typeof agents)[number]["status"];
 
@@ -14,7 +18,53 @@ const statusVariant: Record<string, "success" | "accent" | "default" | "secondar
   Draft: "secondary",
 };
 
-export default function Page() {
+export default async function Page() {
+  const { user } = await requireUser();
+  const workspace = await getActiveWorkspace(user.id);
+  const supabase = await createSupabaseServerClient();
+  const { data: page } = await supabase
+    .from("creator_pages")
+    .select("id")
+    .eq("owner_id", user.id)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const { data: assistant } = page
+    ? await supabase.from("creator_ai_assistants").select("*").eq("page_id", page.id).maybeSingle()
+    : { data: null };
+  const { data: suggestions } = workspace
+    ? await supabase.from("ai_suggestions").select("*").eq("workspace_id", workspace.id).order("created_at", { ascending: false }).limit(6)
+    : { data: [] };
+  const { count: sessionCount } = workspace
+    ? await supabase.from("assistant_chat_sessions").select("id", { count: "exact", head: true }).eq("workspace_id", workspace.id)
+    : { count: 0 };
+  const { count: messageCount } = workspace
+    ? await supabase.from("assistant_chat_messages").select("id", { count: "exact", head: true }).eq("workspace_id", workspace.id)
+    : { count: 0 };
+  const { count: leadCount } = workspace
+    ? await supabase.from("leads").select("id", { count: "exact", head: true }).eq("workspace_id", workspace.id)
+    : { count: 0 };
+  const { count: recommendationCount } = workspace
+    ? await supabase
+        .from("analytics_events")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspace.id)
+        .eq("event_type", "assistant.message")
+    : { count: 0 };
+  const assistantMetrics = [
+    { label: "Assistant sessions", value: sessionCount ?? 0, detail: "Real public chat sessions" },
+    { label: "Messages", value: messageCount ?? 0, detail: "Visitor and assistant messages" },
+    { label: "Captured leads", value: leadCount ?? 0, detail: "Saved from assistant widget" },
+    { label: "Recommendations", value: recommendationCount ?? 0, detail: "Offer suggestions tracked" },
+  ];
+  const approvalItems = (suggestions ?? []).map((item) => ({
+    key: item.id,
+    title: item.title,
+    risk: item.risk_level,
+    target: "AI suggestion",
+    status: item.status,
+  }));
+
   return (
     <AppShell role="creator">
       <PageHeader
@@ -27,30 +77,18 @@ export default function Page() {
           </Button>
         }
       />
-      <Card className="mb-6">
-        <CardContent className="p-5">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="font-semibold tracking-tight">Public AI assistant</h2>
-              <p className="text-sm text-muted-foreground">
-                A page-level assistant that recommends published offers, starts booking/checkout paths, and captures leads.
-              </p>
-            </div>
-            <div className="grid h-10 w-10 place-items-center rounded-lg bg-secondary text-muted-foreground">
-              <Bot className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="grid gap-3 md:grid-cols-4">
-            {assistantMetrics.map((metric) => (
-              <div key={metric.label} className="rounded-lg border border-border bg-secondary/40 p-4">
-                <p className="font-mono text-2xl font-semibold tracking-tight">{metric.value}</p>
-                <p className="mt-1 text-sm font-semibold">{metric.label}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{metric.detail}</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <AssistantConfigClient workspaceId={workspace?.id ?? ""} pageId={page?.id ?? null} assistant={assistant} />
+      <div className="mb-6 grid gap-3 md:grid-cols-4">
+        {assistantMetrics.map((metric) => (
+          <Card key={metric.label}>
+            <CardContent className="p-4">
+              <p className="font-mono text-2xl font-semibold tracking-tight">{metric.value}</p>
+              <p className="mt-1 text-sm font-semibold">{metric.label}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{metric.detail}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {agents.map((agent) => {
           const Icon = agent.icon;
@@ -90,13 +128,20 @@ export default function Page() {
             <ShieldCheck className="h-5 w-5 text-muted-foreground" />
           </div>
           <div className="grid gap-3 md:grid-cols-3">
-            {approvalQueue.map((item) => (
-              <div key={item.title} className="rounded-lg border border-border bg-secondary/40 p-4">
-                <Badge variant={item.risk === "High" ? "destructive" : "success"}>{item.risk} risk</Badge>
+            {approvalItems.map((item) => (
+              <div key={item.key} className="rounded-lg border border-border bg-secondary/40 p-4">
+                <Badge variant={item.risk === "high" || item.risk === "High" ? "destructive" : "success"}>
+                  {item.risk} risk
+                </Badge>
                 <p className="mt-3 text-sm font-semibold">{item.title}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{item.target} / {item.status}</p>
               </div>
             ))}
+            {!approvalItems.length ? (
+              <div className="rounded-lg border border-border bg-secondary/40 p-4 text-sm text-muted-foreground md:col-span-3">
+                No pending AI suggestions for this workspace.
+              </div>
+            ) : null}
           </div>
         </CardContent>
       </Card>

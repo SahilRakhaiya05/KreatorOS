@@ -18,6 +18,15 @@ export async function updateOffer(input: {
   const { data, error } = await supabase.from("offers").update(input.update).eq("id", input.offerId).select("*").single();
   if (error) return { ok: false as const, error };
 
+  if (data.page_id && typeof input.update.status === "string") {
+    await supabase
+      .from("creator_page_blocks")
+      .update({ status: input.update.status === "published" ? "live" : "draft" })
+      .eq("page_id", data.page_id)
+      .eq("ref_type", "offer")
+      .eq("ref_id", input.offerId);
+  }
+
   await writeAuditLog({
     workspaceId: input.workspaceId,
     actorType: "creator",

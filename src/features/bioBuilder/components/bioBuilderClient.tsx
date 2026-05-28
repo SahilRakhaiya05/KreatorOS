@@ -25,11 +25,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { createSupabaseBrowserClient } from "@/client/supabase/browserClient";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type { CreatorCalendarSlotRecord, CreatorPageBlockRecord, CreatorPageRecord, PageBlockType } from "@/features/bioBuilder/types";
 
 type Theme = { name: string; bg: string; button: string };
@@ -135,17 +137,9 @@ function CalendarPreview({ block }: { block: CreatorPageBlockRecord }) {
     async function loadSlots() {
       const start = `${selectedDate}T00:00:00.000Z`;
       const end = `${selectedDate}T23:59:59.999Z`;
-      const supabase = createSupabaseBrowserClient();
-      const { data } = await supabase
-        .from("creator_calendar_slots")
-        .select("*")
-        .eq("block_id", block.id)
-        .eq("status", "available")
-        .gte("starts_at", start)
-        .lte("starts_at", end)
-        .order("starts_at", { ascending: true });
-
-      if (!cancelled) setSlots((data ?? []) as CreatorCalendarSlotRecord[]);
+      const response = await fetch(`/api/calendar/availability?blockId=${block.id}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+      const json = await response.json();
+      if (!cancelled && json?.ok) setSlots((json.data.slots ?? []) as CreatorCalendarSlotRecord[]);
     }
 
     loadSlots();
@@ -365,6 +359,13 @@ export function BioBuilderClient({
 }) {
   const [theme, setTheme] = useState(themes.find((item) => item.name === page.theme_name) ?? themes[0]);
   const [layout, setLayout] = useState(page.layout);
+  const [pageIdentity, setPageIdentity] = useState({
+    displayName: page.display_name,
+    handle: page.handle,
+    slug: page.slug,
+    bio: page.bio ?? "",
+  });
+  const [siteOrigin, setSiteOrigin] = useState("");
   const [device, setDevice] = useState<"desktop" | "mobile">("mobile");
   const [blocks, setBlocks] = useState<CreatorPageBlockRecord[]>(pageBlocks);
   const [addMode, setAddMode] = useState<AddMode>("link");
@@ -373,8 +374,12 @@ export function BioBuilderClient({
   const [versions, setVersions] = useState<PageVersion[]>([]);
   const [isPending, startTransition] = useTransition();
 
-  const url = `kreatoros.ai/u/${page.slug}`;
+  const url = `${siteOrigin || "current-domain"}/u/${pageIdentity.slug}`;
   const sortedBlocks = useMemo(() => [...blocks].sort((a, b) => a.sort_order - b.sort_order), [blocks]);
+
+  useEffect(() => {
+    setSiteOrigin(window.location.origin);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -408,8 +413,8 @@ export function BioBuilderClient({
           animation: "subtle",
         },
         seo: {
-          title: page.display_name,
-          description: page.bio ?? "Book, buy, and connect from this creator page.",
+          title: pageIdentity.displayName,
+          description: pageIdentity.bio || "Book, buy, and connect from this creator page.",
         },
         blocks: sortedBlocks.map((block) => ({
           id: block.id,
@@ -458,9 +463,41 @@ export function BioBuilderClient({
 
   function persistPage(update: Partial<CreatorPageRecord>) {
     startTransition(async () => {
-      const supabase = createSupabaseBrowserClient();
-      await supabase.from("creator_pages").update(update).eq("id", page.id);
+      await fetch(`/api/pages/${page.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          themeName: update.theme_name,
+          slug: update.slug,
+          layout: update.layout,
+          bio: update.bio,
+          displayName: update.display_name,
+          handle: update.handle,
+          isPublished: update.is_published,
+        }),
+      });
     });
+  }
+
+  function savePageIdentity(formData: FormData) {
+    const displayName = String(formData.get("displayName") ?? "").trim();
+    const username = String(formData.get("slug") ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const handle = String(formData.get("handle") ?? "").trim() || `@${username}`;
+    const bio = String(formData.get("bio") ?? "").trim();
+    if (!displayName || !username) return;
+
+    setPageIdentity({ displayName, handle, slug: username, bio });
+    persistPage({
+      display_name: displayName,
+      handle,
+      slug: username,
+      bio,
+    } as Partial<CreatorPageRecord>);
+    setMessage("Public username and page profile saved.");
   }
 
   function updateTheme(nextTheme: Theme) {
@@ -479,8 +516,20 @@ export function BioBuilderClient({
 
   function persistBlock(id: string, update: Partial<CreatorPageBlockRecord>) {
     startTransition(async () => {
-      const supabase = createSupabaseBrowserClient();
-      await supabase.from("creator_page_blocks").update(update).eq("id", id);
+      await fetch(`/api/pages/${page.id}/blocks/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: update.title,
+          subtitle: update.subtitle,
+          url: update.url,
+          status: update.status,
+          sortOrder: update.sort_order,
+          metadata: update.metadata,
+          refType: update.ref_type,
+          refId: update.ref_id,
+        }),
+      });
     });
   }
 
@@ -509,8 +558,7 @@ export function BioBuilderClient({
   function deleteBlock(id: string) {
     setBlocks((prev) => prev.filter((block) => block.id !== id));
     startTransition(async () => {
-      const supabase = createSupabaseBrowserClient();
-      await supabase.from("creator_page_blocks").delete().eq("id", id);
+      await fetch(`/api/pages/${page.id}/blocks/${id}`, { method: "DELETE" });
     });
   }
 
@@ -538,7 +586,6 @@ export function BioBuilderClient({
   }
 
   async function createCalendarSlots(block: CreatorPageBlockRecord, durationMinutes: number) {
-    const supabase = createSupabaseBrowserClient();
     const slots = Array.from({ length: 21 }, (_, index) => {
       const day = new Date();
       day.setDate(day.getDate() + Math.floor(index / 3));
@@ -556,7 +603,11 @@ export function BioBuilderClient({
         status: "available",
       };
     });
-    await supabase.from("creator_calendar_slots").insert(slots);
+    await fetch("/api/calendar/availability", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slots }),
+    });
   }
 
   function addBlock(formData: FormData) {
@@ -572,34 +623,31 @@ export function BioBuilderClient({
     const nextOrder = blocks.length ? Math.max(...blocks.map((block) => block.sort_order)) + 1 : 0;
 
     startTransition(async () => {
-      const supabase = createSupabaseBrowserClient();
       const metadata = {
         ...defaults.metadata,
         ...(type === "calendar" ? { duration: duration || "30 min", timezone: timezone || "Local time" } : {}),
         ...(price ? { price } : {}),
       };
-      const { data, error } = await supabase
-        .from("creator_page_blocks")
-        .insert({
-          page_id: page.id,
-          workspace_id: page.workspace_id ?? null,
+      const response = await fetch(`/api/pages/${page.id}/blocks`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          workspaceId: page.workspace_id ?? undefined,
           type,
           title,
           subtitle,
-          url: type === "link" ? urlValue : null,
-          status: "live",
-          sort_order: nextOrder,
-          metadata,
-        })
-        .select("*")
-        .single();
+          url: type === "link" ? urlValue : undefined,
+          metadata: { ...metadata, sortOrder: nextOrder },
+        }),
+      });
+      const json = await response.json();
 
-      if (error) {
-        setMessage(error.message);
+      if (!json?.ok) {
+        setMessage(json?.error?.message ?? "Could not add block.");
         return;
       }
 
-      const block = data as CreatorPageBlockRecord;
+      const block = json.data.block as CreatorPageBlockRecord;
       if (type === "calendar") await createCalendarSlots(block, Number.parseInt(duration, 10) || 30);
       setBlocks((prev) => [...prev, block]);
       setMessage(`${BLOCK_LABELS[type]} added and saved.`);
@@ -621,6 +669,44 @@ export function BioBuilderClient({
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(340px,450px)]">
       <div className="space-y-6">
+        <Card>
+          <CardContent className="p-5">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-black text-stone-950">Public profile and URL</p>
+                <p className="text-sm text-stone-500">Your page runs on this app domain and your chosen username.</p>
+              </div>
+              <Badge variant="outline">{url}</Badge>
+            </div>
+            <form action={savePageIdentity} className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="displayName">Display name</Label>
+                <Input id="displayName" name="displayName" defaultValue={pageIdentity.displayName} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="handle">Handle label</Label>
+                <Input id="handle" name="handle" defaultValue={pageIdentity.handle} placeholder="@yourname" />
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label htmlFor="slug">Username / public URL</Label>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <span className="rounded-md bg-stone-100 px-3 py-2 text-sm font-semibold text-stone-500">
+                    {siteOrigin || "current-domain"}/u/
+                  </span>
+                  <Input id="slug" name="slug" defaultValue={pageIdentity.slug} pattern="[a-z0-9-]+" />
+                </div>
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label htmlFor="bio">Bio</Label>
+                <Textarea id="bio" name="bio" defaultValue={pageIdentity.bio} />
+              </div>
+              <Button disabled={isPending} className="md:col-span-2">
+                <Check className="h-4 w-4" /> Save public profile
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardContent className="p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -797,7 +883,20 @@ export function BioBuilderClient({
         </div>
 
         <DeviceFrame device={device} url={url}>
-          <PublicPreview theme={theme} layout={layout} page={{ ...page, theme_name: theme.name, layout }} blocks={sortedBlocks} />
+          <PublicPreview
+            theme={theme}
+            layout={layout}
+            page={{
+              ...page,
+              display_name: pageIdentity.displayName,
+              handle: pageIdentity.handle,
+              slug: pageIdentity.slug,
+              bio: pageIdentity.bio,
+              theme_name: theme.name,
+              layout,
+            }}
+            blocks={sortedBlocks}
+          />
         </DeviceFrame>
       </div>
     </div>

@@ -84,7 +84,7 @@ export function OnboardingForm({ profile }: { profile?: UserProfile | null }) {
               <Label htmlFor="fullName" className="flex items-center gap-2">
                 <UserRound className="h-4 w-4" /> Your name
               </Label>
-              <Input id="fullName" name="fullName" required defaultValue={profile?.full_name ?? ""} placeholder="Aarav Mehta" />
+              <Input id="fullName" name="fullName" required defaultValue={profile?.full_name ?? ""} placeholder="Your name" />
             </div>
 
             <div className="space-y-1.5">

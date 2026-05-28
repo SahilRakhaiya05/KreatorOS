@@ -1,5 +1,7 @@
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
 import { writeAuditLog } from "@/server/audit/writeAuditLog";
+import { hasSupabaseServiceConfig } from "@/server/supabase/config";
+import { createSupabaseServiceClient } from "@/server/supabase/serviceClient";
 
 export async function createAccessGrant(input: {
   workspaceId: string;
@@ -8,7 +10,7 @@ export async function createAccessGrant(input: {
   grantType?: string;
   metadata?: Record<string, unknown>;
 }) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = hasSupabaseServiceConfig() ? createSupabaseServiceClient() : await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("access_grants")
     .insert({

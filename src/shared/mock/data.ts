@@ -6,10 +6,10 @@ import {
 } from "lucide-react";
 
 export const creator = {
-  name: "Aarav Creator",
-  handle: "@aaravbuilds",
-  slug: "aarav",
-  page: "kreatoros.ai/u/aarav",
+  name: "Demo Creator",
+  handle: "@demo",
+  slug: "demo",
+  page: "/u/demo",
   niche: "AI productivity mentor",
   audience: "founders, students, solo creators",
   promise: "I help creators turn attention into paid products, calls, memberships, and brand deals with AI systems.",
@@ -19,14 +19,14 @@ export const creator = {
 
 export const demoWorkspaces = {
   creator: [
-    { name: "Aarav Studio", type: "Creator", plan: "Pro", href: "/creator" },
+    { name: "Demo Studio", type: "Creator", plan: "Pro", href: "/creator" },
     { name: "Launch Collective", type: "Agency", plan: "Demo", href: "/creator" },
   ],
   brand: [
     { name: "Brand HQ", type: "Brand", plan: "Business", href: "/brand" },
     { name: "Launch Collective", type: "Agency", plan: "Demo", href: "/brand" },
   ],
-  portal: [{ name: "Aarav Portal", type: "Client", plan: "Member", href: "/portal" }],
+  portal: [{ name: "Demo Portal", type: "Client", plan: "Member", href: "/portal" }],
 };
 
 export const providerStatuses = [
@@ -187,9 +187,9 @@ export const researchStudies = [
 ];
 
 export const brandDeals = [
-  { brand: "NotionFlow", creator: "Aarav Creator", stage: "Proposal sent", value: "$1,200", due: "Jun 4", risk: "Waiting on usage rights approval" },
-  { brand: "ClipSpark AI", creator: "Aarav Creator", stage: "Negotiating", value: "$2,500", due: "Jun 10", risk: "Need revised deliverables" },
-  { brand: "StudyPal", creator: "Aarav Creator", stage: "Pitched", value: "$800", due: "Jun 14", risk: "Follow-up due tomorrow" },
+  { brand: "NotionFlow", creator: "Demo Creator", stage: "Proposal sent", value: "$1,200", due: "Jun 4", risk: "Waiting on usage rights approval" },
+  { brand: "ClipSpark AI", creator: "Demo Creator", stage: "Negotiating", value: "$2,500", due: "Jun 10", risk: "Need revised deliverables" },
+  { brand: "StudyPal", creator: "Demo Creator", stage: "Pitched", value: "$800", due: "Jun 14", risk: "Follow-up due tomorrow" },
 ];
 
 export const pageBlocks = [

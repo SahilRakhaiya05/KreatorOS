@@ -1,6 +1,12 @@
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
 import { recordEvent } from "@/server/analytics/recordEvent";
 import type { AssistantReply, PublicAssistantOffer } from "./types";
+import { hasSupabaseServiceConfig } from "@/server/supabase/config";
+import { createSupabaseServiceClient } from "@/server/supabase/serviceClient";
+
+async function getPublicAssistantClient() {
+  return hasSupabaseServiceConfig() ? createSupabaseServiceClient() : await createSupabaseServerClient();
+}
 
 function scoreOffer(message: string, offer: PublicAssistantOffer) {
   const text = `${offer.title} ${offer.description ?? ""} ${offer.type}`.toLowerCase();
@@ -21,7 +27,7 @@ function formatPrice(offer: PublicAssistantOffer) {
 }
 
 export async function getOrCreatePublicAssistant(pageId: string) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await getPublicAssistantClient();
   const { data: page } = await supabase.from("creator_pages").select("*").eq("id", pageId).maybeSingle();
   if (!page?.workspace_id) return null;
 
@@ -55,7 +61,7 @@ export async function createAssistantSession(input: {
   const assistant = await getOrCreatePublicAssistant(input.pageId);
   if (!assistant) return { ok: false as const, message: "Assistant is not available for this page." };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await getPublicAssistantClient();
   const { data, error } = await supabase
     .from("assistant_chat_sessions")
     .insert({
@@ -83,7 +89,7 @@ export async function replyToPublicAssistant(input: {
 
   if (sessionResult && !sessionResult.ok) return sessionResult;
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await getPublicAssistantClient();
   const sessionId = input.sessionId ?? sessionResult?.session.id;
   const assistantId = sessionResult?.assistant.id;
   const workspaceId = sessionResult?.assistant.workspace_id;
@@ -108,9 +114,12 @@ export async function replyToPublicAssistant(input: {
 
   const { data: offers } = await supabase
     .from("offers")
-    .select("id,title,type,description,price_cents,currency,slug")
+    .select("id,workspace_id,page_id,title,type,description,price_cents,currency,slug")
     .eq("page_id", input.pageId)
     .eq("status", "published");
+
+  const { data: page } = await supabase.from("creator_pages").select("slug").eq("id", input.pageId).maybeSingle();
+  const pageSlug = page?.slug ?? input.pageId;
 
   const rankedOffers = ((offers ?? []) as PublicAssistantOffer[])
     .map((offer) => ({ offer, score: scoreOffer(input.message, offer) }))
@@ -130,8 +139,9 @@ export async function replyToPublicAssistant(input: {
     nextActions: rankedOffers.map((offer) => ({
       label: offer.type === "booking" ? `Book ${offer.title}` : `View ${offer.title}`,
       type: offer.type === "booking" ? "booking" : "checkout",
-      href: `/u/${input.pageId}?offer=${offer.slug}`,
+      href: `/u/${pageSlug}?offer=${offer.slug}`,
       offerId: offer.id,
+      workspaceId: offer.workspace_id,
     })),
   };
 
@@ -162,7 +172,7 @@ export async function captureAssistantLead(input: {
   name?: string | null;
   intent?: string | null;
 }) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await getPublicAssistantClient();
   const { data: page } = await supabase.from("creator_pages").select("workspace_id").eq("id", input.pageId).maybeSingle();
   if (!page?.workspace_id) return { ok: false as const, message: "Page is not configured for leads." };
 

@@ -24,7 +24,7 @@ export default function BrandCollabRoom() {
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <Card className="overflow-hidden">
           <CardHeader>
-            <CardTitle>NotionFlow × Aarav Creator</CardTitle>
+            <CardTitle>NotionFlow x Demo Creator</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 border-t border-border bg-secondary/50 pt-5">
             {messages.map((m, i) => (

@@ -2,6 +2,7 @@ import { apiError, apiOk, isApiResponse, parseJsonBody } from "@/server/api/resp
 import { workspaceSwitchSchema } from "@/server/api/schemas";
 import { getSession } from "@/server/auth/getSession";
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
+import { writeAuditLog } from "@/server/audit/writeAuditLog";
 
 export async function POST(req: Request) {
   const body = await parseJsonBody(req, workspaceSwitchSchema);
@@ -27,6 +28,17 @@ export async function POST(req: Request) {
     user_id: user.id,
     from_workspace_id: profile?.active_workspace_id ?? null,
     to_workspace_id: body.workspaceId,
+  });
+
+  await writeAuditLog({
+    workspaceId: body.workspaceId,
+    actorType: "creator",
+    actorId: user.id,
+    action: "workspace.switched",
+    targetType: "workspace",
+    targetId: body.workspaceId,
+    before: { activeWorkspaceId: profile?.active_workspace_id ?? null },
+    after: { activeWorkspaceId: body.workspaceId },
   });
 
   return apiOk({ activeWorkspaceId: body.workspaceId });

@@ -1,8 +1,13 @@
 import { apiError, apiOk, isApiResponse, parseJsonBody } from "@/server/api/responses";
 import { workspaceMemberUpdateSchema } from "@/server/api/schemas";
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
+import { getSession } from "@/server/auth/getSession";
+import { writeAuditLog } from "@/server/audit/writeAuditLog";
 
 export async function GET(req: Request) {
+  const { user } = await getSession();
+  if (!user) return apiError("unauthorized", "Sign in to list workspace members.", 401);
+
   const workspaceId = new URL(req.url).searchParams.get("workspaceId");
   if (!workspaceId) return apiError("missing_workspace", "workspaceId is required.", 400);
 
@@ -21,6 +26,9 @@ export async function PATCH(req: Request) {
   const body = await parseJsonBody(req, workspaceMemberUpdateSchema);
   if (isApiResponse(body)) return body;
 
+  const { user } = await getSession();
+  if (!user) return apiError("unauthorized", "Sign in to update workspace members.", 401);
+
   const supabase = await createSupabaseServerClient();
   const update = {
     ...(body.role ? { role: body.role } : {}),
@@ -37,5 +45,16 @@ export async function PATCH(req: Request) {
     .single();
 
   if (error) return apiError("member_update_failed", error.message, 400);
+
+  await writeAuditLog({
+    workspaceId: body.workspaceId,
+    actorType: "creator",
+    actorId: user.id,
+    action: "workspace.member.updated",
+    targetType: "workspace_member",
+    targetId: data.id,
+    after: data,
+  });
+
   return apiOk({ member: data });
 }

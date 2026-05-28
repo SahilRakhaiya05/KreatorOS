@@ -1,70 +1,54 @@
+import { Plus } from "lucide-react";
+
 import { AppShell, PageHeader } from "@/components/layout/appShell";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { products } from "@/shared/mock/data";
-import { BookOpen, CalendarClock, LockKeyhole, ShoppingBag, Sparkles, Plus } from "lucide-react";
+import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
+import { requireUser } from "@/server/profile/profileService";
+import { createSupabaseServerClient } from "@/server/supabase/serverClient";
+import { OfferStoreClient } from "@/features/offers/components/offerStoreClient";
 
-const offerTypes = [
-  { label: "Products", icon: ShoppingBag, status: "DB-backed offers" },
-  { label: "Bookings", icon: CalendarClock, status: "Calendar gated" },
-  { label: "Memberships", icon: LockKeyhole, status: "Access grants" },
-  { label: "Courses", icon: BookOpen, status: "Content model ready" },
-];
+export default async function Page() {
+  const { user } = await requireUser();
+  const workspace = await getActiveWorkspace(user.id);
+  const supabase = await createSupabaseServerClient();
 
-export default function Page() {
+  const { data: page } = await supabase
+    .from("creator_pages")
+    .select("id")
+    .eq("owner_id", user.id)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  const { data: offers } = workspace
+    ? await supabase
+        .from("offers")
+        .select("*")
+        .eq("workspace_id", workspace.id)
+        .order("created_at", { ascending: false })
+    : { data: [] };
+
+  const { data: coupons } = workspace
+    ? await supabase
+        .from("coupons")
+        .select("*")
+        .eq("workspace_id", workspace.id)
+        .order("created_at", { ascending: false })
+    : { data: [] };
+
   return (
     <AppShell role="creator">
       <PageHeader
         eyebrow="Store studio"
-        title="Products, bundles, courses, and automated delivery"
-        description="Each product can trigger fulfillment, customer tagging, review requests, upsells, memberships, and support workflows."
+        title="Products, bookings, memberships, and courses"
+        description="Offers are real workspace records. Publishing an offer creates or updates its public page block without deleting the business object."
         action={
-          <Button>
-            <Plus className="h-4 w-4" /> New product
+          <Button disabled>
+            <Plus className="h-4 w-4" /> Use form below
           </Button>
         }
       />
-      <div className="mb-6 grid gap-3 md:grid-cols-4">
-        {offerTypes.map((type) => {
-          const Icon = type.icon;
-          return (
-            <Card key={type.label}>
-              <CardContent className="flex items-center gap-3 p-4">
-                <div className="grid h-10 w-10 place-items-center rounded-lg bg-secondary text-muted-foreground">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">{type.label}</p>
-                  <p className="text-xs text-muted-foreground">{type.status}</p>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {products.map((p) => (
-          <Card key={p.name} className="transition hover:shadow-soft">
-            <CardContent className="p-5">
-              <div className="mb-4 flex h-24 items-center justify-center rounded-xl bg-secondary">
-                <ShoppingBag className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <Badge variant={p.status === "Live" ? "success" : "warning"}>{p.status}</Badge>
-              <h2 className="mt-4 font-semibold tracking-tight">{p.name}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{p.type}</p>
-              <p className="mt-3 font-mono text-2xl font-semibold tracking-tight">{p.price}</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                <span className="font-mono">{p.sales}</span> sales · <span className="font-mono">{p.revenue}</span>
-              </p>
-              <div className="mt-4 flex gap-2 rounded-lg bg-accent/10 p-3 text-xs leading-5 text-accent">
-                <Sparkles className="h-4 w-4 shrink-0" />
-                <span>{p.automation}</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <OfferStoreClient workspaceId={workspace?.id ?? ""} pageId={page?.id ?? null} initialOffers={offers ?? []} initialCoupons={coupons ?? []} />
     </AppShell>
   );
 }

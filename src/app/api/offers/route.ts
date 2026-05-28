@@ -5,6 +5,9 @@ import { createOffer } from "@/server/offers/createOffer";
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
 
 export async function GET(req: Request) {
+  const { user } = await getSession();
+  if (!user) return apiError("unauthorized", "Sign in to list offers.", 401);
+
   const url = new URL(req.url);
   const workspaceId = url.searchParams.get("workspaceId");
   if (!workspaceId) return apiError("missing_workspace", "workspaceId is required.", 400);

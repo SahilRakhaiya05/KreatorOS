@@ -1,5 +1,7 @@
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
 import { assertServerOnly } from "@/server/security/assertServerOnly";
+import { hasSupabaseServiceConfig } from "@/server/supabase/config";
+import { createSupabaseServiceClient } from "@/server/supabase/serviceClient";
 
 export type AuditLogInput = {
   workspaceId?: string | null;
@@ -17,7 +19,7 @@ export type AuditLogInput = {
 
 export async function writeAuditLog(input: AuditLogInput) {
   assertServerOnly("writeAuditLog");
-  const supabase = await createSupabaseServerClient();
+  const supabase = hasSupabaseServiceConfig() ? createSupabaseServiceClient() : await createSupabaseServerClient();
 
   const { data, error } = await supabase
     .from("audit_logs")

@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { ArrowUpRight, MessageSquare, TrendingUp, Check } from "lucide-react";
+import { ArrowUpRight, Calendar, Check, CreditCard, Handshake, MessageSquare, TrendingUp, Users } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/layout/appShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { stats, products, bookings, brandDeals } from "@/shared/mock/data";
+import { requireUser } from "@/server/profile/profileService";
+import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
+import { createSupabaseServerClient } from "@/server/supabase/serverClient";
 
 const approvals = [
   "Publish $19 async audit offer",
@@ -14,13 +16,34 @@ const approvals = [
   "Run customer research interview batch",
 ];
 
-export default function CreatorCommand() {
+export default async function CreatorCommand() {
+  const { user, profile } = await requireUser();
+  const workspace = await getActiveWorkspace(user.id);
+  const displayName = profile?.full_name || user.email?.split("@")[0] || "creator";
+  const supabase = await createSupabaseServerClient();
+  const { data: offers } = workspace
+    ? await supabase
+        .from("offers")
+        .select("id,title,type,price_cents,currency,status,created_at")
+        .eq("workspace_id", workspace.id)
+        .order("created_at", { ascending: false })
+    : { data: [] };
+  const workspaceOffers = offers ?? [];
+  const productOffers = workspaceOffers.filter((offer) => offer.type === "product" || offer.type === "course" || offer.type === "membership");
+  const bookingOffers = workspaceOffers.filter((offer) => offer.type === "booking" || offer.type === "service");
+  const dashboardStats = [
+    { label: "Revenue", value: "$0", change: "real data", icon: CreditCard },
+    { label: "Booking offers", value: String(bookingOffers.length), change: "workspace", icon: Calendar },
+    { label: "Customers", value: "0", change: "workspace", icon: Users },
+    { label: "Brand pipeline", value: "$0", change: "workspace", icon: Handshake },
+  ];
+
   return (
     <AppShell role="creator">
       <PageHeader
         eyebrow="Command center"
-        title="Welcome back, Aarav"
-        description="Revenue, bookings, products, brand deals, and what the AI operator recommends next — all in one place."
+        title={`Welcome back, ${displayName}`}
+        description={`${workspace?.type ?? "Creator"} workspace data is scoped to your authenticated account.`}
         action={
           <Button asChild>
             <Link href="/creator/chat"><MessageSquare className="h-4 w-4" /> Ask the operator</Link>
@@ -30,7 +53,7 @@ export default function CreatorCommand() {
 
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((s) => {
+        {dashboardStats.map((s) => {
           const Icon = s.icon;
           return (
             <Card key={s.label}>
@@ -86,9 +109,9 @@ export default function CreatorCommand() {
             </p>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "Products", value: products.length },
-                { label: "Bookings", value: bookings.length },
-                { label: "Brand deals", value: brandDeals.length },
+                { label: "Offers", value: workspaceOffers.length },
+                { label: "Bookings", value: bookingOffers.length },
+                { label: "Products", value: productOffers.length },
               ].map((m) => (
                 <div key={m.label} className="rounded-lg bg-white/10 p-3">
                   <p className="font-mono text-xl font-semibold">{m.value}</p>
@@ -107,7 +130,7 @@ export default function CreatorCommand() {
       {/* Products table */}
       <Card className="mt-6">
         <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>Top products</CardTitle>
+          <CardTitle>Your offers</CardTitle>
           <Button asChild variant="ghost" size="sm">
             <Link href="/creator/store">View store <ArrowUpRight className="h-4 w-4" /></Link>
           </Button>
@@ -126,18 +149,30 @@ export default function CreatorCommand() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {products.map((p) => (
-                  <tr key={p.name}>
-                    <td className="py-3 font-medium">{p.name}</td>
+                {workspaceOffers.length ? workspaceOffers.map((p) => (
+                  <tr key={p.id}>
+                    <td className="py-3 font-medium">{p.title}</td>
                     <td className="py-3 text-muted-foreground">{p.type}</td>
-                    <td className="py-3 text-right font-mono">{p.price}</td>
-                    <td className="py-3 text-right font-mono">{p.sales}</td>
-                    <td className="py-3 text-right font-mono">{p.revenue}</td>
+                    <td className="py-3 text-right font-mono">
+                      {new Intl.NumberFormat("en", {
+                        style: "currency",
+                        currency: String(p.currency).toUpperCase(),
+                        maximumFractionDigits: 0,
+                      }).format(Number(p.price_cents) / 100)}
+                    </td>
+                    <td className="py-3 text-right font-mono">0</td>
+                    <td className="py-3 text-right font-mono">$0</td>
                     <td className="py-3 text-right">
-                      <Badge variant={p.status === "Live" ? "success" : "secondary"}>{p.status}</Badge>
+                      <Badge variant={p.status === "published" ? "success" : "secondary"}>{p.status}</Badge>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td className="py-6 text-sm text-muted-foreground" colSpan={6}>
+                      No offers yet for this workspace. Create one from Store.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
