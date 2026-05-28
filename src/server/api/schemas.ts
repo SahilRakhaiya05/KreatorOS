@@ -271,6 +271,14 @@ export const linkCustomLinkSchema = z.object({
   isVisible: z.boolean().default(true),
 });
 
+export const linkGallerySchema = z.object({
+  workspaceId: z.string().uuid(),
+  pageId: z.string().uuid(),
+  imageUrl: z.string().url(),
+  altText: z.string().optional(),
+  caption: z.string().optional(),
+});
+
 export const linkContactSchema = z.object({
   workspaceId: z.string().uuid(),
   pageId: z.string().uuid(),

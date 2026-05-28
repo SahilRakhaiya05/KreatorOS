@@ -3,20 +3,15 @@
 import { useEffect, useState, useTransition } from "react";
 import {
   ArrowUpRight,
-  BadgeDollarSign,
-  Bot,
   Check,
   Copy,
   ExternalLink,
   FileUp,
-  GalleryHorizontal,
   Globe2,
   Handshake,
   ImagePlus,
-  Link as LinkIcon,
   Mail,
   PackagePlus,
-  Phone,
   Plus,
   RefreshCw,
   Rocket,
@@ -25,8 +20,6 @@ import {
   ShoppingBag,
   Sparkles,
   Store,
-  TicketPercent,
-  Wand2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -72,17 +65,6 @@ const socialGroups = [
   { group: "Other", items: ["Website", "Email", "Custom"] },
 ];
 
-const modeNav = [
-  { mode: "profile", label: "Profile and Links", icon: LinkIcon },
-  { mode: "products", label: "Store", icon: ShoppingBag },
-  { mode: "wallet", label: "Wallet", icon: BadgeDollarSign },
-  { mode: "affiliate", label: "Affiliate Links", icon: TicketPercent },
-  { mode: "referrals", label: "Refer and Earn", icon: Share2 },
-  { mode: "assistant", label: "AI Assistant", icon: Bot },
-  { mode: "analytics", label: "Analytics", icon: Sparkles },
-  { mode: "settings", label: "Settings", icon: Globe2 },
-] satisfies Array<{ mode: Mode; label: string; icon: typeof LinkIcon }>;
-
 function money(cents = 0, currency = "usd") {
   return new Intl.NumberFormat("en", {
     style: "currency",
@@ -98,10 +80,14 @@ function setupItems(data: LinkCommerceData) {
     { label: "Username claimed", done: Boolean(data.page.username || data.page.slug) },
     { label: "Bio added", done: Boolean(data.page.bio) },
     { label: "Social link added", done: data.socialLinks.length > 0 },
-    { label: "Link or product added", done: data.customLinks.length > 0 || data.products.length > 0 },
+    { label: "Link, image, or product added", done: data.customLinks.length > 0 || data.gallery.length > 0 || data.products.length > 0 },
     { label: "Payment connected", done: false },
     { label: "Page published", done: data.page.status === "published" || data.page.is_published },
   ];
+}
+
+function panelClass(extra?: string) {
+  return cn("rounded-3xl border border-border bg-card p-5 shadow-sm", extra);
 }
 
 function TextField({
@@ -119,13 +105,13 @@ function TextField({
 }) {
   return (
     <label className="space-y-2">
-      <span className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">{label}</span>
+      <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">{label}</span>
       <input
         name={name}
         type={type}
         defaultValue={defaultValue ?? ""}
         placeholder={placeholder}
-        className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-600 focus:border-rose-300/50 focus:bg-white/[0.09] focus:ring-4 focus:ring-rose-400/10"
+        className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm font-semibold text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-4 focus:ring-primary/10"
       />
     </label>
   );
@@ -134,12 +120,12 @@ function TextField({
 function TextArea({ name, label, defaultValue, placeholder }: { name: string; label: string; defaultValue?: string | null; placeholder?: string }) {
   return (
     <label className="space-y-2">
-      <span className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">{label}</span>
+      <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">{label}</span>
       <textarea
         name={name}
         defaultValue={defaultValue ?? ""}
         placeholder={placeholder}
-        className="min-h-28 w-full resize-y rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold leading-6 text-white outline-none transition placeholder:text-zinc-600 focus:border-rose-300/50 focus:bg-white/[0.09] focus:ring-4 focus:ring-rose-400/10"
+        className="min-h-28 w-full resize-y rounded-2xl border border-input bg-background px-4 py-3 text-sm font-semibold leading-6 text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-4 focus:ring-primary/10"
       />
     </label>
   );
@@ -174,20 +160,20 @@ function UploadField({
     setUploading(false);
     if (json?.ok) {
       onUploaded(privateFile ? json.data.path : json.data.publicUrl);
-      setStatus(privateFile ? "Private file uploaded." : "Asset uploaded.");
+      setStatus(privateFile ? "Private file uploaded." : "Image uploaded.");
     } else {
       setStatus(json?.error?.message ?? "Upload failed.");
     }
   }
 
   return (
-    <label className="block rounded-3xl border border-dashed border-white/15 bg-white/[0.04] p-5 text-center transition hover:border-rose-300/40">
+    <label className="block rounded-2xl border border-dashed border-border bg-secondary/50 p-5 text-center transition hover:border-primary/40 hover:bg-secondary">
       <input type="file" className="sr-only" onChange={(event) => upload(event.target.files?.[0])} />
-      <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-white/10 text-zinc-300">
+      <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-background text-muted-foreground shadow-sm">
         {privateFile ? <FileUp className="h-5 w-5" /> : <ImagePlus className="h-5 w-5" />}
       </div>
-      <p className="mt-3 text-sm font-black text-white">{uploading ? "Uploading..." : label}</p>
-      <p className="mt-1 text-xs font-semibold text-zinc-500">{status || (privateFile ? "Private product delivery file" : "Public page asset")}</p>
+      <p className="mt-3 text-sm font-black text-foreground">{uploading ? "Uploading..." : label}</p>
+      <p className="mt-1 text-xs font-semibold text-muted-foreground">{status || (privateFile ? "Private product delivery file" : "Public page image")}</p>
     </label>
   );
 }
@@ -206,13 +192,14 @@ function PhonePreview({ data, origin }: { data: LinkCommerceData; origin: string
           {page.avatar_url ? (
             <img src={page.avatar_url} alt="" className="mx-auto h-28 w-28 rounded-full border-4 border-black object-cover" />
           ) : (
-            <div className="mx-auto grid h-28 w-28 place-items-center rounded-full border-4 border-black bg-gradient-to-br from-rose-400 to-orange-300 text-3xl font-black text-zinc-950">
+            <div className="mx-auto grid h-28 w-28 place-items-center rounded-full border-4 border-black bg-gradient-to-br from-primary to-accent text-3xl font-black text-primary-foreground">
               {(page.display_name ?? "C").slice(0, 1)}
             </div>
           )}
           <h2 className="mt-4 text-3xl font-black tracking-tight text-white">{page.display_name}</h2>
           <p className="mt-1 text-sm font-semibold text-zinc-300">@{page.username || page.slug}</p>
           <p className="mx-auto mt-4 max-w-xs text-sm font-semibold leading-6 text-zinc-200">{page.bio || page.headline || "Add a bio to tell visitors what to buy, book, or explore."}</p>
+
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             {data.socialLinks.slice(0, 8).map((link) => (
               <span key={link.id} className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black text-white">
@@ -220,21 +207,26 @@ function PhonePreview({ data, origin }: { data: LinkCommerceData; origin: string
               </span>
             ))}
           </div>
+
           <div className="mt-5 space-y-3">
             {data.customLinks.slice(0, 3).map((link) => (
               <div key={link.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-3 text-left">
                 <span className="truncate text-sm font-black text-white">{link.title}</span>
-                <ArrowUpRight className="h-4 w-4 text-rose-300" />
+                <ArrowUpRight className="h-4 w-4 text-primary" />
               </div>
             ))}
             {visibleProducts.slice(0, 2).map((product) => (
-              <div key={product.id} className="rounded-2xl border border-rose-200/20 bg-rose-300/10 p-4 text-left">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-rose-200">Product</p>
+              <div key={product.id} className="rounded-2xl border border-primary/20 bg-primary/10 p-4 text-left">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-primary">Product</p>
                 <p className="mt-1 truncate text-sm font-black text-white">{product.title}</p>
                 <p className="mt-1 text-xs text-zinc-400">{money(product.price_cents, product.currency)}</p>
               </div>
             ))}
+            {data.gallery.slice(0, 2).map((item) => (
+              <img key={item.id} src={item.image_url} alt={item.alt_text ?? ""} className="h-24 w-full rounded-2xl object-cover" />
+            ))}
           </div>
+
           <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.07] p-3 text-left">
             <p className="text-sm font-black text-white">AI shopping guide</p>
             <p className="mt-1 text-xs text-zinc-400">{data.assistant?.greeting || data.assistant?.welcome_message || "Ask what product, call, or link is right for you."}</p>
@@ -257,7 +249,8 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
   const [filePath, setFilePath] = useState("");
   const [isPending, startTransition] = useTransition();
   const checklist = setupItems(state);
-  const progress = Math.round((checklist.filter((item) => item.done).length / checklist.length) * 100);
+  const completed = checklist.filter((item) => item.done).length;
+  const progress = Math.round((completed / checklist.length) * 100);
   const publicPath = `/u/${state.page.username || state.page.slug}`;
   const shopPath = `${publicPath}/shop`;
 
@@ -327,6 +320,14 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
         description: String(formData.get("description") ?? ""),
       },
       (payload) => setState((prev) => ({ ...prev, customLinks: [payload.customLink, ...prev.customLinks] })),
+    );
+  }
+
+  function addGalleryImage(imageUrl: string) {
+    post(
+      "gallery",
+      { workspaceId: state.workspace.id, pageId: state.page.id, imageUrl, caption: "Gallery image" },
+      (payload) => setState((prev) => ({ ...prev, gallery: [payload.galleryItem, ...prev.gallery] })),
     );
   }
 
@@ -417,91 +418,51 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
     return acc;
   }, {});
 
+  const showProfile = activeMode === "dashboard" || activeMode === "profile" || activeMode === "builder";
+  const showProducts = activeMode === "products" || activeMode === "product-new";
+
   return (
-    <div className="min-h-screen rounded-[2rem] bg-[#050505] p-3 text-white md:p-5">
-      <div className="grid gap-5 xl:grid-cols-[250px_minmax(0,1fr)_390px]">
-        <aside className="rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 shadow-2xl">
-          <button type="button" onClick={() => setActiveMode("dashboard")} className="flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-400 text-zinc-950">
-              <Rocket className="h-6 w-6" />
-            </div>
-            <div className="text-left">
-              <p className="text-[0.65rem] font-black uppercase tracking-[0.38em] text-zinc-500">CreatorOS</p>
-              <p className="font-black">Smart Link</p>
-            </div>
-          </button>
-          <div className="mt-8 space-y-2">
-            {modeNav.map((item) => {
-              const Icon = item.icon;
-              const active = activeMode === item.mode || (activeMode === "product-new" && item.mode === "products");
-              return (
-                <button
-                  key={item.mode}
-                  type="button"
-                  onClick={() => setActiveMode(item.mode)}
-                  className={cn(
-                    "flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm font-black transition",
-                    active ? "bg-white/[0.12] text-white ring-1 ring-white/15" : "text-zinc-500 hover:bg-white/[0.07] hover:text-white",
-                  )}
-                >
-                  <span className="flex items-center gap-3"><Icon className="h-4 w-4" /> {item.label}</span>
-                  {active ? <ArrowUpRight className="h-4 w-4 text-rose-300" /> : null}
-                </button>
-              );
-            })}
+    <div className="space-y-6">
+      <section className={panelClass("overflow-hidden bg-gradient-to-br from-card via-card to-secondary/60")}>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <Badge variant="secondary" className="rounded-full">CreatorOS Link Commerce</Badge>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-foreground">Manage Your Smart Link</h1>
+            <p className="mt-1 max-w-xl text-sm font-semibold leading-6 text-muted-foreground">
+              Profile, bio builder, products, affiliate flows, referrals, AI assistant, analytics, and public shop in one workspace-aware commerce surface.
+            </p>
           </div>
-          <div className="mt-8 rounded-3xl border border-white/10 bg-black/30 p-4">
-            <p className="text-[0.68rem] font-black uppercase tracking-[0.28em] text-zinc-500">Setup checklist</p>
-            <div className="mt-4 flex items-center gap-4">
-              <div className="grid h-16 w-16 place-items-center rounded-full border-4 border-rose-300/80 text-lg font-black">{progress}%</div>
-              <div>
-                <p className="text-2xl font-black">{checklist.filter((item) => item.done).length}/{checklist.length}</p>
-                <p className="text-xs font-semibold text-zinc-500">requirements complete</p>
-              </div>
-            </div>
-            <Button className="mt-4 w-full bg-rose-400 text-zinc-950 hover:bg-rose-300" onClick={() => setActiveMode("profile")}>
-              <Wand2 className="h-4 w-4" /> Finish setup
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" type="button" onClick={() => navigator.clipboard?.writeText(`${origin}${publicPath}`)}>
+              <Copy className="h-4 w-4" /> Copy link
             </Button>
+            <Button asChild variant="secondary">
+              <a href={publicPath} target="_blank"><ExternalLink className="h-4 w-4" /> View profile</a>
+            </Button>
+            <Button asChild variant="secondary">
+              <a href={shopPath} target="_blank"><Store className="h-4 w-4" /> View shop</a>
+            </Button>
+            <form action={(fd) => saveProfile(fd, "published")} className="contents">
+              <input type="hidden" name="displayName" value={state.page.display_name ?? ""} />
+              <input type="hidden" name="username" value={state.page.username ?? state.page.slug ?? ""} />
+              <input type="hidden" name="headline" value={state.page.headline ?? ""} />
+              <input type="hidden" name="bio" value={state.page.bio ?? ""} />
+              <input type="hidden" name="occupationType" value={state.page.theme?.occupationType ?? "creator"} />
+              <Button disabled={isPending}>
+                <Rocket className="h-4 w-4" /> Publish
+              </Button>
+            </form>
           </div>
-        </aside>
+        </div>
+        {message ? <p className="mt-4 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm font-bold text-foreground">{message}</p> : null}
+      </section>
 
-        <main className="space-y-5">
-          <section className="rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <Badge className="border-white/10 bg-white/10 text-zinc-300">CreatorOS Link Commerce</Badge>
-                <h1 className="mt-3 text-3xl font-black tracking-tight">Manage Your Smart Link</h1>
-                <p className="mt-1 text-sm font-semibold text-zinc-500">Profile, links, products, affiliate flows, AI assistant, analytics, and public shop.</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={() => navigator.clipboard?.writeText(`${origin}${publicPath}`)}>
-                  <Copy className="h-4 w-4" /> Copy link
-                </Button>
-                <Button asChild variant="secondary">
-                  <a href={publicPath} target="_blank"><ExternalLink className="h-4 w-4" /> View profile</a>
-                </Button>
-                <Button asChild variant="secondary">
-                  <a href={shopPath} target="_blank"><Store className="h-4 w-4" /> View shop</a>
-                </Button>
-                <form action={(fd) => saveProfile(fd, "published")} className="contents">
-                  <input type="hidden" name="displayName" value={state.page.display_name ?? ""} />
-                  <input type="hidden" name="username" value={state.page.username ?? state.page.slug ?? ""} />
-                  <input type="hidden" name="headline" value={state.page.headline ?? ""} />
-                  <input type="hidden" name="bio" value={state.page.bio ?? ""} />
-                  <input type="hidden" name="occupationType" value={state.page.theme?.occupationType ?? "creator"} />
-                  <Button className="bg-rose-400 text-zinc-950 hover:bg-rose-300" disabled={isPending}>
-                    <Rocket className="h-4 w-4" /> Publish
-                  </Button>
-                </form>
-              </div>
-            </div>
-            {message ? <p className="mt-4 rounded-2xl border border-rose-300/20 bg-rose-300/10 px-4 py-3 text-sm font-bold text-rose-100">{message}</p> : null}
-          </section>
-
-          {(activeMode === "dashboard" || activeMode === "profile" || activeMode === "builder") ? (
-            <section className="rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5">
-              <p className="text-[0.68rem] font-black uppercase tracking-[0.3em] text-zinc-500">Settings and links</p>
-              <h2 className="mt-2 text-2xl font-black">Complete your profile</h2>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
+        <main className="space-y-6">
+          {showProfile ? (
+            <section className={panelClass()}>
+              <p className="text-xs font-bold uppercase tracking-[0.26em] text-muted-foreground">Profile and links</p>
+              <h2 className="mt-2 text-2xl font-black text-foreground">Complete your creator storefront</h2>
               <form action={(fd) => saveProfile(fd)} className="mt-6 grid gap-5">
                 <div className="grid gap-4 md:grid-cols-2">
                   <UploadField label="Upload profile photo" bucket="public-assets" workspaceId={state.workspace.id} onUploaded={setAvatarUrl} />
@@ -515,25 +476,25 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                 </div>
                 <TextArea name="bio" label="Bio" defaultValue={state.page.bio} placeholder="A short conversion-focused bio..." />
                 <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Occupation type</span>
-                  <select name="occupationType" defaultValue={state.page.theme?.occupationType ?? "creator"} className="h-12 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 text-sm font-semibold text-white">
+                  <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Occupation type</span>
+                  <select name="occupationType" defaultValue={state.page.theme?.occupationType ?? "creator"} className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm font-semibold text-foreground outline-none">
                     {["personal", "creator", "brand", "business", "agency", "community"].map((item) => <option key={item}>{item}</option>)}
                   </select>
                 </label>
-                <Button className="bg-rose-400 text-zinc-950 hover:bg-rose-300" disabled={isPending}>
+                <Button disabled={isPending}>
                   <Check className="h-4 w-4" /> Save profile
                 </Button>
               </form>
 
               <div className="mt-10">
-                <h3 className="text-xl font-black">Social media links</h3>
+                <h3 className="text-xl font-black text-foreground">Social media links</h3>
                 <div className="mt-4 space-y-5">
                   {socialGroups.map((group) => (
                     <div key={group.group}>
-                      <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">{group.group}</p>
+                      <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">{group.group}</p>
                       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                         {group.items.map((platform) => (
-                          <button key={platform} type="button" onClick={() => addSocial(platform, group.group)} className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-zinc-300 transition hover:border-rose-300/50 hover:text-white">
+                          <button key={platform} type="button" onClick={() => addSocial(platform, group.group)} className="rounded-2xl border border-border bg-secondary/50 px-4 py-3 text-sm font-black text-foreground transition hover:border-primary/40 hover:bg-secondary">
                             {platform}
                           </button>
                         ))}
@@ -544,67 +505,83 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
               </div>
 
               <div className="mt-10 grid gap-5 lg:grid-cols-2">
-                <form action={addCustomLink} className="rounded-3xl border border-white/10 bg-black/25 p-5">
-                  <h3 className="text-xl font-black">Custom links</h3>
+                <form action={addCustomLink} className={panelClass("bg-secondary/30 shadow-none")}>
+                  <h3 className="text-xl font-black text-foreground">Custom links</h3>
                   <div className="mt-4 grid gap-3">
                     <TextField name="title" label="Title" placeholder="Newsletter, latest video, community" />
                     <TextField name="url" label="URL" placeholder="https://example.com" />
                     <TextField name="description" label="Description" placeholder="Why visitors should click" />
-                    <Button className="bg-rose-400 text-zinc-950 hover:bg-rose-300"><Plus className="h-4 w-4" /> Add link</Button>
+                    <Button><Plus className="h-4 w-4" /> Add link</Button>
                   </div>
                   <div className="mt-4 space-y-2">
-                    {state.customLinks.map((link) => <p key={link.id} className="rounded-2xl bg-white/[0.06] px-4 py-3 text-sm font-bold">{link.title}</p>)}
-                    {!state.customLinks.length ? <p className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm font-bold text-zinc-500">No custom links yet.</p> : null}
+                    {state.customLinks.map((link) => <p key={link.id} className="rounded-2xl bg-background px-4 py-3 text-sm font-bold text-foreground">{link.title}</p>)}
+                    {!state.customLinks.length ? <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm font-bold text-muted-foreground">No custom links yet.</p> : null}
                   </div>
                 </form>
 
-                <form action={saveContact} className="rounded-3xl border border-white/10 bg-black/25 p-5">
-                  <h3 className="text-xl font-black">Contact information</h3>
-                  <div className="mt-4 grid gap-3">
-                    <TextField name="email" label="Email" defaultValue={state.contact?.email} placeholder="you@example.com" />
-                    <TextField name="phone" label="Phone" defaultValue={state.contact?.phone} placeholder="+1..." />
-                    <TextField name="website" label="Website" defaultValue={state.contact?.website} placeholder="https://yoursite.com" />
-                    <TextField name="address" label="Address" defaultValue={state.contact?.address} placeholder="City, country" />
-                    <label className="flex items-center gap-2 text-sm font-bold text-zinc-400"><input name="showPhone" type="checkbox" defaultChecked={state.contact?.show_phone} /> Show phone</label>
-                    <label className="flex items-center gap-2 text-sm font-bold text-zinc-400"><input name="showAddress" type="checkbox" defaultChecked={state.contact?.show_address} /> Show address</label>
-                    <Button variant="secondary"><Mail className="h-4 w-4" /> Save contact</Button>
+                <div className={panelClass("bg-secondary/30 shadow-none")}>
+                  <h3 className="text-xl font-black text-foreground">Photo gallery</h3>
+                  <p className="mt-1 text-sm font-semibold text-muted-foreground">Upload public gallery images for the bio builder and mobile preview.</p>
+                  <div className="mt-4">
+                    <UploadField label="Upload gallery image" bucket="gallery" workspaceId={state.workspace.id} onUploaded={addGalleryImage} />
                   </div>
-                </form>
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    {state.gallery.slice(0, 6).map((item) => (
+                      <img key={item.id} src={item.image_url} alt={item.alt_text ?? ""} className="aspect-square rounded-2xl object-cover" />
+                    ))}
+                    {!state.gallery.length ? <p className="col-span-3 rounded-2xl border border-dashed border-border p-6 text-center text-sm font-bold text-muted-foreground">No gallery photos yet.</p> : null}
+                  </div>
+                </div>
               </div>
+
+              <form action={saveContact} className={panelClass("mt-5 bg-secondary/30 shadow-none")}>
+                <h3 className="text-xl font-black text-foreground">Contact information</h3>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <TextField name="email" label="Email" defaultValue={state.contact?.email} placeholder="you@example.com" />
+                  <TextField name="phone" label="Phone" defaultValue={state.contact?.phone} placeholder="+1..." />
+                  <TextField name="website" label="Website" defaultValue={state.contact?.website} placeholder="https://yoursite.com" />
+                  <TextField name="address" label="Address" defaultValue={state.contact?.address} placeholder="City, country" />
+                </div>
+                <div className="mt-4 flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 text-sm font-bold text-muted-foreground"><input name="showPhone" type="checkbox" defaultChecked={state.contact?.show_phone} /> Show phone</label>
+                  <label className="flex items-center gap-2 text-sm font-bold text-muted-foreground"><input name="showAddress" type="checkbox" defaultChecked={state.contact?.show_address} /> Show address</label>
+                </div>
+                <Button className="mt-4" variant="secondary"><Mail className="h-4 w-4" /> Save contact</Button>
+              </form>
             </section>
           ) : null}
 
-          {(activeMode === "products" || activeMode === "product-new") ? (
+          {showProducts ? (
             <section className="space-y-5">
-              <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5">
+              <div className={panelClass()}>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-2xl font-black">Digital products</h2>
-                    <p className="text-sm font-semibold text-zinc-500">Private files, public shop display, checkout intents, and access grants.</p>
+                    <h2 className="text-2xl font-black text-foreground">Digital products</h2>
+                    <p className="text-sm font-semibold text-muted-foreground">Private files, shop display, checkout intents, and access grants.</p>
                   </div>
-                  <Button className="bg-rose-400 text-zinc-950 hover:bg-rose-300" onClick={() => setActiveMode("product-new")}>
+                  <Button type="button" onClick={() => setActiveMode("product-new")}>
                     <PackagePlus className="h-4 w-4" /> Add product
                   </Button>
                 </div>
                 <div className="mt-5 grid gap-3 md:grid-cols-3">
                   {state.products.map((product) => (
-                    <div key={product.id} className="rounded-3xl border border-white/10 bg-black/25 p-4">
-                      <div className="grid h-28 place-items-center overflow-hidden rounded-2xl bg-white/[0.06]">
-                        {product.cover_image_url ? <img src={product.cover_image_url} alt="" className="h-full w-full object-cover" /> : <ShoppingBag className="h-8 w-8 text-zinc-600" />}
+                    <div key={product.id} className="rounded-3xl border border-border bg-secondary/40 p-4">
+                      <div className="grid h-28 place-items-center overflow-hidden rounded-2xl bg-background">
+                        {product.cover_image_url ? <img src={product.cover_image_url} alt="" className="h-full w-full object-cover" /> : <ShoppingBag className="h-8 w-8 text-muted-foreground" />}
                       </div>
-                      <Badge className="mt-4 bg-white/10 text-zinc-300">{product.status}</Badge>
-                      <h3 className="mt-3 text-lg font-black">{product.title}</h3>
-                      <p className="mt-1 text-sm text-zinc-500">{money(product.price_cents, product.currency)}</p>
-                      <p className="mt-2 line-clamp-2 text-sm text-zinc-400">{product.description || "No description yet."}</p>
+                      <Badge variant="secondary" className="mt-4">{product.status}</Badge>
+                      <h3 className="mt-3 text-lg font-black text-foreground">{product.title}</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">{money(product.price_cents, product.currency)}</p>
+                      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{product.description || "No description yet."}</p>
                     </div>
                   ))}
-                  {!state.products.length ? <div className="rounded-3xl border border-dashed border-white/10 p-10 text-center text-zinc-500 md:col-span-3">No products yet. Add the first file-backed product.</div> : null}
+                  {!state.products.length ? <div className="rounded-3xl border border-dashed border-border p-10 text-center text-muted-foreground md:col-span-3">No products yet. Add the first file-backed product.</div> : null}
                 </div>
               </div>
 
               {activeMode === "product-new" ? (
-                <form action={addProduct} className="rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5">
-                  <h2 className="text-2xl font-black">Add new product</h2>
+                <form action={addProduct} className={panelClass()}>
+                  <h2 className="text-2xl font-black text-foreground">Add new product</h2>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <UploadField label="Upload cover image" bucket="public-assets" workspaceId={state.workspace.id} onUploaded={setCoverUrl} />
                     <UploadField label="Upload digital file" bucket="product-files" workspaceId={state.workspace.id} onUploaded={setFilePath} privateFile />
@@ -615,14 +592,14 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                     <TextField name="price" label="Price USD" type="number" defaultValue={29} />
                     <TextField name="externalDeliveryUrl" label="External delivery URL" placeholder="Optional secure external delivery page" />
                     <div className="grid gap-3 md:grid-cols-3">
-                      <label className="rounded-2xl border border-white/10 bg-black/25 p-4 text-sm font-bold"><input name="showOnBio" type="checkbox" defaultChecked /> Show on Bio</label>
-                      <label className="rounded-2xl border border-white/10 bg-black/25 p-4 text-sm font-bold"><input name="showOnShop" type="checkbox" defaultChecked /> Show on Shop</label>
-                      <label className="rounded-2xl border border-white/10 bg-black/25 p-4 text-sm font-bold"><input name="publish" type="checkbox" /> Publish now</label>
+                      <label className="rounded-2xl border border-border bg-secondary/50 p-4 text-sm font-bold text-foreground"><input name="showOnBio" type="checkbox" defaultChecked /> Show on Bio</label>
+                      <label className="rounded-2xl border border-border bg-secondary/50 p-4 text-sm font-bold text-foreground"><input name="showOnShop" type="checkbox" defaultChecked /> Show on Shop</label>
+                      <label className="rounded-2xl border border-border bg-secondary/50 p-4 text-sm font-bold text-foreground"><input name="publish" type="checkbox" /> Publish now</label>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" variant="secondary" onClick={() => requestAi("product_description")}><Sparkles className="h-4 w-4" /> AI description</Button>
                       <Button type="button" variant="secondary" onClick={() => requestAi("pricing_suggestion")}><Sparkles className="h-4 w-4" /> AI price</Button>
-                      <Button className="bg-rose-400 text-zinc-950 hover:bg-rose-300"><Plus className="h-4 w-4" /> Create product</Button>
+                      <Button><Plus className="h-4 w-4" /> Create product</Button>
                     </div>
                   </div>
                 </form>
@@ -631,51 +608,51 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
           ) : null}
 
           {activeMode === "wallet" ? (
-            <section className="rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5">
-              <h2 className="text-2xl font-black">Wallet and sales</h2>
+            <section className={panelClass()}>
+              <h2 className="text-2xl font-black text-foreground">Wallet and sales</h2>
               <div className="mt-5 grid gap-3 md:grid-cols-4">
-                <div className="rounded-3xl bg-emerald-300/10 p-5"><p className="text-sm text-emerald-200">Paid revenue</p><p className="mt-2 text-3xl font-black">{money(state.wallet.revenueCents)}</p></div>
-                <div className="rounded-3xl bg-amber-300/10 p-5"><p className="text-sm text-amber-200">Pending</p><p className="mt-2 text-3xl font-black">{money(state.wallet.pendingCents)}</p></div>
-                <div className="rounded-3xl bg-white/[0.06] p-5"><p className="text-sm text-zinc-400">Orders</p><p className="mt-2 text-3xl font-black">{state.orders.length}</p></div>
-                <div className="rounded-3xl bg-white/[0.06] p-5"><p className="text-sm text-zinc-400">Provider</p><p className="mt-2 text-lg font-black">Stripe required</p></div>
+                <div className="rounded-3xl bg-emerald-500/10 p-5"><p className="text-sm text-emerald-700">Paid revenue</p><p className="mt-2 text-3xl font-black text-foreground">{money(state.wallet.revenueCents)}</p></div>
+                <div className="rounded-3xl bg-amber-500/10 p-5"><p className="text-sm text-amber-700">Pending</p><p className="mt-2 text-3xl font-black text-foreground">{money(state.wallet.pendingCents)}</p></div>
+                <div className="rounded-3xl bg-secondary/60 p-5"><p className="text-sm text-muted-foreground">Orders</p><p className="mt-2 text-3xl font-black text-foreground">{state.orders.length}</p></div>
+                <div className="rounded-3xl bg-secondary/60 p-5"><p className="text-sm text-muted-foreground">Provider</p><p className="mt-2 text-lg font-black text-foreground">Stripe required</p></div>
               </div>
             </section>
           ) : null}
 
           {activeMode === "affiliate" ? (
-            <section className="rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5">
-              <h2 className="text-2xl font-black">Affiliate links</h2>
+            <section className={panelClass()}>
+              <h2 className="text-2xl font-black text-foreground">Affiliate links</h2>
               <form action={addAffiliate} className="mt-5 grid gap-4">
                 <TextField name="title" label="Title" placeholder="My favorite camera kit" />
                 <TextField name="destinationUrl" label="Affiliate URL" placeholder="https://..." />
                 <TextField name="network" label="Network" placeholder="Amazon, PartnerStack..." />
                 <TextField name="commissionNote" label="Commission note" placeholder="I may earn a commission." />
-                <Button className="bg-rose-400 text-zinc-950 hover:bg-rose-300"><Plus className="h-4 w-4" /> Add affiliate link</Button>
+                <Button><Plus className="h-4 w-4" /> Add affiliate link</Button>
               </form>
             </section>
           ) : null}
 
           {activeMode === "referrals" ? (
-            <section className="rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5">
-              <h2 className="text-2xl font-black">Referral program</h2>
+            <section className={panelClass()}>
+              <h2 className="text-2xl font-black text-foreground">Referral program</h2>
               <form action={saveReferral} className="mt-5 grid gap-4">
                 <TextField name="title" label="Title" defaultValue={state.referralProgram?.title ?? "Refer a friend"} />
                 <TextArea name="description" label="Description" defaultValue={state.referralProgram?.description} />
                 <TextField name="rewardType" label="Reward type" defaultValue={state.referralProgram?.reward_type ?? "discount"} />
                 <TextField name="rewardValue" label="Reward value" defaultValue={state.referralProgram?.reward_value ?? "20%"} />
                 <TextArea name="terms" label="Terms" defaultValue={state.referralProgram?.terms} />
-                <Button className="bg-rose-400 text-zinc-950 hover:bg-rose-300"><Share2 className="h-4 w-4" /> Enable referrals</Button>
+                <Button><Share2 className="h-4 w-4" /> Enable referrals</Button>
               </form>
             </section>
           ) : null}
 
           {activeMode === "assistant" ? (
-            <section className="rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5">
-              <h2 className="text-2xl font-black">Public AI assistant</h2>
-              <p className="mt-2 text-sm font-semibold text-zinc-500">Use the existing assistant engine, scoped to published page and product data only.</p>
+            <section className={panelClass()}>
+              <h2 className="text-2xl font-black text-foreground">Public AI assistant</h2>
+              <p className="mt-2 text-sm font-semibold text-muted-foreground">Suggestions are scoped to published page and product data only.</p>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 {["generate_bio", "product_ideas", "page_sections", "improve_cta", "brand_inquiry_copy", "seo_metadata", "conversion_review"].map((action) => (
-                  <Button key={action} variant="secondary" onClick={() => requestAi(action)}>
+                  <Button key={action} variant="secondary" type="button" onClick={() => requestAi(action)}>
                     <Sparkles className="h-4 w-4" /> {action.replace(/_/g, " ")}
                   </Button>
                 ))}
@@ -684,39 +661,62 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
           ) : null}
 
           {activeMode === "analytics" ? (
-            <section className="rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5">
-              <h2 className="text-2xl font-black">Real analytics</h2>
+            <section className={panelClass()}>
+              <h2 className="text-2xl font-black text-foreground">Real analytics</h2>
               <div className="mt-5 grid gap-3 md:grid-cols-4">
                 {["page.viewed", "custom_link.clicked", "product.clicked", "checkout.started"].map((type) => (
-                  <div key={type} className="rounded-3xl bg-white/[0.06] p-5">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-500">{type}</p>
-                    <p className="mt-2 text-3xl font-black">{eventsByType[type] ?? 0}</p>
+                  <div key={type} className="rounded-3xl bg-secondary/60 p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">{type}</p>
+                    <p className="mt-2 text-3xl font-black text-foreground">{eventsByType[type] ?? 0}</p>
                   </div>
                 ))}
               </div>
-              {!state.analyticsEvents.length ? <p className="mt-5 rounded-3xl border border-dashed border-white/10 p-8 text-center text-zinc-500">No analytics yet. Public traffic will appear here as events arrive.</p> : null}
+              {!state.analyticsEvents.length ? <p className="mt-5 rounded-3xl border border-dashed border-border p-8 text-center text-muted-foreground">No analytics yet. Public traffic will appear here as events arrive.</p> : null}
             </section>
           ) : null}
 
           {activeMode === "settings" ? (
-            <section className="rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5">
-              <h2 className="text-2xl font-black">Settings</h2>
+            <section className={panelClass()}>
+              <h2 className="text-2xl font-black text-foreground">Settings</h2>
               <div className="mt-5 grid gap-3">
-                <div className="rounded-3xl border border-white/10 bg-black/25 p-5"><ShieldCheck className="h-5 w-5 text-emerald-300" /><p className="mt-3 font-black">Production provider rule</p><p className="mt-1 text-sm text-zinc-500">Checkout stays provider-gated until Stripe is connected.</p></div>
-                <div className="rounded-3xl border border-white/10 bg-black/25 p-5"><Globe2 className="h-5 w-5 text-sky-300" /><p className="mt-3 font-black">Public URLs</p><p className="mt-1 text-sm text-zinc-500">{origin}{publicPath} and {origin}{shopPath}</p></div>
+                <div className="rounded-3xl border border-border bg-secondary/50 p-5"><ShieldCheck className="h-5 w-5 text-emerald-600" /><p className="mt-3 font-black text-foreground">Production provider rule</p><p className="mt-1 text-sm text-muted-foreground">Checkout stays provider-gated until Stripe is connected.</p></div>
+                <div className="rounded-3xl border border-border bg-secondary/50 p-5"><Globe2 className="h-5 w-5 text-sky-600" /><p className="mt-3 font-black text-foreground">Public URLs</p><p className="mt-1 text-sm text-muted-foreground">{origin}{publicPath} and {origin}{shopPath}</p></div>
               </div>
             </section>
           ) : null}
         </main>
 
-        <aside className="xl:sticky xl:top-20 xl:h-fit">
+        <aside className="space-y-4 xl:sticky xl:top-20 xl:h-fit">
           <PhonePreview data={state} origin={origin} />
-          <div className="mt-4 rounded-3xl border border-white/10 bg-white/[0.045] p-4">
-            <p className="text-sm font-black">Next best AI actions</p>
+          <div className={panelClass()}>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Setup checklist</p>
+            <div className="mt-4 flex items-center gap-4">
+              <div className="grid h-16 w-16 place-items-center rounded-full border-4 border-primary/70 text-lg font-black text-foreground">{progress}%</div>
+              <div>
+                <p className="text-2xl font-black text-foreground">{completed}/{checklist.length}</p>
+                <p className="text-xs font-semibold text-muted-foreground">requirements complete</p>
+              </div>
+            </div>
+            <div className="mt-4 space-y-2">
+              {checklist.map((item) => (
+                <div key={item.label} className="flex items-center justify-between rounded-2xl bg-secondary/50 px-3 py-2 text-sm font-semibold">
+                  <span className="text-muted-foreground">{item.label}</span>
+                  <span className={cn("grid h-5 w-5 place-items-center rounded-full text-[10px]", item.done ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}>
+                    {item.done ? "✓" : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <Button className="mt-4 w-full" type="button" onClick={() => setActiveMode("profile")}>
+              <Sparkles className="h-4 w-4" /> Finish setup
+            </Button>
+          </div>
+          <div className={panelClass()}>
+            <p className="text-sm font-black text-foreground">Next best AI actions</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button size="sm" variant="secondary" onClick={() => requestAi("generate_bio")}><RefreshCw className="h-4 w-4" /> Bio</Button>
-              <Button size="sm" variant="secondary" onClick={() => requestAi("product_ideas")}><ShoppingBag className="h-4 w-4" /> Products</Button>
-              <Button size="sm" variant="secondary" onClick={() => requestAi("conversion_review")}><Handshake className="h-4 w-4" /> Conversion</Button>
+              <Button size="sm" variant="secondary" type="button" onClick={() => requestAi("generate_bio")}><RefreshCw className="h-4 w-4" /> Bio</Button>
+              <Button size="sm" variant="secondary" type="button" onClick={() => requestAi("product_ideas")}><ShoppingBag className="h-4 w-4" /> Products</Button>
+              <Button size="sm" variant="secondary" type="button" onClick={() => requestAi("conversion_review")}><Handshake className="h-4 w-4" /> Conversion</Button>
             </div>
           </div>
         </aside>

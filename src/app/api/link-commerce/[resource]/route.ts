@@ -4,6 +4,7 @@ import {
   linkAiActionSchema,
   linkContactSchema,
   linkCustomLinkSchema,
+  linkGallerySchema,
   linkPageProfileSchema,
   linkProductSchema,
   linkReferralProgramSchema,
@@ -147,6 +148,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
     if (error) return apiError("custom_link_failed", error.message, 400);
     await recordEvent({ workspaceId: body.workspaceId, pageId: body.pageId, eventType: "custom_link.added", metadata: { linkId: data.id } });
     return apiOk({ customLink: data }, { status: 201 });
+  }
+
+  if (resource === "gallery") {
+    const body = await parseJsonBody(req, linkGallerySchema);
+    if (isApiResponse(body)) return body;
+    const { data, error } = await supabase
+      .from("photo_gallery_items")
+      .insert({
+        workspace_id: body.workspaceId,
+        page_id: body.pageId,
+        image_url: body.imageUrl,
+        alt_text: body.altText ?? null,
+        caption: body.caption ?? null,
+      })
+      .select("*")
+      .single();
+    if (error) return apiError("gallery_failed", error.message, 400);
+    await recordEvent({ workspaceId: body.workspaceId, pageId: body.pageId, eventType: "gallery.image_added", metadata: { galleryItemId: data.id } });
+    return apiOk({ galleryItem: data }, { status: 201 });
   }
 
   if (resource === "contact") {

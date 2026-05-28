@@ -72,9 +72,21 @@ export const nav: Record<"creator" | "brand" | "portal", NavGroup[]> = {
     {
       group: "Build",
       items: [
-        { href: "/creator/builder", label: "Site Builder", icon: LinkIcon },
         { href: "/creator/link", label: "Smart Link", icon: Rocket },
-        { href: "/creator/store", label: "Store", icon: Store },
+      ],
+    },
+    {
+      group: "Smart Link",
+      items: [
+        { href: "/creator/link/profile", label: "Profile & Links", icon: LinkIcon },
+        { href: "/creator/link/builder", label: "Bio Builder", icon: Puzzle },
+        { href: "/creator/link/products", label: "Products", icon: Store },
+        { href: "/creator/link/wallet", label: "Wallet", icon: CreditCard },
+        { href: "/creator/link/affiliate", label: "Affiliate Links", icon: Gift },
+        { href: "/creator/link/referrals", label: "Refer & Earn", icon: Users },
+        { href: "/creator/link/assistant", label: "AI Assistant", icon: Bot },
+        { href: "/creator/link/analytics", label: "Link Analytics", icon: BarChart3 },
+        { href: "/creator/link/settings", label: "Link Settings", icon: Settings },
       ],
     },
     {
