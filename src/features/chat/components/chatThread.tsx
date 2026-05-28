@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { Bot, Sparkles, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,7 +27,7 @@ export function ChatThread({
 
   if (messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+      <div className="flex h-full flex-col items-center justify-center px-6 py-10 text-center md:px-10">
         <div className="grid h-14 w-14 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-soft">
           <Sparkles className="h-7 w-7" />
         </div>
@@ -37,7 +38,7 @@ export function ChatThread({
             <button
               key={s}
               onClick={() => onStarter(s)}
-              className="rounded-xl border border-border bg-card p-3 text-left text-sm transition hover:border-accent/40 hover:shadow-soft"
+              className="rounded-xl border border-border/70 bg-background/60 p-3 text-left text-sm transition hover:border-accent/40 hover:bg-secondary/50"
             >
               {s}
             </button>
@@ -48,26 +49,28 @@ export function ChatThread({
   }
 
   return (
-    <div className="space-y-6 px-4 py-6 md:px-8">
+    <div className="space-y-6 px-4 py-6 md:px-8 lg:px-10">
       {messages.map((m) => (
-        <div key={m.id} className={cn("flex gap-3", m.role === "user" ? "justify-end" : "justify-start")}>
+        <div key={m.id} className={cn("flex items-end gap-3", m.role === "user" ? "justify-end" : "justify-start")}>
           {m.role === "assistant" ? (
-            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
+            <div className="grid h-8 w-8 shrink-0 place-items-center self-start rounded-2xl bg-secondary/70 text-accent ring-1 ring-border/60">
               <Bot className="h-4 w-4" />
             </div>
           ) : null}
+
           <div
             className={cn(
-              "max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed",
+              "max-w-[min(100%,52rem)] rounded-3xl px-4 py-3 text-sm leading-7 shadow-sm",
               m.role === "user"
                 ? "bg-primary text-primary-foreground"
-                : "border border-border bg-card text-card-foreground shadow-sm"
+                : "border border-border/70 bg-background/80 text-foreground/90 backdrop-blur-sm"
             )}
           >
-            {m.content || (streaming ? <StreamingDots /> : null)}
+            {m.role === "assistant" ? <AssistantContent content={m.content} streaming={streaming} /> : <UserContent content={m.content} />}
           </div>
+
           {m.role === "user" ? (
-            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-secondary text-secondary-foreground">
+            <div className="grid h-8 w-8 shrink-0 place-items-center self-start rounded-2xl bg-secondary text-secondary-foreground ring-1 ring-border/60">
               <UserRound className="h-4 w-4" />
             </div>
           ) : null}
@@ -76,6 +79,125 @@ export function ChatThread({
       <div ref={endRef} />
     </div>
   );
+}
+
+function UserContent({ content }: { content: string }) {
+  return <div className="whitespace-pre-wrap">{content}</div>;
+}
+
+function AssistantContent({ content, streaming }: { content: string; streaming: boolean }) {
+  if (!content && streaming) {
+    return <StreamingDots />;
+  }
+
+  const blocks = parseBlocks(content);
+  return <div className="space-y-4">{blocks.map((block, index) => renderBlock(block, index))}</div>;
+}
+
+type Block = { kind: "paragraph"; text: string } | { kind: "unordered"; items: string[] } | { kind: "ordered"; items: string[] };
+
+function parseBlocks(content: string): Block[] {
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const blocks: Block[] = [];
+  let currentParagraph: string[] = [];
+  let currentList: { kind: "unordered" | "ordered"; items: string[] } | null = null;
+
+  const flushParagraph = () => {
+    if (!currentParagraph.length) return;
+    blocks.push({ kind: "paragraph", text: currentParagraph.join(" ").trim() });
+    currentParagraph = [];
+  };
+
+  const flushList = () => {
+    if (!currentList) return;
+    blocks.push({ kind: currentList.kind, items: currentList.items });
+    currentList = null;
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+
+    const unorderedMatch = line.match(/^[*-]\s+(.+)$/);
+    const orderedMatch = line.match(/^\d+\.\s+(.+)$/);
+
+    if (unorderedMatch) {
+      flushParagraph();
+      if (!currentList || currentList.kind !== "unordered") {
+        flushList();
+        currentList = { kind: "unordered", items: [] };
+      }
+      currentList.items.push(unorderedMatch[1]);
+      continue;
+    }
+
+    if (orderedMatch) {
+      flushParagraph();
+      if (!currentList || currentList.kind !== "ordered") {
+        flushList();
+        currentList = { kind: "ordered", items: [] };
+      }
+      currentList.items.push(orderedMatch[1]);
+      continue;
+    }
+
+    flushList();
+    currentParagraph.push(line);
+  }
+
+  flushParagraph();
+  flushList();
+  return blocks;
+}
+
+function renderBlock(block: Block, index: number) {
+  if (block.kind === "paragraph") {
+    return (
+      <p key={index} className="whitespace-pre-wrap text-[15px] leading-7 text-foreground/90">
+        {renderInline(block.text)}
+      </p>
+    );
+  }
+
+  const ListTag = block.kind === "ordered" ? "ol" : "ul";
+  return (
+    <ListTag key={index} className={cn("space-y-2 pl-5", block.kind === "ordered" ? "list-decimal" : "list-disc")}>
+      {block.items.map((item, itemIndex) => (
+        <li key={itemIndex} className="pl-1 text-[15px] leading-7 text-foreground/90">
+          {renderInline(item)}
+        </li>
+      ))}
+    </ListTag>
+  );
+}
+
+function renderInline(text: string) {
+  const parts: ReactNode[] = [];
+  const pattern = /\*\*([^*]+)\*\*/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text))) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    parts.push(
+      <strong key={match.index} className="font-semibold text-foreground">
+        {match[1]}
+      </strong>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length ? parts : text;
 }
 
 function StreamingDots() {

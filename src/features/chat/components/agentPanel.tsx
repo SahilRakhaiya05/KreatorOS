@@ -15,7 +15,7 @@ export function AgentPanel({
 }) {
   const agent = getAgent(agentId);
   return (
-    <div className="flex h-full flex-col gap-4 overflow-y-auto border-l border-border bg-card p-4">
+    <div className="no-scrollbar flex h-full flex-col gap-4 overflow-y-auto border-l border-border/60 bg-background/50 p-4 backdrop-blur-sm">
       <div>
         <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Agent</p>
         <div className="mt-2 space-y-1.5">

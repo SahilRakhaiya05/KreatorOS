@@ -30,6 +30,7 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
   const [currentId, setCurrentId] = useState<string>("");
   const [provider, setProvider] = useState<ProviderId>(firstAvailable.id);
   const [model, setModel] = useState<string>(firstAvailable.models[0]?.id ?? "");
+  const [activeAgentId, setActiveAgentId] = useState<string>(DEFAULT_AGENT_ID);
   const [status, setStatus] = useState<"idle" | "streaming">("idle");
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -49,9 +50,8 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
     } catch {
       /* ignore */
     }
-    const seed = newConversation();
-    setConversations([seed]);
-    setCurrentId(seed.id);
+    setConversations([]);
+    setCurrentId("");
   }, []);
 
   // Persist.
@@ -62,10 +62,23 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
       } catch {
         /* ignore */
       }
+      return;
+    }
+
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* ignore */
     }
   }, [conversations]);
 
-  const current = conversations.find((c) => c.id === currentId) ?? null;
+  const current = conversations.find((c) => c.id === currentId) ?? conversations[0] ?? null;
+
+  useEffect(() => {
+    if (current) {
+      setActiveAgentId(current.agentId);
+    }
+  }, [currentId, current?.agentId]);
 
   const setModelForProvider = useCallback(
     (next: ProviderId) => {
@@ -77,11 +90,25 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
   );
 
   const createConversation = useCallback(() => {
-    const conv = newConversation(current?.agentId);
+    if (!current) {
+      const seed = newConversation(activeAgentId);
+      setConversations([seed]);
+      setCurrentId(seed.id);
+      setError(null);
+      return;
+    }
+
+    if (current.messages.length === 0) {
+      setCurrentId(current.id);
+      setError(null);
+      return;
+    }
+
+    const conv = newConversation(activeAgentId);
     setConversations((prev) => [conv, ...prev]);
     setCurrentId(conv.id);
     setError(null);
-  }, [current?.agentId]);
+  }, [current, currentId, activeAgentId]);
 
   const deleteConversation = useCallback(
     (id: string) => {
@@ -102,9 +129,10 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
   const setAgent = useCallback(
     (agentId: string) => {
       if (!current) return;
-      setConversations((prev) =>
-        prev.map((c) => (c.id === current.id ? { ...c, agentId } : c))
-      );
+      setActiveAgentId(agentId);
+      if (current.messages.length === 0) {
+        setConversations((prev) => prev.map((c) => (c.id === current.id ? { ...c, agentId } : c)));
+      }
     },
     [current]
   );
@@ -117,14 +145,23 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
   const send = useCallback(
     async (text: string) => {
       const value = text.trim();
-      if (!value || !current || status === "streaming") return;
+      if (!value || status === "streaming") return;
       setError(null);
+
+      let activeConversation = current;
+      if (!activeConversation) {
+        activeConversation = conversations[0] ?? newConversation(activeAgentId);
+        if (!conversations.length) {
+          setConversations([activeConversation]);
+        }
+        setCurrentId(activeConversation.id);
+      }
 
       const userMsg: ChatMessage = { id: uid(), role: "user", content: value };
       const assistantMsg: ChatMessage = { id: uid(), role: "assistant", content: "" };
-      const convId = current.id;
-      const agentId = current.agentId;
-      const history = [...current.messages, userMsg];
+      const convId = activeConversation.id;
+      const agentId = activeAgentId;
+      const history = [...activeConversation.messages, userMsg];
 
       setConversations((prev) =>
         prev.map((c) =>
@@ -195,7 +232,7 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
         abortRef.current = null;
       }
     },
-    [current, provider, model, status]
+    [current, conversations, provider, model, status, activeAgentId]
   );
 
   return {
@@ -209,6 +246,7 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
     setProvider: setModelForProvider,
     model,
     setModel,
+    activeAgentId,
     setAgent,
     status,
     error,

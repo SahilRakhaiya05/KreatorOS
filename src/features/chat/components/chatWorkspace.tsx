@@ -19,7 +19,12 @@ export function ChatWorkspace({ catalog }: { catalog: ProviderCatalogEntry[] }) 
   const agentId = chat.current?.agentId ?? "operator";
 
   return (
-    <div className="grid h-[calc(100vh-8.5rem)] grid-cols-1 overflow-hidden rounded-xl border border-border bg-card shadow-soft lg:grid-cols-[16rem_1fr] xl:grid-cols-[16rem_1fr_20rem]">
+    <div
+      className={cn(
+        "grid h-[calc(100vh-8.5rem)] min-h-0 grid-cols-1 overflow-hidden bg-transparent lg:grid-cols-[16rem_minmax(0,1fr)]",
+        showAgent ? "xl:grid-cols-[16rem_minmax(0,1fr)_20rem]" : "xl:grid-cols-[16rem_minmax(0,1fr)]"
+      )}
+    >
       {/* Conversation sidebar */}
       <div className="hidden lg:block">
         <ConversationSidebar
@@ -32,11 +37,11 @@ export function ChatWorkspace({ catalog }: { catalog: ProviderCatalogEntry[] }) 
       </div>
 
       {/* Main column */}
-      <div className="flex min-w-0 flex-col bg-background">
-        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+      <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-background/70 backdrop-blur-sm">
+        <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-2.5 md:px-6 xl:px-8">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{getAgent(agentId).name}</p>
-            <p className="truncate text-xs text-muted-foreground">{chat.current?.title}</p>
+            <p className="truncate text-xs text-muted-foreground">{chat.current?.title ?? "New chat"}</p>
           </div>
           <div className="flex items-center gap-2">
             <ProviderPicker
@@ -65,7 +70,7 @@ export function ChatWorkspace({ catalog }: { catalog: ProviderCatalogEntry[] }) 
           </div>
         ) : null}
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="no-scrollbar min-h-0 overflow-y-auto">
           <ChatThread
             messages={chat.current?.messages ?? []}
             agentId={agentId}
@@ -78,7 +83,7 @@ export function ChatWorkspace({ catalog }: { catalog: ProviderCatalogEntry[] }) 
       </div>
 
       {/* Agent panel */}
-      <div className={cn("hidden", showAgent && "xl:block")}>
+      <div className={cn("hidden min-h-0", showAgent && "xl:block")}>
         <AgentPanel agentId={agentId} onAgentChange={chat.setAgent} onStarter={chat.send} />
       </div>
     </div>

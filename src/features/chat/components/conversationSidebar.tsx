@@ -39,13 +39,15 @@ export function ConversationSidebar({
                 key={conv.id}
                 className={cn(
                   "group flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors",
-                  active ? "bg-card text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                  active
+                    ? "bg-card text-foreground shadow-sm ring-1 ring-border"
+                    : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
                 )}
                 onClick={() => onSelect(conv.id)}
               >
                 <MessageSquare className={cn("h-4 w-4 shrink-0", active ? "text-accent" : "")} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{conv.title}</p>
+                  <p className="truncate font-medium text-foreground">{previewTitle(conv.title)}</p>
                   <p className="truncate text-xs text-muted-foreground">{getAgent(conv.agentId).name}</p>
                 </div>
                 <button
@@ -65,4 +67,12 @@ export function ConversationSidebar({
       </ScrollArea>
     </div>
   );
+}
+
+function previewTitle(title: string, maxWords = 4) {
+  const words = title.trim().split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords) {
+    return title;
+  }
+  return `${words.slice(0, maxWords).join(" ")}...`;
 }
