@@ -5,9 +5,9 @@ export default function Page() {
   return (
     <AppShell role="creator">
       <PageHeader
-        eyebrow="Bio + store builder"
-        title="Design a dynamic public page that sells"
-        description="Each block has real business behavior: checkout, calendar, CRM, brand intake, member gating, workflow triggers, and analytics."
+        eyebrow="Site builder"
+        title="Design your page and preview it live"
+        description="Edit blocks, themes, and layout on the left and watch the public page update in a realistic device preview on the right."
       />
       <BioBuilder />
     </AppShell>

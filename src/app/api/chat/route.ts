@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   const provider = parsed.provider as ProviderId;
   if (!isProviderConfigured(provider)) {
     return Response.json(
-      { error: `${PROVIDERS[provider].label} is unavailable. Add ${PROVIDERS[provider].envKey} to your environment.` },
+      { error: `${PROVIDERS[provider].label} isn't available right now. Try another model.` },
       { status: 400 }
     );
   }

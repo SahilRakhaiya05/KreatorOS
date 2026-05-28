@@ -28,9 +28,8 @@ export function ProviderPicker({
         </SelectTrigger>
         <SelectContent>
           {catalog.map((p) => (
-            <SelectItem key={p.id} value={p.id} disabled={!p.available}>
+            <SelectItem key={p.id} value={p.id}>
               {p.label}
-              {!p.available ? " · no key" : ""}
             </SelectItem>
           ))}
         </SelectContent>

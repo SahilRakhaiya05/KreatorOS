@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { accountTypeOptions } from "../config/accountTypes";
 import type { UserProfile } from "../types";
 import { logoutAction, updatePasswordAction, updateProfileAction, type ActionState } from "../server/actions";
 import { SubmitButton } from "./formStatus";
@@ -43,7 +42,9 @@ export function ProfileSettingsForm({ profile, email }: { profile: UserProfile |
               <Badge variant={profile?.onboarding_completed ? "success" : "warning"}>
                 {profile?.onboarding_completed ? "Onboarded" : "Needs onboarding"}
               </Badge>
-              <Badge variant="secondary">{profile?.account_type ?? "No account type"}</Badge>
+              {typeof preferences.focus === "string" && preferences.focus ? (
+                <Badge variant="secondary">{preferences.focus}</Badge>
+              ) : null}
             </div>
           </div>
 
@@ -59,25 +60,14 @@ export function ProfileSettingsForm({ profile, email }: { profile: UserProfile |
               </div>
             </div>
 
-            <div>
-              <Label className="mb-2 block">Account type</Label>
-              <div className="grid gap-3 md:grid-cols-2">
-                {accountTypeOptions.map((option) => (
-                  <label key={option.value} className="cursor-pointer">
-                    <input
-                      type="radio"
-                      name="accountType"
-                      value={option.value}
-                      defaultChecked={(profile?.account_type ?? "user") === option.value}
-                      className="peer sr-only"
-                    />
-                    <span className="block rounded-xl border border-border bg-card p-4 text-sm transition peer-checked:border-accent peer-checked:bg-accent/5 peer-checked:ring-1 peer-checked:ring-accent">
-                      <span className="font-semibold">{option.label}</span>
-                      <span className="mt-1 block leading-6 text-muted-foreground">{option.description}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="focus">What you do</Label>
+              <Input
+                id="focus"
+                name="focus"
+                defaultValue={typeof preferences.focus === "string" ? preferences.focus : ""}
+                placeholder="e.g. AI productivity mentor, designer, coach"
+              />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">

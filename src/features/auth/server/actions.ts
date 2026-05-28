@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { accountTypeOptions, getDashboardForAccountType, isAccountType } from "../config/accountTypes";
 import { authRoutes } from "../config/authRoutes";
 import { hasSupabaseConfig } from "../../../server/supabase/config";
 import { createSupabaseServerClient } from "../../../server/supabase/serverClient";
@@ -29,16 +28,12 @@ export async function completeOnboardingAction(_previousState: ActionState, form
 
   const fullName = String(formData.get("fullName") ?? "").trim();
   const avatarUrl = String(formData.get("avatarUrl") ?? "").trim();
-  const accountType = String(formData.get("accountType") ?? "");
+  const focus = String(formData.get("focus") ?? "").trim();
   const primaryGoal = String(formData.get("primaryGoal") ?? "").trim();
   const audience = String(formData.get("audience") ?? "").trim();
 
   if (!fullName) {
     return { status: "error", message: "Please enter your name." };
-  }
-
-  if (!isAccountType(accountType)) {
-    return { status: "error", message: `Choose one account type: ${accountTypeOptions.map((option) => option.label).join(", ")}.` };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -56,9 +51,9 @@ export async function completeOnboardingAction(_previousState: ActionState, form
     email: user.email,
     full_name: fullName,
     avatar_url: avatarUrl || null,
-    account_type: accountType,
+    account_type: "creator",
     onboarding_completed: true,
-    preferences: { primaryGoal, audience },
+    preferences: { focus, primaryGoal, audience },
     updated_at: new Date().toISOString(),
   });
 
@@ -67,7 +62,7 @@ export async function completeOnboardingAction(_previousState: ActionState, form
   }
 
   revalidatePath("/");
-  redirect(getDashboardForAccountType(accountType));
+  redirect("/creator");
 }
 
 export async function updateProfileAction(_previousState: ActionState, formData: FormData): Promise<ActionState> {
@@ -76,16 +71,12 @@ export async function updateProfileAction(_previousState: ActionState, formData:
 
   const fullName = String(formData.get("fullName") ?? "").trim();
   const avatarUrl = String(formData.get("avatarUrl") ?? "").trim();
-  const accountType = String(formData.get("accountType") ?? "");
+  const focus = String(formData.get("focus") ?? "").trim();
   const primaryGoal = String(formData.get("primaryGoal") ?? "").trim();
   const audience = String(formData.get("audience") ?? "").trim();
 
   if (!fullName) {
     return { status: "error", message: "Please enter your name." };
-  }
-
-  if (!isAccountType(accountType)) {
-    return { status: "error", message: "Choose a valid account type." };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -102,9 +93,8 @@ export async function updateProfileAction(_previousState: ActionState, formData:
     .update({
       full_name: fullName,
       avatar_url: avatarUrl || null,
-      account_type: accountType,
       onboarding_completed: true,
-      preferences: { primaryGoal, audience },
+      preferences: { focus, primaryGoal, audience },
       updated_at: new Date().toISOString(),
     })
     .eq("id", user.id);

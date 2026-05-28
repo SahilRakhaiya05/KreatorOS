@@ -17,34 +17,71 @@ export const creator = {
   mrr: "$3,280",
 };
 
-export const nav = {
+export type NavItem = { href: string; label: string; icon: typeof LayoutDashboard };
+export type NavGroup = { group: string; items: NavItem[] };
+
+export const nav: Record<"creator" | "brand" | "portal", NavGroup[]> = {
   creator: [
-    { href: "/creator", label: "Command", icon: LayoutDashboard },
-    { href: "/creator/chat", label: "AI Chat", icon: MessageCircle },
-    { href: "/creator/ai-operator", label: "AI Operator", icon: Bot },
-    { href: "/creator/builder", label: "Bio Builder", icon: LinkIcon },
-    { href: "/creator/preview", label: "Preview", icon: Globe2 },
-    { href: "/creator/calendar", label: "Calendar", icon: Calendar },
-    { href: "/creator/store", label: "Store", icon: Store },
-    { href: "/creator/agents", label: "Agents", icon: Sparkles },
-    { href: "/creator/workflows", label: "Workflows", icon: Workflow },
-    { href: "/creator/research-lab", label: "Research Lab", icon: Mic },
-    { href: "/creator/brand-crm", label: "Brand CRM", icon: Handshake },
-    { href: "/creator/analytics", label: "Analytics", icon: BarChart3 },
-    { href: "/creator/settings", label: "Settings", icon: Settings },
+    {
+      group: "Workspace",
+      items: [
+        { href: "/creator", label: "Command", icon: LayoutDashboard },
+        { href: "/creator/chat", label: "AI Operator", icon: Bot },
+      ],
+    },
+    {
+      group: "Build",
+      items: [
+        { href: "/creator/builder", label: "Site Builder", icon: LinkIcon },
+        { href: "/creator/store", label: "Store", icon: Store },
+      ],
+    },
+    {
+      group: "Automate",
+      items: [
+        { href: "/creator/agents", label: "Agents", icon: Sparkles },
+        { href: "/creator/workflows", label: "Workflows", icon: Workflow },
+        { href: "/creator/calendar", label: "Calendar", icon: Calendar },
+      ],
+    },
+    {
+      group: "Grow",
+      items: [
+        { href: "/creator/brand-crm", label: "Brand CRM", icon: Handshake },
+        { href: "/creator/research-lab", label: "Research Lab", icon: Mic },
+        { href: "/creator/analytics", label: "Analytics", icon: BarChart3 },
+      ],
+    },
   ],
   brand: [
-    { href: "/brand", label: "Brand HQ", icon: LayoutDashboard },
-    { href: "/brand/discover", label: "Discover", icon: Users },
-    { href: "/brand/campaigns", label: "Campaigns", icon: ClipboardList },
-    { href: "/brand/collab-room", label: "Collab Room", icon: MessageCircle },
-    { href: "/brand/settings", label: "Settings", icon: Settings },
+    {
+      group: "Workspace",
+      items: [
+        { href: "/brand", label: "Brand HQ", icon: LayoutDashboard },
+        { href: "/brand/discover", label: "Discover", icon: Users },
+      ],
+    },
+    {
+      group: "Campaigns",
+      items: [
+        { href: "/brand/campaigns", label: "Campaigns", icon: ClipboardList },
+        { href: "/brand/collab-room", label: "Collab Room", icon: MessageCircle },
+      ],
+    },
   ],
   portal: [
-    { href: "/portal", label: "My Portal", icon: LayoutDashboard },
-    { href: "/portal/bookings", label: "Bookings", icon: Calendar },
-    { href: "/portal/products", label: "Products", icon: ShoppingBag },
-    { href: "/portal/membership", label: "Membership", icon: LockKeyhole },
+    {
+      group: "Workspace",
+      items: [{ href: "/portal", label: "My Portal", icon: LayoutDashboard }],
+    },
+    {
+      group: "Access",
+      items: [
+        { href: "/portal/bookings", label: "Bookings", icon: Calendar },
+        { href: "/portal/products", label: "Products", icon: ShoppingBag },
+        { href: "/portal/membership", label: "Membership", icon: LockKeyhole },
+      ],
+    },
   ],
 };
 
