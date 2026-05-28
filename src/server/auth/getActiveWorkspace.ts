@@ -26,18 +26,26 @@ export async function getActiveWorkspace(userId: string): Promise<WorkspaceAcces
     return null;
   }
 
-  const activeMembership =
-    data.workspace_members.find((membership) => membership.workspaces?.id === data.active_workspace_id) ??
-    data.workspace_members[0];
+  const resolveWorkspace = (workspaces: any) => {
+    if (Array.isArray(workspaces)) return workspaces[0];
+    return workspaces;
+  };
 
-  if (!activeMembership.workspaces) {
+  const activeMembership =
+    data.workspace_members.find((membership) => {
+      const ws = resolveWorkspace(membership.workspaces);
+      return ws?.id === data.active_workspace_id;
+    }) ?? data.workspace_members[0];
+
+  const ws = resolveWorkspace(activeMembership.workspaces);
+  if (!ws) {
     return null;
   }
 
   return {
-    id: activeMembership.workspaces.id,
-    type: activeMembership.workspaces.type,
-    status: activeMembership.workspaces.status,
+    id: ws.id,
+    type: ws.type,
+    status: ws.status,
     role: activeMembership.role,
   };
 }

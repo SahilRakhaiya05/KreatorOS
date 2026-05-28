@@ -146,10 +146,7 @@ export function AuthPanel() {
       {/* Form panel */}
       <div className="flex items-center justify-center px-4 py-10 sm:px-8 lg:px-14">
         <div className="w-full max-w-md">
-          <Badge variant="accent" className="mb-6 gap-1.5">
-            <Sparkles className="h-3.5 w-3.5" />
-            Supabase Auth
-          </Badge>
+         
           <h1 className="font-display text-4xl font-semibold tracking-tight">{copy.title}</h1>
           <p className="mt-3 text-sm text-muted-foreground">{copy.text}</p>
 

@@ -140,6 +140,18 @@ export const paymentService = {
             .eq("id", offerId)
             .maybeSingle();
 
+          let expiresAt: string | undefined;
+
+          // If session is a subscription, get subscription information to populate access grant bounds
+          if (session.mode === "subscription" && session.subscription) {
+            try {
+              const subObj = await stripe.subscriptions.retrieve(session.subscription as string);
+              expiresAt = new Date((subObj as any).current_period_end * 1000).toISOString();
+            } catch {
+              // Ignore failure
+            }
+          }
+
           await createAccessGrant({
             workspaceId,
             customerId: order.customer_id,
@@ -148,9 +160,30 @@ export const paymentService = {
             metadata: {
               order_id: orderId,
               stripe_session_id: session.id,
+              stripe_subscription_id: session.subscription as string || undefined,
               reason: "stripe_payment_completed",
             },
           });
+
+          // If expires_at was resolved, update the created access grant with expiration boundary
+          if (expiresAt) {
+            const { data: createdGrant } = await supabase
+              .from("access_grants")
+              .select("id")
+              .eq("customer_id", order.customer_id)
+              .eq("offer_id", offerId)
+              .eq("status", "active")
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (createdGrant) {
+              await supabase
+                .from("access_grants")
+                .update({ expires_at: expiresAt })
+                .eq("id", createdGrant.id);
+            }
+          }
 
           // Confirm the booking automatically if bookingId is in metadata
           const bookingId = metadata.bookingId as string | undefined;
@@ -183,6 +216,108 @@ export const paymentService = {
           targetId: orderId,
           after: { stripeSessionId: session.id },
         });
+      } else if (event.type === "invoice.payment_succeeded") {
+        const invoice = event.data.object as any;
+        if (invoice && invoice.subscription) {
+          const supabase = await getServiceClient();
+          const { data: grants } = await supabase
+            .from("access_grants")
+            .select("*")
+            .eq("status", "active");
+
+          const matchingGrant = (grants ?? []).find(
+            (g) => (g.metadata as any)?.stripe_subscription_id === invoice.subscription
+          );
+
+          if (matchingGrant) {
+            try {
+              const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
+              const expiresAt = new Date((subscription as any).current_period_end * 1000).toISOString();
+
+              const updatedMetadata = {
+                ...((matchingGrant.metadata as Record<string, unknown>) || {}),
+                last_invoice_paid_at: new Date().toISOString(),
+                stripe_invoice_id: invoice.id,
+              };
+
+              await supabase
+                .from("access_grants")
+                .update({
+                  expires_at: expiresAt,
+                  metadata: updatedMetadata,
+                })
+                .eq("id", matchingGrant.id);
+
+              await emitEvent({
+                type: "membership.renewed",
+                workspaceId: matchingGrant.workspace_id,
+                actorType: "system",
+                payload: { subscriptionId: invoice.subscription, accessGrantId: matchingGrant.id },
+                idempotencyKey: `sub_renewed:${invoice.id}`,
+              });
+
+              await writeAuditLog({
+                workspaceId: matchingGrant.workspace_id,
+                actorType: "system",
+                action: "membership.renewed",
+                targetType: "access_grant",
+                targetId: matchingGrant.id,
+                after: { expiresAt, invoiceId: invoice.id },
+              });
+            } catch {
+              // Fail silently in development
+            }
+          }
+        }
+      } else if (event.type === "customer.subscription.deleted" || event.type === "customer.subscription.updated") {
+        const subscription = event.data.object as any;
+        const status = subscription?.status as string;
+        const shouldRevoke = event.type === "customer.subscription.deleted" || 
+          status === "unpaid" || 
+          status === "canceled";
+
+        if (shouldRevoke && subscription && subscription.id) {
+          const supabase = await getServiceClient();
+          const { data: grants } = await supabase
+            .from("access_grants")
+            .select("*")
+            .eq("status", "active");
+
+          const matchingGrant = (grants ?? []).find(
+            (g) => (g.metadata as any)?.stripe_subscription_id === subscription.id
+          );
+
+          if (matchingGrant) {
+            await supabase
+              .from("access_grants")
+              .update({
+                status: "expired",
+                metadata: {
+                  ...((matchingGrant.metadata as Record<string, unknown>) || {}),
+                  revoked_at: new Date().toISOString(),
+                  stripe_subscription_status: status,
+                },
+              })
+              .eq("id", matchingGrant.id);
+
+            await emitEvent({
+              type: "membership.revoked",
+              workspaceId: matchingGrant.workspace_id,
+              actorType: "system",
+              payload: { subscriptionId: subscription.id, accessGrantId: matchingGrant.id, status },
+              idempotencyKey: `sub_revoked:${subscription.id}:${new Date().getTime()}`,
+            });
+
+            await writeAuditLog({
+              workspaceId: matchingGrant.workspace_id,
+              actorType: "system",
+              action: "membership.revoked",
+              targetType: "access_grant",
+              targetId: matchingGrant.id,
+              after: { status },
+            });
+          }
+        }
       }
 
       return { ok: true };

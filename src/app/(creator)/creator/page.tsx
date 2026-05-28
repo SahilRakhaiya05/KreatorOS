@@ -9,18 +9,14 @@ import { requireUser } from "@/server/profile/profileService";
 import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
 
-const approvals = [
-  "Publish $19 async audit offer",
-  "Send brand proposal to NotionFlow",
-  "Enable WhatsApp reminder template",
-  "Run customer research interview batch",
-];
+import { ApprovalQueueDashboard } from "@/features/agents/components/approvalQueueDashboard";
 
 export default async function CreatorCommand() {
   const { user, profile } = await requireUser();
   const workspace = await getActiveWorkspace(user.id);
   const displayName = profile?.full_name || user.email?.split("@")[0] || "creator";
   const supabase = await createSupabaseServerClient();
+  
   const { data: offers } = workspace
     ? await supabase
         .from("offers")
@@ -31,11 +27,60 @@ export default async function CreatorCommand() {
   const workspaceOffers = offers ?? [];
   const productOffers = workspaceOffers.filter((offer) => offer.type === "product" || offer.type === "course" || offer.type === "membership");
   const bookingOffers = workspaceOffers.filter((offer) => offer.type === "booking" || offer.type === "service");
+
+  // 1. Calculate Real Revenue
+  const { data: paidOrders } = workspace
+    ? await supabase
+        .from("orders")
+        .select("amount_cents")
+        .eq("workspace_id", workspace.id)
+        .eq("status", "paid")
+    : { data: [] };
+  const totalRevenue = (paidOrders || []).reduce((sum, o) => sum + o.amount_cents, 0) / 100;
+
+  // 2. Customer count
+  const { count: customerCount } = workspace
+    ? await supabase
+        .from("customers")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspace.id)
+    : { count: 0 };
+
+  // 3. Brand campaigns pipeline budget
+  const { data: campaigns } = workspace
+    ? await supabase
+        .from("brand_campaigns")
+        .select("budget_cents")
+        .eq("brand_workspace_id", workspace.id)
+    : { data: [] };
+  const brandPipeline = (campaigns || []).reduce((sum, c) => sum + (c.budget_cents || 0), 0) / 100;
+
+  // 4. Pending AI suggestions
+  const { data: dbSuggestions } = workspace
+    ? await supabase
+        .from("ai_suggestions")
+        .select("id, title, risk_level, status")
+        .eq("workspace_id", workspace.id)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+    : { data: [] };
+  const pendingSuggestions = dbSuggestions || [];
+
   const dashboardStats = [
-    { label: "Revenue", value: "$0", change: "real data", icon: CreditCard },
+    {
+      label: "Revenue",
+      value: new Intl.NumberFormat("en", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(totalRevenue),
+      change: "real-time",
+      icon: CreditCard
+    },
     { label: "Booking offers", value: String(bookingOffers.length), change: "workspace", icon: Calendar },
-    { label: "Customers", value: "0", change: "workspace", icon: Users },
-    { label: "Brand pipeline", value: "$0", change: "workspace", icon: Handshake },
+    { label: "Customers", value: String(customerCount || 0), change: "contacts", icon: Users },
+    {
+      label: "Brand pipeline",
+      value: new Intl.NumberFormat("en", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(brandPipeline),
+      change: "collabs",
+      icon: Handshake
+    },
   ];
 
   return (
@@ -79,20 +124,10 @@ export default async function CreatorCommand() {
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle>Approval queue</CardTitle>
-            <Badge variant="warning">{approvals.length} waiting</Badge>
+            <Badge variant="warning">{pendingSuggestions.length} waiting</Badge>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="divide-y divide-border">
-              {approvals.map((item) => (
-                <div key={item} className="flex items-center justify-between gap-4 py-3.5">
-                  <p className="text-sm font-medium">{item}</p>
-                  <div className="flex shrink-0 gap-2">
-                    <Button size="sm" variant="ghost">Dismiss</Button>
-                    <Button size="sm"><Check className="h-3.5 w-3.5" /> Approve</Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ApprovalQueueDashboard initialSuggestions={pendingSuggestions} />
           </CardContent>
         </Card>
 

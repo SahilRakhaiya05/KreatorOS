@@ -49,6 +49,87 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       await supabase.from("creator_page_blocks").update(update).eq("id", operation.blockId).eq("page_id", operation.pageId);
       applied.push({ op: operation.op, pageId: operation.pageId, blockId: operation.blockId });
     }
+
+    if (operation.op === "create_offer") {
+      const { type, title, priceCents, description, slug, config } = operation as any;
+      const { data: offer, error: offerError } = await supabase
+        .from("offers")
+        .insert({
+          workspace_id: suggestion.workspace_id,
+          page_id: suggestion.page_id,
+          type,
+          title,
+          slug,
+          description,
+          price_cents: priceCents,
+          config: config || {},
+          status: "published",
+        })
+        .select("*")
+        .single();
+      
+      if (offerError) return apiError("create_offer_failed", offerError.message, 400);
+
+      let blockType = "link";
+      if (type === "booking") blockType = "calendar";
+      else if (type === "product") blockType = "product";
+      else if (type === "membership") blockType = "membership";
+      else if (type === "lead_magnet") blockType = "lead_magnet";
+
+      const { count } = await supabase
+        .from("creator_page_blocks")
+        .select("id", { count: "exact", head: true })
+        .eq("page_id", suggestion.page_id || "");
+
+      const { error: blockError } = await supabase
+        .from("creator_page_blocks")
+        .insert({
+          page_id: suggestion.page_id,
+          type: blockType,
+          title,
+          subtitle: description || "",
+          status: "live",
+          sort_order: (count || 0) + 1,
+          metadata: { offer_id: offer.id },
+        });
+
+      if (blockError) return apiError("create_block_failed", blockError.message, 400);
+      applied.push({ op: operation.op, offerId: offer.id });
+    }
+
+    if (operation.op === "create_block") {
+      const { blockType, title, subtitle, url, metadata } = operation as any;
+      const { count } = await supabase
+        .from("creator_page_blocks")
+        .select("id", { count: "exact", head: true })
+        .eq("page_id", suggestion.page_id || "");
+
+      const { error: blockError } = await supabase
+        .from("creator_page_blocks")
+        .insert({
+          page_id: suggestion.page_id,
+          type: blockType || "link",
+          title,
+          subtitle: subtitle || "",
+          url: url || "",
+          status: "live",
+          sort_order: (count || 0) + 1,
+          metadata: metadata || {},
+        });
+
+      if (blockError) return apiError("create_block_failed", blockError.message, 400);
+      applied.push({ op: operation.op, title });
+    }
+
+    if (operation.op === "delete_block" && operation.blockId) {
+      const { error: deleteError } = await supabase
+        .from("creator_page_blocks")
+        .delete()
+        .eq("id", operation.blockId);
+
+      if (deleteError) return apiError("delete_block_failed", deleteError.message, 400);
+      applied.push({ op: operation.op, blockId: operation.blockId });
+    }
   }
 
   const { data: updatedSuggestion } = await supabase

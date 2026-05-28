@@ -1,32 +1,80 @@
 import { AppShell, PageHeader } from "@/components/layout/appShell";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { getSession } from "@/server/auth/getSession";
+import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
+import { createSupabaseServerClient } from "@/server/supabase/serverClient";
+import { ProductList } from "@/features/portal/components/productList";
+import { redirect } from "next/navigation";
 
-const owned = ["Creator AI Templates", "Prompt Vault Pro", "Business Audit Bundle"];
+export const runtime = "nodejs";
 
-export default function PortalProducts() {
+export default async function PortalProducts() {
+  const { user } = await getSession();
+  if (!user || !user.email) {
+    redirect("/login?next=/portal/products");
+  }
+
+  const workspace = await getActiveWorkspace(user.id);
+  if (!workspace) {
+    redirect("/unauthorized?next=/portal/products");
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  // 1. Fetch customer matching this email in the active workspace
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("workspace_id", workspace.id)
+    .eq("email", user.email.trim().toLowerCase())
+    .maybeSingle();
+
+  let products: any[] = [];
+  let customerId = "";
+
+  if (customer) {
+    customerId = customer.id;
+
+    // 2. Fetch active access grants for this customer
+    const { data: grants } = await supabase
+      .from("access_grants")
+      .select("offer_id, expires_at")
+      .eq("workspace_id", workspace.id)
+      .eq("customer_id", customer.id)
+      .eq("status", "active");
+
+    const activeGrants = (grants ?? []).filter((grant) => {
+      if (grant.expires_at && new Date(grant.expires_at) <= new Date()) {
+        return false;
+      }
+      return true;
+    });
+
+    const offerIds = activeGrants.map((g) => g.offer_id).filter(Boolean);
+
+    // 3. Query the products corresponding to the active offers
+    if (offerIds.length > 0) {
+      const { data: dbProducts } = await supabase
+        .from("products")
+        .select("id, title, description, file_url, offer_id")
+        .eq("workspace_id", workspace.id)
+        .in("offer_id", offerIds);
+      products = dbProducts ?? [];
+    }
+  }
+
   return (
     <AppShell role="portal">
       <PageHeader
         eyebrow="My products"
         title="Purchased files, templates, bundles, and receipts"
+        description="Access and download secure assets delivered to your portal account immediately after purchase."
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {owned.map((x) => (
-          <Card key={x} className="flex flex-col transition hover:shadow-soft">
-            <CardHeader className="space-y-0 pb-2">
-              <Badge variant="success" className="w-fit">Owned</Badge>
-              <CardTitle className="pt-3 text-lg">{x}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1" />
-            <CardFooter>
-              <Button className="w-full">Open</Button>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+      <ProductList
+        workspaceId={workspace.id}
+        customerId={customerId}
+        initialProducts={products}
+      />
     </AppShell>
   );
 }

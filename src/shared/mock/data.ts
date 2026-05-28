@@ -73,6 +73,7 @@ export const nav: Record<"creator" | "brand" | "portal", NavGroup[]> = {
       group: "Build",
       items: [
         { href: "/creator/builder", label: "Site Builder", icon: LinkIcon },
+        { href: "/creator/link", label: "Smart Link", icon: Rocket },
         { href: "/creator/store", label: "Store", icon: Store },
       ],
     },

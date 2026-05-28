@@ -1,0 +1,201 @@
+import { notFound } from "next/navigation";
+
+import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
+import type { WorkspaceAccessRecord } from "@/server/auth/routeAccess";
+import { requireUser } from "@/server/profile/profileService";
+import { createSupabaseServerClient } from "@/server/supabase/serverClient";
+import { createWorkspaceForUser } from "@/server/workspaces/workspaceService";
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48) || "creator";
+}
+
+async function uniquePageSlug(base: string, userId: string, workspaceId: string) {
+  const supabase = await createSupabaseServerClient();
+  const clean = slugify(base);
+  const candidates = [
+    clean,
+    `${clean}-${userId.slice(0, 6)}`,
+    `${clean}-${workspaceId.slice(0, 6)}`,
+    `${clean}-${crypto.randomUUID().slice(0, 6)}`,
+  ];
+
+  const { data } = await supabase
+    .from("creator_pages")
+    .select("slug,username")
+    .or(candidates.flatMap((candidate) => [`slug.eq.${candidate}`, `username.eq.${candidate}`]).join(","));
+
+  const used = new Set((data ?? []).flatMap((row) => [row.slug, row.username].filter(Boolean)));
+  return candidates.find((candidate) => !used.has(candidate)) ?? `${clean}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+export function formatMoney(cents = 0, currency = "usd") {
+  return new Intl.NumberFormat("en", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
+}
+
+export async function getCreatorLinkWorkspace() {
+  const { user, profile } = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const displayName = profile?.full_name || user.email?.split("@")[0] || "Creator";
+  const usernameBase = slugify(profile?.full_name || user.email || user.id);
+  let workspace = await getActiveWorkspace(user.id);
+
+  if (!workspace) {
+    const created = await createWorkspaceForUser({
+      userId: user.id,
+      name: `${displayName} Workspace`,
+      type: "creator",
+      avatarUrl: profile?.avatar_url ?? null,
+    });
+
+    if (!created.ok) {
+      throw new Error(created.error.message);
+    }
+
+    workspace = {
+      id: created.workspace.id,
+      type: created.workspace.type,
+      status: created.workspace.status,
+      role: "owner",
+    } satisfies WorkspaceAccessRecord;
+  }
+
+  let { data: page } = await supabase
+    .from("creator_pages")
+    .select("*")
+    .eq("workspace_id", workspace.id)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (!page) {
+    const uniqueUsername = await uniquePageSlug(usernameBase, user.id, workspace.id);
+    const { data: createdPage, error } = await supabase
+      .from("creator_pages")
+      .insert({
+        workspace_id: workspace.id,
+        owner_id: user.id,
+        slug: uniqueUsername,
+        username: uniqueUsername,
+        display_name: displayName,
+        handle: `@${uniqueUsername}`,
+        headline: "Smart Link storefront",
+        bio: "",
+        avatar_url: profile?.avatar_url ?? null,
+        status: "draft",
+        is_published: false,
+        setup_progress: 12,
+        theme: { mode: "dark", accent: "coral", panel: "glass" },
+        seo: { title: displayName, description: "Shop products, links, and creator updates." },
+      })
+      .select("*")
+      .single();
+
+    if (error) throw new Error(error.message);
+    page = createdPage;
+  }
+
+  const [
+    socialLinks,
+    customLinks,
+    gallery,
+    contact,
+    products,
+    offers,
+    affiliateLinks,
+    referralProgram,
+    assistant,
+    orders,
+    analytics,
+  ] = await Promise.all([
+    supabase.from("creator_social_links").select("*").eq("page_id", page.id).order("sort_order", { ascending: true }),
+    supabase.from("custom_links").select("*").eq("page_id", page.id).order("sort_order", { ascending: true }),
+    supabase.from("photo_gallery_items").select("*").eq("page_id", page.id).order("sort_order", { ascending: true }),
+    supabase.from("contact_information").select("*").eq("page_id", page.id).maybeSingle(),
+    supabase.from("digital_products").select("*").eq("page_id", page.id).order("created_at", { ascending: false }),
+    supabase.from("offers").select("*").eq("workspace_id", workspace.id).order("created_at", { ascending: false }),
+    supabase.from("affiliate_links").select("*").eq("page_id", page.id).order("created_at", { ascending: false }),
+    supabase.from("referral_programs").select("*").eq("page_id", page.id).maybeSingle(),
+    supabase.from("creator_ai_assistants").select("*").eq("page_id", page.id).maybeSingle(),
+    supabase.from("orders").select("*").eq("workspace_id", workspace.id).order("created_at", { ascending: false }).limit(25),
+    supabase.from("analytics_events").select("*").eq("workspace_id", workspace.id).order("created_at", { ascending: false }).limit(250),
+  ]);
+
+  const paidOrders = (orders.data ?? []).filter((order) => order.status === "paid");
+  const pendingOrders = (orders.data ?? []).filter((order) => order.status === "pending");
+  const revenueCents = paidOrders.reduce((sum, order) => sum + Number(order.amount_cents ?? 0), 0);
+  const pendingCents = pendingOrders.reduce((sum, order) => sum + Number(order.amount_cents ?? 0), 0);
+
+  return {
+    workspace,
+    page,
+    socialLinks: socialLinks.data ?? [],
+    customLinks: customLinks.data ?? [],
+    gallery: gallery.data ?? [],
+    contact: contact.data ?? null,
+    products: products.data ?? [],
+    offers: offers.data ?? [],
+    affiliateLinks: affiliateLinks.data ?? [],
+    referralProgram: referralProgram.data ?? null,
+    assistant: assistant.data ?? null,
+    orders: orders.data ?? [],
+    analyticsEvents: analytics.data ?? [],
+    wallet: {
+      revenueCents,
+      pendingCents,
+      paidOrders: paidOrders.length,
+      pendingOrders: pendingOrders.length,
+      refundsCents: (orders.data ?? [])
+        .filter((order) => order.status === "refunded")
+        .reduce((sum, order) => sum + Number(order.amount_cents ?? 0), 0),
+    },
+  };
+}
+
+export async function getPublicLinkPage(slug: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data: page } = await supabase
+    .from("creator_pages")
+    .select("*")
+    .or(`slug.eq.${slug},username.eq.${slug}`)
+    .or("status.eq.published,is_published.eq.true")
+    .maybeSingle();
+
+  if (!page) notFound();
+
+  const [socialLinks, customLinks, gallery, contact, products, affiliateLinks, referralProgram, assistant] = await Promise.all([
+    supabase.from("creator_social_links").select("*").eq("page_id", page.id).eq("is_visible", true).order("sort_order", { ascending: true }),
+    supabase.from("custom_links").select("*").eq("page_id", page.id).eq("is_visible", true).order("sort_order", { ascending: true }),
+    supabase.from("photo_gallery_items").select("*").eq("page_id", page.id).order("sort_order", { ascending: true }),
+    supabase.from("contact_information").select("*").eq("page_id", page.id).maybeSingle(),
+    supabase
+      .from("digital_products")
+      .select("*")
+      .eq("page_id", page.id)
+      .eq("status", "published")
+      .order("created_at", { ascending: false }),
+    supabase.from("affiliate_links").select("*").eq("page_id", page.id).eq("status", "active").eq("show_on_bio", true),
+    supabase.from("referral_programs").select("*").eq("page_id", page.id).eq("status", "active").maybeSingle(),
+    supabase.from("creator_ai_assistants").select("*").eq("page_id", page.id).eq("status", "active").maybeSingle(),
+  ]);
+
+  return {
+    page,
+    socialLinks: socialLinks.data ?? [],
+    customLinks: customLinks.data ?? [],
+    gallery: gallery.data ?? [],
+    contact: contact.data ?? null,
+    products: products.data ?? [],
+    affiliateLinks: affiliateLinks.data ?? [],
+    referralProgram: referralProgram.data ?? null,
+    assistant: assistant.data ?? null,
+  };
+}

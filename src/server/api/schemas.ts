@@ -234,3 +234,122 @@ export const couponCreateSchema = z.object({
   discountValue: z.number().int().min(0),
   expiresAt: z.string().datetime().optional(),
 });
+
+export const linkPageProfileSchema = z.object({
+  workspaceId: z.string().uuid(),
+  pageId: z.string().uuid(),
+  displayName: z.string().min(1),
+  username: z.string().min(1).regex(/^[a-z0-9-]+$/),
+  headline: z.string().optional(),
+  bio: z.string().optional(),
+  avatarUrl: z.string().url().optional().or(z.literal("")),
+  backgroundImageUrl: z.string().url().optional().or(z.literal("")),
+  occupationType: z.enum(["personal", "creator", "brand", "business", "agency", "community"]).default("creator"),
+  totalFollowers: z.coerce.number().int().min(0).optional(),
+  status: z.enum(["draft", "published", "paused"]).optional(),
+});
+
+export const linkSocialLinkSchema = z.object({
+  workspaceId: z.string().uuid(),
+  pageId: z.string().uuid(),
+  platform: z.string().min(1),
+  url: z.string().url(),
+  label: z.string().optional(),
+  category: z.string().optional(),
+  icon: z.string().optional(),
+  isVisible: z.boolean().default(true),
+});
+
+export const linkCustomLinkSchema = z.object({
+  workspaceId: z.string().uuid(),
+  pageId: z.string().uuid(),
+  title: z.string().min(1),
+  url: z.string().url(),
+  description: z.string().optional(),
+  imageUrl: z.string().url().optional().or(z.literal("")),
+  icon: z.string().optional(),
+  isVisible: z.boolean().default(true),
+});
+
+export const linkContactSchema = z.object({
+  workspaceId: z.string().uuid(),
+  pageId: z.string().uuid(),
+  email: z.string().email().optional().or(z.literal("")),
+  phone: z.string().optional(),
+  website: z.string().url().optional().or(z.literal("")),
+  address: z.string().optional(),
+  showEmail: z.boolean().default(true),
+  showPhone: z.boolean().default(false),
+  showWebsite: z.boolean().default(true),
+  showAddress: z.boolean().default(false),
+});
+
+export const linkProductSchema = z.object({
+  workspaceId: z.string().uuid(),
+  pageId: z.string().uuid(),
+  title: z.string().min(1),
+  description: z.string().optional(),
+  priceCents: z.coerce.number().int().min(0),
+  currency: z.string().min(3).max(3).default("usd"),
+  coverImageUrl: z.string().url().optional().or(z.literal("")),
+  filePath: z.string().optional(),
+  externalDeliveryUrl: z.string().url().optional().or(z.literal("")),
+  showOnBio: z.boolean().default(true),
+  showOnShop: z.boolean().default(true),
+  status: z.enum(["draft", "published", "paused", "archived"]).default("draft"),
+});
+
+export const linkAffiliateSchema = z.object({
+  workspaceId: z.string().uuid(),
+  pageId: z.string().uuid(),
+  title: z.string().min(1),
+  destinationUrl: z.string().url(),
+  affiliateCode: z.string().optional(),
+  network: z.string().optional(),
+  commissionNote: z.string().optional(),
+  showOnBio: z.boolean().default(true),
+});
+
+export const linkReferralProgramSchema = z.object({
+  workspaceId: z.string().uuid(),
+  pageId: z.string().uuid(),
+  title: z.string().min(1),
+  description: z.string().optional(),
+  rewardType: z.string().optional(),
+  rewardValue: z.string().optional(),
+  terms: z.string().optional(),
+  status: z.enum(["draft", "active", "paused", "archived"]).default("draft"),
+});
+
+export const linkTrackSchema = z.object({
+  workspaceId: z.string().uuid().optional(),
+  pageId: z.string().uuid().optional(),
+  eventType: z.string().min(1),
+  visitorId: z.string().optional(),
+  refType: z.string().optional(),
+  refId: z.string().uuid().optional(),
+  source: z.string().optional(),
+  medium: z.string().optional(),
+  campaign: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).default({}),
+});
+
+export const linkAiActionSchema = z.object({
+  workspaceId: z.string().uuid(),
+  pageId: z.string().uuid(),
+  action: z.enum([
+    "generate_bio",
+    "improve_bio",
+    "product_description",
+    "pricing_suggestion",
+    "product_ideas",
+    "page_sections",
+    "improve_cta",
+    "affiliate_disclosure",
+    "brand_inquiry_copy",
+    "seo_metadata",
+    "conversion_review",
+  ]),
+  prompt: z.string().optional(),
+  context: z.record(z.string(), z.unknown()).default({}),
+});
