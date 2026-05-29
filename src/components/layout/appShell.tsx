@@ -126,8 +126,8 @@ function Brand({ role, collapsed }: { role: Role; collapsed: boolean }) {
   const meta = roleMeta[role];
   return (
     <Link href={`/${role === "creator" ? "creator" : role}`} className="flex items-center gap-3 px-1">
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-        <Sparkles className="h-5 w-5" />
+      <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-background border border-border shadow-sm">
+        <img src="/logo.png" alt="KreatorOS Logo" className="h-full w-full object-cover" />
       </div>
       {!collapsed && (
         <div className="leading-tight">

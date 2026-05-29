@@ -859,8 +859,8 @@ export default function KreatorOSV2() {
       }}>
         <nav style={{ maxWidth: 1200, margin: "0 auto", padding: "0 40px", height: 72, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <a href="#" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-            <div style={{ width: 34, height: 34, background: "#0f172a", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ color: "#ffffff", fontSize: 16, fontWeight: 800, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>K</span>
+            <div style={{ width: 34, height: 34, borderRadius: 10, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(15,23,42,0.08)" }}>
+              <img src="/logo.png" alt="KreatorOS Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
             <span className="display-font" style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", letterSpacing: -0.5 }}>KreatorOS</span>
           </a>
@@ -1242,8 +1242,8 @@ export default function KreatorOSV2() {
       <footer style={{ borderTop: "1px solid #f1f5f9" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 40px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 28, height: 28, background: "#0f172a", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ color: "#ffffff", fontSize: 13, fontWeight: 800, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>K</span>
+            <div style={{ width: 28, height: 28, borderRadius: 8, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(15,23,42,0.08)" }}>
+              <img src="/logo.png" alt="KreatorOS Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
             <span className="display-font" style={{ fontSize: 17, fontWeight: 700 }}>KreatorOS</span>
           </div>
