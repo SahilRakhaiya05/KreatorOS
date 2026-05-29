@@ -185,21 +185,7 @@ function LogoMark() {
   );
 }
 
-function StoreBadge({ type }: { type: "apple" | "google" | "web" }) {
-  const label = type === "apple" ? "App Store" : type === "google" ? "Google Play" : "Web App";
-  const sub = type === "web" ? "Open" : "Download on";
-  const icon = type === "apple" ? "" : type === "google" ? "▶" : "↗";
 
-  return (
-    <button className="store-badge" onClick={(event) => event.preventDefault()} type="button">
-      <span className="store-icon" aria-hidden="true">{icon}</span>
-      <span>
-        <small>{sub}</small>
-        <strong>{label}</strong>
-      </span>
-    </button>
-  );
-}
 
 function Cityscape3D() {
   return (
@@ -817,27 +803,7 @@ export default function KreatorOSV2() {
           font-weight: 650;
         }
         .hero-ctas { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-bottom: 22px; }
-        .hero-badges { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
-        .store-badge {
-          height: 48px;
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          border: 1px solid rgba(21, 21, 25, 0.12);
-          background: rgba(255,255,255,0.74);
-          border-radius: 999px;
-          padding: 0 15px 0 12px;
-          color: var(--ink);
-          cursor: pointer;
-          box-shadow: 0 10px 24px rgba(21,21,25,0.06);
-          backdrop-filter: blur(12px);
-          transition: transform .22s ease, box-shadow .22s ease;
-        }
-        .store-badge:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 16px 34px rgba(21,21,25,0.1); }
-        .store-icon { width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: white; display: grid; place-items: center; font-weight: 900; font-size: 13px; }
-        .store-badge small, .store-badge strong { display: block; text-align: left; line-height: 1.05; }
-        .store-badge small { font-size: 10px; color: var(--muted); font-weight: 800; }
-        .store-badge strong { font-size: 13px; font-weight: 900; }
+
 
         .device-stage { position: absolute; inset: auto 0 0; height: 590px; transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transform-style: preserve-3d; transition: transform .16s ease-out; }
         .cityscape-3d { position: absolute; inset: auto 0 0; width: 100%; height: 570px; object-fit: cover; transform: translateZ(-60px) scale(1.05); }
@@ -1061,18 +1027,85 @@ export default function KreatorOSV2() {
         .download-section { padding: 32px 24px 104px; }
         .download-panel { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: .7fr 1.3fr; gap: 36px; align-items: center; border-radius: 44px; padding: 48px; background: radial-gradient(circle at 15% 20%, rgba(155,212,102,.28), transparent 30%), linear-gradient(135deg, #151519, #2a2f38); color: white; overflow: hidden; position: relative; box-shadow: 0 36px 90px rgba(21,21,25,.25); }
         .download-panel::after { content: ''; position: absolute; right: -120px; top: -120px; width: 360px; height: 360px; border-radius: 50%; background: rgba(92,124,250,.2); filter: blur(10px); }
-        .qr-card { position: relative; z-index: 1; width: 286px; aspect-ratio: 1; border-radius: 34px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); display: grid; place-items: center; align-content: center; gap: 16px; box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 26px 50px rgba(0,0,0,.22); transform: perspective(800px) rotateY(12deg) rotateX(5deg); }
-        .qr-grid { width: 150px; height: 150px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 10px; border-radius: 22px; background: white; }
-        .qr-grid span { border-radius: 5px; background: var(--ink); opacity: .12; }
-        .qr-grid span:nth-child(2n), .qr-grid span:nth-child(5n), .qr-grid span:nth-child(9n) { opacity: .95; }
-        .qr-card p { margin: 0; color: rgba(255,255,255,.72); font-weight: 850; }
+        .operator-card {
+          position: relative;
+          z-index: 1;
+          width: 286px;
+          height: 286px;
+          border-radius: 34px;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 28px 56px rgba(0, 0, 0, 0.3);
+          transform: perspective(800px) rotateY(12deg) rotateX(5deg);
+          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        }
+        .operator-card-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 11px;
+          font-weight: 900;
+          color: rgba(255, 255, 255, 0.6);
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+        }
+        .live-status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: var(--grass);
+          box-shadow: 0 0 8px var(--grass);
+          animation: pulse 1.8s infinite;
+        }
+        .operator-card-body {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin: auto 0;
+        }
+        .mock-command {
+          background: rgba(0, 0, 0, 0.4);
+          border-radius: 14px;
+          padding: 12px 14px;
+          font-family: monospace;
+          font-size: 11px;
+          color: #dff3b8;
+          display: flex;
+          align-items: flex-start;
+          gap: 6px;
+          line-height: 1.4;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .prompt-sym {
+          color: var(--grass);
+          font-weight: bold;
+        }
+        .mock-badge-row {
+          display: flex;
+          gap: 8px;
+        }
+        .mock-badge {
+          font-size: 9px;
+          font-weight: 850;
+          padding: 5px 10px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.1);
+          color: rgba(255, 255, 255, 0.8);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .operator-card .btn {
+          width: 100%;
+          min-height: 40px;
+          font-size: 12px;
+          border-radius: 999px;
+          box-shadow: 0 10px 20px rgba(155, 212, 102, 0.2);
+        }
         .download-copy { position: relative; z-index: 1; }
         .download-copy h2 { color: white; margin-top: 0; max-width: 690px; }
-        .download-copy p { color: rgba(255,255,255,.68); max-width: 680px; margin-top: 20px; }
-        .dark-badges { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 28px; }
-        .dark-badges .store-badge { background: rgba(255,255,255,.08); color: #fff; border-color: rgba(255,255,255,.14); }
-        .dark-badges .store-badge small { color: rgba(255,255,255,.56); }
-        .dark-badges .store-icon { background: #fff; color: var(--ink); }
+        .download-copy p { color: rgba(255, 255, 255, 0.68); max-width: 680px; margin-top: 20px; }
 
         .subscription-proof { margin: -16px 0 58px; position: relative; z-index: 1; }
         .subscription-proof-inner { display: grid; grid-template-columns: .9fr 1.1fr; gap: 24px; align-items: stretch; border-radius: 38px; padding: 30px; background: linear-gradient(135deg, rgba(21,21,25,.95), rgba(43,48,56,.92)); color: white; box-shadow: 0 28px 70px rgba(21,21,25,.2); overflow: hidden; }
@@ -1172,7 +1205,7 @@ export default function KreatorOSV2() {
           .feature-grid, .pricing-grid, .security-grid { grid-template-columns: repeat(2, 1fr); }
           .subscription-proof-inner { grid-template-columns: 1fr; }
           .overview-layout, .download-panel { grid-template-columns: 1fr; }
-          .qr-card { width: 100%; max-width: 320px; }
+          .operator-card { width: 100%; max-width: 320px; }
           .footer-inner { grid-template-columns: 1fr 1fr; }
           .phone-float { right: calc(50% - 340px); transform: translateZ(240px) rotateY(-15deg) rotateZ(2deg) scale(.9); }
           .revenue-card { left: calc(50% - 430px); }
@@ -1202,7 +1235,6 @@ export default function KreatorOSV2() {
           .hero-copy h1 { font-size: clamp(42px, 14vw, 64px); }
           .hero-copy p { font-size: 15px; }
           .hero-ctas { flex-direction: column; align-items: stretch; max-width: 310px; margin-left: auto; margin-right: auto; }
-          .hero-badges { display: none; }
           .device-stage { height: 430px; }
           .device-layer { inset: 142px 0 0; }
           .laptop-wrap { width: 95vw; }
@@ -1225,8 +1257,7 @@ export default function KreatorOSV2() {
           .chart-box { height: 160px; padding: 14px; }
           .download-section, .final-cta { padding-left: 18px; padding-right: 18px; }
           .download-panel { padding: 28px; border-radius: 30px; }
-          .dark-badges { flex-direction: column; align-items: stretch; }
-          .dark-badges .store-badge { width: 100%; justify-content: center; }
+
           .plan-card.featured { transform: none; }
           .plan-card.featured:hover { transform: translateY(-8px); }
           .final-panel { border-radius: 30px; padding: 54px 22px; }
@@ -1268,13 +1299,8 @@ export default function KreatorOSV2() {
               A calm operating dashboard for products, bookings, members, and brand deals — with a supervised AI operator that turns messy admin into approved workflows.
             </p>
             <div className="hero-ctas">
-              <button className="btn btn-dark" type="button" onClick={() => setShowModal(true)}>Download App</button>
-              <button className="btn btn-soft" type="button" onClick={() => setShowModal(true)}>Get Started →</button>
-            </div>
-            <div className="hero-badges">
-              <StoreBadge type="apple" />
-              <StoreBadge type="google" />
-              <StoreBadge type="web" />
+              <button className="btn btn-dark" type="button" onClick={() => setShowModal(true)}>Start Free</button>
+              <button className="btn btn-soft" type="button" onClick={() => setShowModal(true)}>Explore Features →</button>
             </div>
           </div>
           <HeroDeviceStack />
@@ -1370,22 +1396,30 @@ export default function KreatorOSV2() {
 
       <section className="download-section">
         <div className="download-panel">
-          <div className="qr-card">
-            <div className="qr-grid" aria-label="Decorative QR code">
-              {Array.from({ length: 49 }).map((_, index) => <span key={index} />)}
+          <div className="operator-card" aria-label="Mock operator console">
+            <div className="operator-card-header">
+              <span className="live-status-dot" />
+              <span>Operator Console</span>
             </div>
-            <p>Scan to join the beta</p>
+            <div className="operator-card-body">
+              <div className="mock-command">
+                <span className="prompt-sym">&gt;</span>
+                <span>Deploy central web storefront & automations...</span>
+              </div>
+              <div className="mock-badge-row">
+                <span className="mock-badge">Stripe Live</span>
+                <span className="mock-badge">RLS Enabled</span>
+              </div>
+            </div>
+            <button className="btn btn-green" type="button" onClick={() => setShowModal(true)}>
+              Launch Operator →
+            </button>
           </div>
           <div className="download-copy">
             <h2>Join the creator operations revolution today.</h2>
             <p>
-              Launch your mobile creator storefront, open the web dashboard, and keep the AI operator close while you approve high-impact work from anywhere.
+              Launch your custom creator storefront, open your central web dashboard, and keep your AI operator close to approve high-impact work from any device.
             </p>
-            <div className="dark-badges">
-              <StoreBadge type="apple" />
-              <StoreBadge type="google" />
-              <StoreBadge type="web" />
-            </div>
           </div>
         </div>
       </section>
@@ -1496,10 +1530,7 @@ export default function KreatorOSV2() {
           <div>
             <a className="brand" href="#top"><LogoMark />KreatorOS</a>
             <p>Supervised creator business automation with a friendly, app-like interface.</p>
-            <div className="hero-badges" style={{ justifyContent: "flex-start" }}>
-              <StoreBadge type="apple" />
-              <StoreBadge type="web" />
-            </div>
+            
           </div>
           <div>
             <h4>Product</h4>
