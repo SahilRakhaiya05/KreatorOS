@@ -1,4 +1,4 @@
-export type WorkspaceRole = "creator" | "brand" | "portal" | "admin";
+export type AccountRole = "creator" | "brand" | "portal" | "admin";
 
 export type AccountType = "user" | "creator" | "business" | "admin";
 
@@ -8,7 +8,7 @@ export type AuthSessionState = {
   provider: AuthProvider;
   userId?: string;
   email?: string;
-  roles: WorkspaceRole[];
+  roles: AccountRole[];
 };
 
 export type UserProfile = {

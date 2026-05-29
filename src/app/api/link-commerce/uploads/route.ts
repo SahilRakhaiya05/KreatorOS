@@ -11,14 +11,12 @@ export async function POST(req: Request) {
   const formData = await req.formData();
   const file = formData.get("file");
   const bucket = String(formData.get("bucket") ?? "");
-  const workspaceId = String(formData.get("workspaceId") ?? "");
 
   if (!(file instanceof File)) return apiError("missing_file", "Upload requires a file.", 400);
   if (!allowedBuckets.has(bucket)) return apiError("invalid_bucket", "Upload bucket is not allowed.", 400);
-  if (!workspaceId) return apiError("missing_workspace", "workspaceId is required.", 400);
 
   const extension = file.name.includes(".") ? file.name.split(".").pop() : "bin";
-  const safeName = `${workspaceId}/${crypto.randomUUID()}.${extension}`;
+  const safeName = `${user.id}/${crypto.randomUUID()}.${extension}`;
   const supabase = createSupabaseServiceClient();
   const { error } = await supabase.storage.from(bucket).upload(safeName, file, {
     contentType: file.type || "application/octet-stream",

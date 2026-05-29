@@ -5,10 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
-  Building2,
   ChevronsLeft,
   ChevronsRight,
-  ChevronsUpDown,
   LogOut,
   Menu,
   Settings,
@@ -33,18 +31,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 type Role = "creator" | "brand" | "portal";
-type WorkspaceSummary = {
-  id: string;
-  name: string;
-  type: string;
-  plan: string;
-  href: string;
-};
 
 const roleMeta: Record<Role, { title: string; subtitle: string }> = {
-  creator: { title: "KreatorOS", subtitle: "Creator workspace" },
-  brand: { title: "Brand HQ", subtitle: "Partnerships workspace" },
-  portal: { title: "Client Portal", subtitle: "Member workspace" },
+  creator: { title: "KreatorOS", subtitle: "Creator dashboard" },
+  brand: { title: "Brand HQ", subtitle: "Partnerships dashboard" },
+  portal: { title: "Client Portal", subtitle: "Member dashboard" },
 };
 
 const STORAGE_KEY = "kreatoros.sidebar.collapsed";
@@ -148,109 +139,11 @@ function Brand({ role, collapsed }: { role: Role; collapsed: boolean }) {
   );
 }
 
-function WorkspaceSwitcher({ role }: { role: Role }) {
-  const [realWorkspaces, setRealWorkspaces] = useState<WorkspaceSummary[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const workspaces = realWorkspaces;
-  const activeWorkspace = workspaces[0] ?? {
-    id: "",
-    name: loaded ? "No workspace" : "Loading workspace",
-    type: role,
-    plan: "",
-    href: `/${role}`,
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadWorkspaces() {
-      try {
-        const res = await fetch("/api/workspaces");
-        const json = await res.json();
-        if (!json?.ok || cancelled) {
-          if (!cancelled) setLoaded(true);
-          return;
-        }
-
-        const next = (json.data.workspaces ?? [])
-          .map((membership: { workspaces?: { id: string; name: string; type: string; plan: string } | Array<{ id: string; name: string; type: string; plan: string }> }) => {
-            const workspace = Array.isArray(membership.workspaces) ? membership.workspaces[0] : membership.workspaces;
-            if (!workspace) return null;
-            return {
-              id: workspace.id,
-              name: workspace.name,
-              type: workspace.type,
-              plan: workspace.plan,
-              href: workspace.type === "brand" || workspace.type === "agency" ? "/brand" : workspace.type === "admin" ? "/brand" : "/creator",
-            };
-          })
-          .filter(Boolean) as WorkspaceSummary[];
-
-        setRealWorkspaces(next);
-        setLoaded(true);
-      } catch {
-        if (!cancelled) setLoaded(true);
-      }
-    }
-
-    loadWorkspaces();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  async function switchWorkspace(workspace: WorkspaceSummary) {
-    if (workspace.id) {
-      await fetch("/api/workspaces/switch", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ workspaceId: workspace.id }),
-      });
-    }
-    window.location.href = workspace.href;
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="hidden min-w-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-left transition hover:bg-secondary md:flex">
-          <Building2 className="h-[18px] w-[18px] shrink-0 text-muted-foreground" />
-          <div className="min-w-0 leading-tight">
-            <p className="truncate text-sm font-semibold">{activeWorkspace.name}</p>
-            <p className="truncate text-xs text-muted-foreground">{activeWorkspace.type} workspace</p>
-          </div>
-          <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuLabel>Workspace</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {workspaces.length ? workspaces.map((workspace) => (
-          <DropdownMenuItem key={`${workspace.name}-${workspace.href}`} onSelect={() => switchWorkspace(workspace as WorkspaceSummary)}>
-            <button type="button" className="flex w-full items-center justify-between gap-3 text-left">
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-medium">{workspace.name}</span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {workspace.type} / {workspace.plan}
-                </span>
-              </span>
-            </button>
-          </DropdownMenuItem>
-        )) : (
-          <DropdownMenuItem disabled>{loaded ? "Create a workspace from onboarding" : "Loading..."}</DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>Create workspace</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 export function AppShell({ role, children }: { role: Role; children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [account, setAccount] = useState({
     name: "Loading account",
-    handle: "Authenticated workspace",
+    handle: "Authenticated account",
     initials: "KO",
   });
   const [livePageHref, setLivePageHref] = useState("/creator/builder");
@@ -384,8 +277,6 @@ export function AppShell({ role, children }: { role: Role; children: React.React
                     <SidebarNav role={role} collapsed={false} />
                   </SheetContent>
                 </Sheet>
-
-                <WorkspaceSwitcher role={role} />
 
                 <div className="ml-auto flex items-center gap-2">
                   <Button asChild variant="default" size="sm" className="hidden sm:inline-flex">

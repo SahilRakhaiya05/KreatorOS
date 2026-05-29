@@ -6,6 +6,7 @@ import { ArrowUpRight, Bot, ExternalLink, Mail, ShoppingBag, Sparkles } from "lu
 
 import { Button } from "@/components/ui/button";
 import { PublicAssistantWidget } from "@/features/assistant/components/publicAssistantWidget";
+import { SocialIcon } from "@/components/ui/socialIcon";
 
 type PublicData = {
   page: Record<string, any>;
@@ -86,15 +87,18 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
           <p className="mx-auto mt-4 max-w-sm text-sm font-semibold leading-6 text-zinc-300">{page.bio || page.headline}</p>
         </div>
 
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
           {data.socialLinks.map((link) => (
             <a
               key={link.id}
               href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
               onClick={() => track(data, visitorId, "social_link.clicked", "creator_social_link", link.id)}
-              className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-1.5 text-xs font-black text-white"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-white transition hover:-translate-y-1 hover:border-rose-300/40 hover:bg-white/[0.12] shadow-sm hover:shadow-[0_0_12px_rgba(253,164,186,0.15)]"
+              title={link.label || link.platform}
             >
-              {link.label || link.platform}
+              <SocialIcon platform={link.platform} className="h-5 w-5" />
             </a>
           ))}
         </div>

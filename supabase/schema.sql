@@ -41,7 +41,8 @@ create table workspace_members (
 
 create table creator_profiles (
   id uuid primary key default gen_random_uuid(),
-  workspace_id uuid unique not null references workspaces(id) on delete cascade,
+  owner_id uuid not null references profiles(id) on delete cascade,
+  workspace_id uuid unique references workspaces(id) on delete set null,
   display_name text not null,
   username text unique not null,
   niche text,
@@ -55,7 +56,8 @@ create table creator_profiles (
 
 create table page_blocks (
   id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
+  owner_id uuid not null references profiles(id) on delete cascade,
+  workspace_id uuid references workspaces(id) on delete set null,
   block_type text not null,
   title text not null,
   subtitle text,
@@ -70,7 +72,8 @@ create table page_blocks (
 
 create table offers (
   id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
+  owner_id uuid not null references profiles(id) on delete cascade,
+  workspace_id uuid references workspaces(id) on delete set null,
   type offer_type not null,
   title text not null,
   slug text not null,
@@ -80,12 +83,13 @@ create table offers (
   config jsonb default '{}',
   status public_status default 'draft',
   created_at timestamptz default now(),
-  unique(workspace_id, slug)
+  unique(owner_id, slug)
 );
 
 create table customers (
   id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
+  owner_id uuid not null references profiles(id) on delete cascade,
+  workspace_id uuid references workspaces(id) on delete set null,
   email text,
   phone text,
   full_name text,
@@ -97,7 +101,8 @@ create table customers (
 
 create table orders (
   id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
+  owner_id uuid not null references profiles(id) on delete cascade,
+  workspace_id uuid references workspaces(id) on delete set null,
   customer_id uuid references customers(id) on delete set null,
   offer_id uuid references offers(id) on delete set null,
   status payment_status default 'pending',
@@ -111,7 +116,8 @@ create table orders (
 
 create table bookings (
   id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
+  owner_id uuid not null references profiles(id) on delete cascade,
+  workspace_id uuid references workspaces(id) on delete set null,
   customer_id uuid references customers(id) on delete set null,
   offer_id uuid references offers(id) on delete set null,
   start_at timestamptz not null,
@@ -148,7 +154,8 @@ create table collab_messages (
 
 create table workflows (
   id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
+  owner_id uuid not null references profiles(id) on delete cascade,
+  workspace_id uuid references workspaces(id) on delete set null,
   name text not null,
   status workflow_status default 'draft',
   trigger_event text not null,
@@ -160,7 +167,8 @@ create table workflows (
 create table workflow_runs (
   id uuid primary key default gen_random_uuid(),
   workflow_id uuid references workflows(id) on delete set null,
-  workspace_id uuid references workspaces(id) on delete cascade,
+  owner_id uuid references profiles(id) on delete set null,
+  workspace_id uuid references workspaces(id) on delete set null,
   event_type text not null,
   event_payload jsonb default '{}',
   status text default 'running',
@@ -171,7 +179,8 @@ create table workflow_runs (
 
 create table ai_agents (
   id uuid primary key default gen_random_uuid(),
-  workspace_id uuid references workspaces(id) on delete cascade,
+  owner_id uuid not null references profiles(id) on delete cascade,
+  workspace_id uuid references workspaces(id) on delete set null,
   name text not null,
   description text,
   scope text,
@@ -183,7 +192,8 @@ create table ai_agents (
 
 create table approval_requests (
   id uuid primary key default gen_random_uuid(),
-  workspace_id uuid references workspaces(id) on delete cascade,
+  owner_id uuid not null references profiles(id) on delete cascade,
+  workspace_id uuid references workspaces(id) on delete set null,
   requested_by_agent_id uuid references ai_agents(id) on delete set null,
   action_type text not null,
   payload jsonb not null,
@@ -196,7 +206,8 @@ create table approval_requests (
 
 create table research_studies (
   id uuid primary key default gen_random_uuid(),
-  workspace_id uuid references workspaces(id) on delete cascade,
+  owner_id uuid not null references profiles(id) on delete cascade,
+  workspace_id uuid references workspaces(id) on delete set null,
   title text not null,
   goal text,
   language text default 'en',
@@ -230,7 +241,8 @@ create table research_interviews (
 
 create table analytics_events (
   id uuid primary key default gen_random_uuid(),
-  workspace_id uuid references workspaces(id) on delete cascade,
+  owner_id uuid references profiles(id) on delete set null,
+  workspace_id uuid references workspaces(id) on delete set null,
   event_type text not null,
   visitor_id text,
   customer_id uuid references customers(id) on delete set null,
@@ -242,7 +254,8 @@ create table analytics_events (
 
 create table audit_logs (
   id uuid primary key default gen_random_uuid(),
-  workspace_id uuid references workspaces(id) on delete cascade,
+  owner_id uuid references profiles(id) on delete set null,
+  workspace_id uuid references workspaces(id) on delete set null,
   actor_type text not null,
   actor_id text,
   action text not null,
@@ -251,8 +264,9 @@ create table audit_logs (
 );
 
 create index idx_workspace_members_user on workspace_members(user_id);
-create index idx_page_blocks_workspace_order on page_blocks(workspace_id, sort_order);
-create index idx_offers_workspace_type on offers(workspace_id, type);
-create index idx_bookings_workspace_start on bookings(workspace_id, start_at);
-create index idx_analytics_workspace_created on analytics_events(workspace_id, created_at);
-create index idx_audit_workspace_created on audit_logs(workspace_id, created_at);
+create index idx_creator_profiles_owner on creator_profiles(owner_id);
+create index idx_page_blocks_owner_order on page_blocks(owner_id, sort_order);
+create index idx_offers_owner_type on offers(owner_id, type);
+create index idx_bookings_owner_start on bookings(owner_id, start_at);
+create index idx_analytics_owner_created on analytics_events(owner_id, created_at);
+create index idx_audit_owner_created on audit_logs(owner_id, created_at);

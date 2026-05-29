@@ -15,7 +15,7 @@ export function AgentPanel({
 }) {
   const agent = getAgent(agentId);
   return (
-    <div className="no-scrollbar flex h-full flex-col gap-4 overflow-y-auto border-l border-border/60 bg-background/50 p-4 backdrop-blur-sm">
+    <div className="no-scrollbar flex h-full min-h-0 flex-col gap-4 overflow-y-auto border-l border-border/60 bg-background/60 p-4 backdrop-blur-sm">
       <div>
         <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Agent</p>
         <div className="mt-2 space-y-1.5">
@@ -26,7 +26,7 @@ export function AgentPanel({
                 key={a.id}
                 onClick={() => onAgentChange(a.id)}
                 className={cn(
-                  "w-full rounded-lg border px-3 py-2 text-left transition",
+                  "w-full rounded-xl border px-3 py-2 text-left transition",
                   active ? "border-accent/40 bg-accent/5" : "border-border hover:bg-secondary"
                 )}
               >
@@ -44,7 +44,7 @@ export function AgentPanel({
         </p>
         <ol className="mt-3 space-y-2">
           {agent.workflow.map((step, i) => (
-            <li key={step.tool} className="flex items-start gap-3 rounded-lg bg-secondary/60 p-2.5">
+            <li key={step.tool} className="flex items-start gap-3 rounded-xl bg-secondary/60 p-2.5">
               <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-card text-xs font-semibold ring-1 ring-border">
                 {i + 1}
               </span>
@@ -64,7 +64,7 @@ export function AgentPanel({
             <button
               key={s}
               onClick={() => onStarter(s)}
-              className="group flex w-full items-center gap-2 rounded-lg border border-border px-3 py-2 text-left text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+              className="group flex w-full items-center gap-2 rounded-xl border border-border px-3 py-2 text-left text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground"
             >
               <ChevronRight className="h-3.5 w-3.5 shrink-0 text-accent" />
               <span className="flex-1">{s}</span>
@@ -73,7 +73,7 @@ export function AgentPanel({
         </div>
       </div>
 
-      <div className="mt-auto flex items-start gap-2 rounded-lg bg-secondary/60 p-3 text-xs text-muted-foreground">
+      <div className="mt-auto flex items-start gap-2 rounded-xl bg-secondary/60 p-3 text-xs text-muted-foreground">
         <ShieldCheck className="h-4 w-4 shrink-0 text-accent" />
         Actions are drafted and queued for your approval before anything goes live.
       </div>

@@ -12,6 +12,7 @@ import {
   linkTrackSchema,
 } from "@/server/api/schemas";
 import { recordEvent } from "@/server/analytics/recordEvent";
+import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
 import { getSession } from "@/server/auth/getSession";
 import { createAiSuggestion } from "@/server/ai/createSuggestion";
 import { writeAuditLog } from "@/server/audit/writeAuditLog";
@@ -26,6 +27,28 @@ async function requireAuth() {
   const { user } = await getSession();
   if (!user) return null;
   return user;
+}
+
+async function resolveAccountScope(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  pageId: string,
+  providedWorkspaceId?: string | null
+) {
+  const { data: page, error } = await supabase
+    .from("creator_pages")
+    .select("id, owner_id, workspace_id")
+    .eq("id", pageId)
+    .maybeSingle();
+
+  if (error || !page || page.owner_id !== userId) return null;
+
+  const workspace = page.workspace_id || providedWorkspaceId ? null : await getActiveWorkspace(userId);
+  return {
+    page,
+    ownerId: userId,
+    workspaceId: page.workspace_id ?? providedWorkspaceId ?? workspace?.id ?? null,
+  };
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ resource: string }> }) {
@@ -62,6 +85,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
   if (resource === "profile") {
     const body = await parseJsonBody(req, linkPageProfileSchema);
     if (isApiResponse(body)) return body;
+    const scope = await resolveAccountScope(supabase, user.id, body.pageId, body.workspaceId);
+    if (!scope) return apiError("forbidden", "This page does not belong to your account.", 403);
 
     const progressItems = [
       Boolean(body.avatarUrl),
@@ -92,8 +117,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
     if (error) return apiError("profile_update_failed", error.message, 400);
 
     await writeAuditLog({
-      workspaceId: body.workspaceId,
+      workspaceId: scope.workspaceId,
       pageId: body.pageId,
+      ownerId: scope.ownerId,
       actorType: "creator",
       actorId: user.id,
       action: body.status === "published" ? "page.published" : "page.updated",
@@ -102,39 +128,72 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
       before,
       after: data,
     });
-    await recordEvent({ workspaceId: body.workspaceId, pageId: body.pageId, eventType: "page.updated", metadata: { setupProgress } });
+    await recordEvent({ workspaceId: scope.workspaceId, pageId: body.pageId, eventType: "page.updated", metadata: { setupProgress } });
     return apiOk({ page: data });
   }
 
   if (resource === "social-links") {
     const body = await parseJsonBody(req, linkSocialLinkSchema);
     if (isApiResponse(body)) return body;
-    const { data, error } = await supabase
+    const scope = await resolveAccountScope(supabase, user.id, body.pageId, body.workspaceId);
+    if (!scope) return apiError("forbidden", "This page does not belong to your account.", 403);
+
+    const { data: existing } = await supabase
       .from("creator_social_links")
-      .insert({
-        workspace_id: body.workspaceId,
-        page_id: body.pageId,
-        platform: body.platform,
-        url: body.url,
-        label: body.label ?? body.platform,
-        category: body.category ?? "social",
-        icon: body.icon ?? body.platform.toLowerCase(),
-        is_visible: body.isVisible,
-      })
-      .select("*")
-      .single();
+      .select("id")
+      .eq("page_id", body.pageId)
+      .eq("platform", body.platform)
+      .maybeSingle();
+
+    let result;
+    if (existing) {
+      result = await supabase
+        .from("creator_social_links")
+        .update({
+          url: body.url,
+          label: body.label ?? body.platform,
+          category: body.category ?? "social",
+          icon: body.icon ?? body.platform.toLowerCase(),
+          is_visible: body.isVisible,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.id)
+        .select("*")
+        .single();
+    } else {
+      result = await supabase
+        .from("creator_social_links")
+        .insert({
+          workspace_id: scope.workspaceId,
+          owner_id: scope.ownerId,
+          page_id: body.pageId,
+          platform: body.platform,
+          url: body.url,
+          label: body.label ?? body.platform,
+          category: body.category ?? "social",
+          icon: body.icon ?? body.platform.toLowerCase(),
+          is_visible: body.isVisible,
+        })
+        .select("*")
+        .single();
+    }
+
+    const { data, error } = result;
     if (error) return apiError("social_link_failed", error.message, 400);
-    await recordEvent({ workspaceId: body.workspaceId, pageId: body.pageId, eventType: "social_link.added", metadata: { platform: body.platform } });
-    return apiOk({ socialLink: data }, { status: 201 });
+    await recordEvent({ workspaceId: scope.workspaceId, pageId: body.pageId, eventType: "social_link.added", metadata: { platform: body.platform } });
+    return apiOk({ socialLink: data }, { status: existing ? 200 : 201 });
   }
 
   if (resource === "custom-links") {
     const body = await parseJsonBody(req, linkCustomLinkSchema);
     if (isApiResponse(body)) return body;
+    const scope = await resolveAccountScope(supabase, user.id, body.pageId, body.workspaceId);
+    if (!scope) return apiError("forbidden", "This page does not belong to your account.", 403);
     const { data, error } = await supabase
       .from("custom_links")
       .insert({
-        workspace_id: body.workspaceId,
+        workspace_id: scope.workspaceId,
+        owner_id: scope.ownerId,
         page_id: body.pageId,
         title: body.title,
         url: body.url,
@@ -146,17 +205,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
       .select("*")
       .single();
     if (error) return apiError("custom_link_failed", error.message, 400);
-    await recordEvent({ workspaceId: body.workspaceId, pageId: body.pageId, eventType: "custom_link.added", metadata: { linkId: data.id } });
+    await recordEvent({ workspaceId: scope.workspaceId, pageId: body.pageId, eventType: "custom_link.added", metadata: { linkId: data.id } });
     return apiOk({ customLink: data }, { status: 201 });
   }
 
   if (resource === "gallery") {
     const body = await parseJsonBody(req, linkGallerySchema);
     if (isApiResponse(body)) return body;
+    const scope = await resolveAccountScope(supabase, user.id, body.pageId, body.workspaceId);
+    if (!scope) return apiError("forbidden", "This page does not belong to your account.", 403);
     const { data, error } = await supabase
       .from("photo_gallery_items")
       .insert({
-        workspace_id: body.workspaceId,
+        workspace_id: scope.workspaceId,
+        owner_id: scope.ownerId,
         page_id: body.pageId,
         image_url: body.imageUrl,
         alt_text: body.altText ?? null,
@@ -165,15 +227,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
       .select("*")
       .single();
     if (error) return apiError("gallery_failed", error.message, 400);
-    await recordEvent({ workspaceId: body.workspaceId, pageId: body.pageId, eventType: "gallery.image_added", metadata: { galleryItemId: data.id } });
+    await recordEvent({ workspaceId: scope.workspaceId, pageId: body.pageId, eventType: "gallery.image_added", metadata: { galleryItemId: data.id } });
     return apiOk({ galleryItem: data }, { status: 201 });
   }
 
   if (resource === "contact") {
     const body = await parseJsonBody(req, linkContactSchema);
     if (isApiResponse(body)) return body;
+    const scope = await resolveAccountScope(supabase, user.id, body.pageId, body.workspaceId);
+    if (!scope) return apiError("forbidden", "This page does not belong to your account.", 403);
     const payload = {
-      workspace_id: body.workspaceId,
+      workspace_id: scope.workspaceId,
+      owner_id: scope.ownerId,
       page_id: body.pageId,
       email: body.email || null,
       phone: body.phone ?? null,
@@ -192,10 +257,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
   if (resource === "products") {
     const body = await parseJsonBody(req, linkProductSchema);
     if (isApiResponse(body)) return body;
+    const scope = await resolveAccountScope(supabase, user.id, body.pageId, body.workspaceId);
+    if (!scope) return apiError("forbidden", "This page does not belong to your account.", 403);
     const offer = await createOffer({
-      workspaceId: body.workspaceId,
+      workspaceId: scope.workspaceId,
       pageId: body.pageId,
-      ownerId: user.id,
+      ownerId: scope.ownerId,
       type: "product",
       title: body.title,
       description: body.description,
@@ -213,7 +280,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
     const { data, error } = await supabase
       .from("digital_products")
       .insert({
-        workspace_id: body.workspaceId,
+        workspace_id: scope.workspaceId,
+        owner_id: scope.ownerId,
         page_id: body.pageId,
         offer_id: offer.data.id,
         title: body.title,
@@ -234,7 +302,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
 
     if (body.showOnBio) {
       await supabase.from("creator_page_blocks").insert({
-        workspace_id: body.workspaceId,
+        workspace_id: scope.workspaceId,
         page_id: body.pageId,
         type: "product",
         title: body.title,
@@ -249,17 +317,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
       });
     }
 
-    await recordEvent({ workspaceId: body.workspaceId, pageId: body.pageId, eventType: "product.created", metadata: { productId: data.id } });
+    await recordEvent({ workspaceId: scope.workspaceId, pageId: body.pageId, eventType: "product.created", metadata: { productId: data.id } });
     return apiOk({ product: data, offer: offer.data }, { status: 201 });
   }
 
   if (resource === "affiliate") {
     const body = await parseJsonBody(req, linkAffiliateSchema);
     if (isApiResponse(body)) return body;
+    const scope = await resolveAccountScope(supabase, user.id, body.pageId, body.workspaceId);
+    if (!scope) return apiError("forbidden", "This page does not belong to your account.", 403);
     const { data, error } = await supabase
       .from("affiliate_links")
       .insert({
-        workspace_id: body.workspaceId,
+        workspace_id: scope.workspaceId,
+        owner_id: scope.ownerId,
         page_id: body.pageId,
         title: body.title,
         destination_url: body.destinationUrl,
@@ -277,10 +348,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
   if (resource === "referrals") {
     const body = await parseJsonBody(req, linkReferralProgramSchema);
     if (isApiResponse(body)) return body;
+    const scope = await resolveAccountScope(supabase, user.id, body.pageId, body.workspaceId);
+    if (!scope) return apiError("forbidden", "This page does not belong to your account.", 403);
     const { data, error } = await supabase
       .from("referral_programs")
       .upsert({
-        workspace_id: body.workspaceId,
+        workspace_id: scope.workspaceId,
+        owner_id: scope.ownerId,
         page_id: body.pageId,
         title: body.title,
         description: body.description ?? null,
@@ -298,6 +372,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
   if (resource === "ai") {
     const body = await parseJsonBody(req, linkAiActionSchema);
     if (isApiResponse(body)) return body;
+    const scope = await resolveAccountScope(supabase, user.id, body.pageId, body.workspaceId);
+    if (!scope) return apiError("forbidden", "This page does not belong to your account.", 403);
     const titles: Record<string, string> = {
       generate_bio: "Draft a sharper Smart Link bio",
       improve_bio: "Improve creator bio",
@@ -312,7 +388,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
       conversion_review: "Review conversion opportunities",
     };
     const suggestion = await createAiSuggestion({
-      workspaceId: body.workspaceId,
+      workspaceId: scope.workspaceId,
       pageId: body.pageId,
       title: titles[body.action],
       riskLevel: ["pricing_suggestion"].includes(body.action) ? "medium" : "low",
@@ -327,6 +403,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
     });
     if (!suggestion.ok) return apiError("ai_suggestion_failed", "Could not create AI suggestion.", 400, suggestion.error);
     return apiOk({ suggestion: suggestion.data }, { status: 201 });
+  }
+
+  return apiError("unknown_resource", "Unknown Link Commerce resource.", 404);
+}
+
+export async function DELETE(req: Request, { params }: { params: Promise<{ resource: string }> }) {
+  const { resource } = await params;
+  const supabase = await createSupabaseServerClient();
+  const user = await requireAuth();
+  if (!user) return apiError("unauthorized", "Sign in to manage CreatorOS Link Commerce.", 401);
+
+  if (resource === "social-links") {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) return apiError("missing_id", "Missing social link ID.", 400);
+
+    const { error } = await supabase.from("creator_social_links").delete().eq("id", id);
+    if (error) return apiError("social_link_delete_failed", error.message, 400);
+    return apiOk({ deleted: true });
   }
 
   return apiError("unknown_resource", "Unknown Link Commerce resource.", 404);

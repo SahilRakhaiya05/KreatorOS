@@ -16,7 +16,7 @@ const initialState: ActionState = { status: "idle", message: "" };
 
 function OnboardingIllustration() {
   return (
-    <svg viewBox="0 0 320 320" fill="none" className="h-auto w-full max-w-sm" role="img" aria-label="Workspace illustration">
+    <svg viewBox="0 0 320 320" fill="none" className="h-auto w-full max-w-sm" role="img" aria-label="Account setup illustration">
       <defs>
         <linearGradient id="ob-a" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="hsl(var(--accent))" stopOpacity="0.18" />
@@ -58,7 +58,7 @@ export function OnboardingForm({ profile }: { profile?: UserProfile | null }) {
             <Sparkles className="h-3.5 w-3.5" /> Welcome to KreatorOS
           </Badge>
           <h2 className="mt-4 font-display text-3xl font-semibold tracking-tight text-balance">
-            Let’s set up your workspace.
+            Let&apos;s set up your account.
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
             Answer a few quick questions and your AI operator will tailor your dashboard, offers, and page to fit your work.
@@ -73,7 +73,7 @@ export function OnboardingForm({ profile }: { profile?: UserProfile | null }) {
             <Badge variant="accent" className="mb-3 gap-1.5">
               <Sparkles className="h-3.5 w-3.5" /> Welcome to KreatorOS
             </Badge>
-            <h1 className="font-display text-3xl font-semibold tracking-tight">Let’s set up your workspace.</h1>
+            <h1 className="font-display text-3xl font-semibold tracking-tight">Let&apos;s set up your account.</h1>
             <p className="mt-2 text-sm text-muted-foreground">A few quick questions to tailor everything to you.</p>
           </div>
           <h1 className="hidden font-display text-2xl font-semibold tracking-tight lg:block">Tell us about you</h1>
@@ -88,19 +88,17 @@ export function OnboardingForm({ profile }: { profile?: UserProfile | null }) {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="workspaceType" className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4" /> Workspace type
+              <Label htmlFor="accountType" className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" /> Account type
               </Label>
-              <Select name="workspaceType" defaultValue={typeof preferences.workspaceType === "string" ? preferences.workspaceType : "creator"}>
-                <SelectTrigger id="workspaceType">
+              <Select name="accountType" defaultValue={typeof preferences.accountType === "string" ? preferences.accountType : profile?.account_type ?? "creator"}>
+                <SelectTrigger id="accountType">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="creator">Creator</SelectItem>
-                  <SelectItem value="brand">Brand</SelectItem>
-                  <SelectItem value="agency">Agency</SelectItem>
-                  <SelectItem value="startup">Startup</SelectItem>
-                  <SelectItem value="community">Community</SelectItem>
+                  <SelectItem value="business">Brand</SelectItem>
+                  <SelectItem value="user">Client</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -152,7 +150,7 @@ export function OnboardingForm({ profile }: { profile?: UserProfile | null }) {
               </div>
             ) : null}
 
-            <SubmitButton idleText="Enter my workspace" pendingText="Setting things up..." />
+            <SubmitButton idleText="Enter my dashboard" pendingText="Setting things up..." />
           </form>
         </div>
       </section>

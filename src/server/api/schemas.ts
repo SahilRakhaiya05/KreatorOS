@@ -236,7 +236,7 @@ export const couponCreateSchema = z.object({
 });
 
 export const linkPageProfileSchema = z.object({
-  workspaceId: z.string().uuid(),
+  workspaceId: z.string().uuid().optional(),
   pageId: z.string().uuid(),
   displayName: z.string().min(1),
   username: z.string().min(1).regex(/^[a-z0-9-]+$/),
@@ -250,7 +250,7 @@ export const linkPageProfileSchema = z.object({
 });
 
 export const linkSocialLinkSchema = z.object({
-  workspaceId: z.string().uuid(),
+  workspaceId: z.string().uuid().optional(),
   pageId: z.string().uuid(),
   platform: z.string().min(1),
   url: z.string().url(),
@@ -261,7 +261,7 @@ export const linkSocialLinkSchema = z.object({
 });
 
 export const linkCustomLinkSchema = z.object({
-  workspaceId: z.string().uuid(),
+  workspaceId: z.string().uuid().optional(),
   pageId: z.string().uuid(),
   title: z.string().min(1),
   url: z.string().url(),
@@ -272,7 +272,7 @@ export const linkCustomLinkSchema = z.object({
 });
 
 export const linkGallerySchema = z.object({
-  workspaceId: z.string().uuid(),
+  workspaceId: z.string().uuid().optional(),
   pageId: z.string().uuid(),
   imageUrl: z.string().url(),
   altText: z.string().optional(),
@@ -280,7 +280,7 @@ export const linkGallerySchema = z.object({
 });
 
 export const linkContactSchema = z.object({
-  workspaceId: z.string().uuid(),
+  workspaceId: z.string().uuid().optional(),
   pageId: z.string().uuid(),
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional(),
@@ -293,7 +293,7 @@ export const linkContactSchema = z.object({
 });
 
 export const linkProductSchema = z.object({
-  workspaceId: z.string().uuid(),
+  workspaceId: z.string().uuid().optional(),
   pageId: z.string().uuid(),
   title: z.string().min(1),
   description: z.string().optional(),
@@ -308,7 +308,7 @@ export const linkProductSchema = z.object({
 });
 
 export const linkAffiliateSchema = z.object({
-  workspaceId: z.string().uuid(),
+  workspaceId: z.string().uuid().optional(),
   pageId: z.string().uuid(),
   title: z.string().min(1),
   destinationUrl: z.string().url(),
@@ -319,7 +319,7 @@ export const linkAffiliateSchema = z.object({
 });
 
 export const linkReferralProgramSchema = z.object({
-  workspaceId: z.string().uuid(),
+  workspaceId: z.string().uuid().optional(),
   pageId: z.string().uuid(),
   title: z.string().min(1),
   description: z.string().optional(),
@@ -343,7 +343,7 @@ export const linkTrackSchema = z.object({
 });
 
 export const linkAiActionSchema = z.object({
-  workspaceId: z.string().uuid(),
+  workspaceId: z.string().uuid().optional(),
   pageId: z.string().uuid(),
   action: z.enum([
     "generate_bio",

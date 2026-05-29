@@ -7,7 +7,7 @@ function slugify(value: string) {
 }
 
 export async function createOffer(input: {
-  workspaceId: string;
+  workspaceId?: string | null;
   pageId?: string | null;
   ownerId?: string | null;
   type: OfferType;
@@ -37,6 +37,7 @@ export async function createOffer(input: {
   if (data.type === "product") {
     await supabase.from("products").insert({
       workspace_id: input.workspaceId,
+      owner_id: input.ownerId ?? null,
       offer_id: data.id,
       title: data.title,
       description: data.description,
@@ -47,6 +48,7 @@ export async function createOffer(input: {
   if (data.type === "membership") {
     await supabase.from("membership_plans").insert({
       workspace_id: input.workspaceId,
+      owner_id: input.ownerId ?? null,
       offer_id: data.id,
       name: data.title,
       billing_interval: "month",
@@ -57,6 +59,7 @@ export async function createOffer(input: {
   if (data.type === "course") {
     await supabase.from("courses").insert({
       workspace_id: input.workspaceId,
+      owner_id: input.ownerId ?? null,
       offer_id: data.id,
       title: data.title,
       description: data.description,

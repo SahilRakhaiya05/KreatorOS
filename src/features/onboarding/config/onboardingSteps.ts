@@ -1,9 +1,9 @@
 import { Bot, Building2, User, Users, type LucideIcon } from "lucide-react";
 
-import type { WorkspaceRole } from "../../auth/types";
+import type { AccountRole } from "../../auth/types";
 
 export type OnboardingEntry = {
-  role: Exclude<WorkspaceRole, "admin">;
+  role: Exclude<AccountRole, "admin">;
   title: string;
   description: string;
   href: string;
@@ -36,7 +36,7 @@ export const onboardingEntries: OnboardingEntry[] = [
 
 export const onboardingPromise = {
   eyebrow: "Role-based onboarding",
-  title: "Choose your workspace",
-  text: "KreatorOS keeps creator, brand, client/member, and admin experiences separate so Supabase Auth can map each account to one or more workspace roles.",
+  title: "Choose your account role",
+  text: "KreatorOS keeps creator, brand, and client experiences separate. Your onboarding choice decides the dashboard this login opens.",
   icon: Bot,
 } as const;

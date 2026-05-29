@@ -27,7 +27,7 @@ export const AGENTS: AgentDefinition[] = [
       "Plan a 7-day launch for my new course",
     ],
     workflow: [
-      { tool: "read_workspace", label: "Read workspace knowledge" },
+      { tool: "read_account", label: "Read account knowledge" },
       { tool: "draft_records", label: "Draft products, pages, calendar rules" },
       { tool: "policy_check", label: "Check permissions and risks" },
       { tool: "approval_queue", label: "Queue actions for approval" },

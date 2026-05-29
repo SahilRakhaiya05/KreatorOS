@@ -18,11 +18,22 @@ import {
   ShoppingBag,
   Sparkles,
   Store,
+  Settings,
+  Trash2,
+  Edit,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { SocialIcon } from "@/components/ui/socialIcon";
 
 type Mode =
   | "dashboard"
@@ -132,13 +143,11 @@ function TextArea({ name, label, defaultValue, placeholder }: { name: string; la
 function UploadField({
   label,
   bucket,
-  workspaceId,
   onUploaded,
   privateFile = false,
 }: {
   label: string;
   bucket: string;
-  workspaceId: string;
   onUploaded: (value: string) => void;
   privateFile?: boolean;
 }) {
@@ -152,7 +161,6 @@ function UploadField({
     const form = new FormData();
     form.append("file", file);
     form.append("bucket", bucket);
-    form.append("workspaceId", workspaceId);
     const res = await fetch("/api/link-commerce/uploads", { method: "POST", body: form });
     const json = await res.json();
     setUploading(false);
@@ -199,10 +207,17 @@ function PhonePreview({ data, origin }: { data: LinkCommerceData; origin: string
           <p className="mx-auto mt-3 max-w-xs text-xs font-semibold leading-5 text-zinc-200 xl:text-sm xl:leading-6">{page.bio || page.headline || "Add a bio to tell visitors what to buy, book, or explore."}</p>
 
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {data.socialLinks.slice(0, 8).map((link) => (
-              <span key={link.id} className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black text-white">
-                {link.platform}
-              </span>
+            {data.socialLinks.map((link) => (
+              <a
+                key={link.id}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:scale-110 hover:bg-white/20"
+                title={link.platform}
+              >
+                <SocialIcon platform={link.platform} className="h-4 w-4" />
+              </a>
             ))}
           </div>
 
@@ -236,6 +251,68 @@ function PhonePreview({ data, origin }: { data: LinkCommerceData; origin: string
   );
 }
 
+function getBrandHoverClass(platform: string): string {
+  const norm = platform.toLowerCase().trim();
+  switch (norm) {
+    case "instagram": return "hover:border-[#E1306C]/50 hover:bg-[#E1306C]/10 text-[#E1306C]";
+    case "x / twitter":
+    case "x":
+    case "twitter": return "hover:border-white/40 hover:bg-white/5 text-white";
+    case "facebook": return "hover:border-[#1877F2]/50 hover:bg-[#1877F2]/10 text-[#1877F2]";
+    case "reddit": return "hover:border-[#FF4500]/50 hover:bg-[#FF4500]/10 text-[#FF4500]";
+    case "pinterest": return "hover:border-[#BD081C]/50 hover:bg-[#BD081C]/10 text-[#BD081C]";
+    case "threads": return "hover:border-zinc-400/50 hover:bg-zinc-800/10 text-white";
+    case "youtube": return "hover:border-[#FF0000]/50 hover:bg-[#FF0000]/10 text-[#FF0000]";
+    case "tiktok": return "hover:border-[#00f2fe]/40 hover:bg-[#00f2fe]/5 text-[#00f2fe]";
+    case "twitch": return "hover:border-[#9146FF]/50 hover:bg-[#9146FF]/10 text-[#9146FF]";
+    case "vimeo": return "hover:border-[#1AB7EA]/50 hover:bg-[#1AB7EA]/10 text-[#1AB7EA]";
+    case "spotify": return "hover:border-[#1DB954]/50 hover:bg-[#1DB954]/10 text-[#1DB954]";
+    case "soundcloud": return "hover:border-[#FF5500]/50 hover:bg-[#FF5500]/10 text-[#FF5500]";
+    case "apple music": return "hover:border-[#FC3C44]/50 hover:bg-[#FC3C44]/10 text-[#FC3C44]";
+    case "youtube music": return "hover:border-[#FF0000]/60 hover:bg-[#FF0000]/10 text-[#FF0000]";
+    case "bandcamp": return "hover:border-[#629AA9]/50 hover:bg-[#629AA9]/10 text-[#629AA9]";
+    case "mixcloud": return "hover:border-[#52AAD8]/50 hover:bg-[#52AAD8]/10 text-[#52AAD8]";
+    case "whatsapp": return "hover:border-[#25D366]/50 hover:bg-[#25D366]/10 text-[#25D366]";
+    case "telegram": return "hover:border-[#0088cc]/50 hover:bg-[#0088cc]/10 text-[#0088cc]";
+    case "discord": return "hover:border-[#5865F2]/50 hover:bg-[#5865F2]/10 text-[#5865F2]";
+    case "snapchat": return "hover:border-[#FFFC00]/50 hover:bg-[#FFFC00]/10 text-[#FFFC00]";
+    case "linkedin": return "hover:border-[#0A66C2]/50 hover:bg-[#0A66C2]/10 text-[#0A66C2]";
+    case "github": return "hover:border-zinc-400 hover:bg-zinc-800/10 text-white";
+    default: return "hover:border-primary/50 hover:bg-primary/10 text-primary";
+  }
+}
+
+function getBrandActiveBorderClass(platform: string): string {
+  const norm = platform.toLowerCase().trim();
+  switch (norm) {
+    case "instagram": return "border-[#E1306C] shadow-[0_0_12px_rgba(225,48,108,0.2)] bg-[#E1306C]/5";
+    case "x / twitter":
+    case "x":
+    case "twitter": return "border-white shadow-[0_0_12px_rgba(255,255,255,0.12)] bg-white/5";
+    case "facebook": return "border-[#1877F2] shadow-[0_0_12px_rgba(24,119,242,0.2)] bg-[#1877F2]/5";
+    case "reddit": return "border-[#FF4500] shadow-[0_0_12px_rgba(255,69,0,0.2)] bg-[#FF4500]/5";
+    case "pinterest": return "border-[#BD081C] shadow-[0_0_12px_rgba(189,8,28,0.2)] bg-[#BD081C]/5";
+    case "threads": return "border-white shadow-[0_0_12px_rgba(255,255,255,0.12)] bg-white/5";
+    case "youtube": return "border-[#FF0000] shadow-[0_0_12px_rgba(255,0,0,0.2)] bg-[#FF0000]/5";
+    case "tiktok": return "border-[#00f2fe] shadow-[0_0_12px_rgba(0,242,254,0.2)] bg-[#00f2fe]/5";
+    case "twitch": return "border-[#9146FF] shadow-[0_0_12px_rgba(145,70,255,0.2)] bg-[#9146FF]/5";
+    case "vimeo": return "border-[#1AB7EA] shadow-[0_0_12px_rgba(26,183,234,0.2)] bg-[#1AB7EA]/5";
+    case "spotify": return "border-[#1DB954] shadow-[0_0_12px_rgba(29,185,84,0.2)] bg-[#1DB954]/5";
+    case "soundcloud": return "border-[#FF5500] shadow-[0_0_12px_rgba(255,85,0,0.2)] bg-[#FF5500]/5";
+    case "apple music": return "border-[#FC3C44] shadow-[0_0_12px_rgba(252,60,68,0.2)] bg-[#FC3C44]/5";
+    case "youtube music": return "border-[#FF0000] shadow-[0_0_12px_rgba(255,0,0,0.2)] bg-[#FF0000]/5";
+    case "bandcamp": return "border-[#629AA9] shadow-[0_0_12px_rgba(98,154,169,0.2)] bg-[#629AA9]/5";
+    case "mixcloud": return "border-[#52AAD8] shadow-[0_0_12px_rgba(82,170,216,0.2)] bg-[#52AAD8]/5";
+    case "whatsapp": return "border-[#25D366] shadow-[0_0_12px_rgba(37,211,102,0.2)] bg-[#25D366]/5";
+    case "telegram": return "border-[#0088cc] shadow-[0_0_12px_rgba(0,136,204,0.2)] bg-[#0088cc]/5";
+    case "discord": return "border-[#5865F2] shadow-[0_0_12px_rgba(88,101,242,0.2)] bg-[#5865F2]/5";
+    case "snapchat": return "border-[#FFFC00] shadow-[0_0_12px_rgba(255,252,0,0.2)] bg-[#FFFC00]/5";
+    case "linkedin": return "border-[#0A66C2] shadow-[0_0_12px_rgba(10,102,194,0.2)] bg-[#0A66C2]/5";
+    case "github": return "border-zinc-400 shadow-[0_0_12px_rgba(255,255,255,0.08)] bg-zinc-800/10";
+    default: return "border-primary shadow-[0_0_12px_rgba(var(--primary-rgb),0.2)] bg-primary/5";
+  }
+}
+
 export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCommerceData; mode?: Mode }) {
   const [state, setState] = useState(data);
   const [activeMode, setActiveMode] = useState<Mode>(mode);
@@ -246,6 +323,11 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
   const [coverUrl, setCoverUrl] = useState("");
   const [filePath, setFilePath] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("Social");
+  const [socialUrl, setSocialUrl] = useState<string>("");
+  const [isSocialDialogOpen, setIsSocialDialogOpen] = useState(false);
   const checklist = setupItems(state);
   const completed = checklist.filter((item) => item.done).length;
   const progress = Math.round((completed / checklist.length) * 100);
@@ -281,7 +363,6 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
     post(
       "profile",
       {
-        workspaceId: state.workspace.id,
         pageId: state.page.id,
         displayName: String(formData.get("displayName") ?? ""),
         username,
@@ -297,21 +378,47 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
     );
   }
 
+  function saveSocialLink(platform: string, category: string, url: string, isVisible = true) {
+    post(
+      "social-links",
+      { pageId: state.page.id, platform, category, url, label: platform, isVisible },
+      (payload) => {
+        setState((prev) => {
+          const filtered = prev.socialLinks.filter((link) => link.platform !== platform);
+          return { ...prev, socialLinks: [payload.socialLink, ...filtered] };
+        });
+      },
+    );
+  }
+
+  function deleteSocial(id: string) {
+    startTransition(async () => {
+      const res = await fetch(`/api/link-commerce/social-links?id=${id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (json?.ok) {
+        setState((prev) => ({
+          ...prev,
+          socialLinks: prev.socialLinks.filter((link) => link.id !== id),
+        }));
+        setMessage("Social link removed.");
+      } else {
+        setMessage(json?.error?.message ?? "Could not remove link.");
+      }
+    });
+  }
+
   function addSocial(platform: string, category: string) {
     const url = window.prompt(`Paste your ${platform} URL`);
     if (!url) return;
-    post(
-      "social-links",
-      { workspaceId: state.workspace.id, pageId: state.page.id, platform, category, url, label: platform },
-      (payload) => setState((prev) => ({ ...prev, socialLinks: [payload.socialLink, ...prev.socialLinks] })),
-    );
+    saveSocialLink(platform, category, url);
   }
 
   function addCustomLink(formData: FormData) {
     post(
       "custom-links",
       {
-        workspaceId: state.workspace.id,
         pageId: state.page.id,
         title: String(formData.get("title") ?? ""),
         url: String(formData.get("url") ?? ""),
@@ -324,7 +431,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
   function addGalleryImage(imageUrl: string) {
     post(
       "gallery",
-      { workspaceId: state.workspace.id, pageId: state.page.id, imageUrl, caption: "Gallery image" },
+      { pageId: state.page.id, imageUrl, caption: "Gallery image" },
       (payload) => setState((prev) => ({ ...prev, gallery: [payload.galleryItem, ...prev.gallery] })),
     );
   }
@@ -333,7 +440,6 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
     post(
       "products",
       {
-        workspaceId: state.workspace.id,
         pageId: state.page.id,
         title: String(formData.get("title") ?? ""),
         description: String(formData.get("description") ?? ""),
@@ -354,7 +460,6 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
     post(
       "contact",
       {
-        workspaceId: state.workspace.id,
         pageId: state.page.id,
         email: String(formData.get("email") ?? ""),
         phone: String(formData.get("phone") ?? ""),
@@ -373,7 +478,6 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
     post(
       "affiliate",
       {
-        workspaceId: state.workspace.id,
         pageId: state.page.id,
         title: String(formData.get("title") ?? ""),
         destinationUrl: String(formData.get("destinationUrl") ?? ""),
@@ -389,7 +493,6 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
     post(
       "referrals",
       {
-        workspaceId: state.workspace.id,
         pageId: state.page.id,
         title: String(formData.get("title") ?? "Referral program"),
         description: String(formData.get("description") ?? ""),
@@ -404,7 +507,6 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
 
   function requestAi(action: string) {
     post("ai", {
-      workspaceId: state.workspace.id,
       pageId: state.page.id,
       action,
       context: { page: state.page, productCount: state.products.length, linkCount: state.customLinks.length },
@@ -428,12 +530,159 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
         <main className="min-w-0 space-y-5 sm:space-y-6">
           <section className={panelClass("overflow-hidden bg-gradient-to-br from-card via-card to-secondary/60")}>
             <div className="flex flex-col gap-4">
-              <div>
-                <Badge variant="secondary" className="rounded-full">CreatorOS Link Commerce</Badge>
-                <h1 className="mt-2 text-xl font-black tracking-tight text-foreground sm:text-2xl">Manage Your Smart Link</h1>
-                <p className="mt-1 max-w-2xl text-xs font-semibold leading-5 text-muted-foreground sm:text-sm sm:leading-6">
-                  Profile, bio builder, products, affiliate flows, referrals, AI assistant, analytics, and public shop in one commerce surface.
-                </p>
+              <div className="flex items-start justify-between">
+                <div>
+                  <Badge variant="secondary" className="rounded-full">CreatorOS Link Commerce</Badge>
+                  <h1 className="mt-2 text-xl font-black tracking-tight text-foreground sm:text-2xl">Manage Your Smart Link</h1>
+                  <p className="mt-1 max-w-2xl text-xs font-semibold leading-5 text-muted-foreground sm:text-sm sm:leading-6">
+                    Profile, bio builder, products, affiliate flows, referrals, AI assistant, analytics, and public shop in one commerce surface.
+                  </p>
+                </div>
+                <Dialog open={isSocialDialogOpen} onOpenChange={(open) => {
+                  setIsSocialDialogOpen(open);
+                  if (!open) {
+                    setSelectedPlatform(null);
+                    setSocialUrl("");
+                  }
+                }}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-full border border-border bg-secondary/35 text-foreground hover:bg-secondary hover:text-primary transition-all duration-300">
+                      <Settings className="h-5 w-5" />
+                      <span className="sr-only">Social Settings</span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-3xl bg-card border border-border rounded-2xl shadow-card overflow-hidden flex flex-col max-h-[85vh] p-0 gap-0">
+                    <DialogHeader className="p-5 pb-4 border-b border-border/50 bg-secondary/10">
+                      <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2">
+                        <Settings className="h-5 w-5 text-primary" />
+                        Manage Social Channels
+                      </DialogTitle>
+                      <p className="text-xs font-semibold text-muted-foreground mt-1">
+                        Connect your social profiles. Active channels display matching vector brand icons on your live storefront.
+                      </p>
+                    </DialogHeader>
+
+                    <div className="flex-1 overflow-y-auto p-5 space-y-6">
+
+                      {/* URL input connector (shows when platform selected) */}
+                      {selectedPlatform && (
+                        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 animate-in fade-in slide-in-from-top-3 duration-200">
+                          <div className="flex items-center gap-2.5 mb-3">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-background text-primary shadow-sm">
+                              <SocialIcon platform={selectedPlatform} className="h-4.5 w-4.5" />
+                            </span>
+                            <div>
+                              <h4 className="text-sm font-black text-foreground">Connect {selectedPlatform}</h4>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Group: {selectedCategory}</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={socialUrl}
+                              onChange={(e) => setSocialUrl(e.target.value)}
+                              placeholder={`Enter your ${selectedPlatform} profile URL...`}
+                              className="h-10 flex-1 rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
+                              autoFocus
+                            />
+                            <Button
+                              type="button"
+                              onClick={() => {
+                                if (socialUrl.trim()) {
+                                  saveSocialLink(selectedPlatform, selectedCategory, socialUrl.trim());
+                                  setSelectedPlatform(null);
+                                  setSocialUrl("");
+                                }
+                              }}
+                              className="h-10"
+                            >
+                              <Check className="h-4 w-4 mr-1" /> Save
+                            </Button>
+                            {state.socialLinks.some((l) => l.platform === selectedPlatform) && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  const link = state.socialLinks.find((l) => l.platform === selectedPlatform);
+                                  if (link) {
+                                    deleteSocial(link.id);
+                                    setSelectedPlatform(null);
+                                    setSocialUrl("");
+                                  }
+                                }}
+                                className="h-10 text-red-500 border-red-500/20 hover:bg-red-500/10 hover:text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={() => {
+                                setSelectedPlatform(null);
+                                setSocialUrl("");
+                              }}
+                              className="h-10"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Directory selector */}
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground mb-4">Platform Directory</h4>
+                        <div className="space-y-5">
+                          {socialGroups.map((group) => (
+                            <div key={group.group} className="space-y-2">
+                              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-muted-foreground/80">{group.group}</p>
+                              <div className="grid grid-cols-3 gap-5 sm:gap-6 sm:grid-cols-4 md:grid-cols-6">
+                                {group.items.map((platform) => {
+                                  const isConnected = state.socialLinks.some((l) => l.platform === platform);
+                                  const isSelected = selectedPlatform === platform;
+                                  const brandHover = getBrandHoverClass(platform);
+                                  const brandActive = getBrandActiveBorderClass(platform);
+                                  const currentLink = state.socialLinks.find((l) => l.platform === platform);
+
+                                  return (
+                                    <button
+                                      key={platform}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedPlatform(platform);
+                                        setSelectedCategory(group.group);
+                                        setSocialUrl(currentLink?.url || "");
+                                      }}
+                                      className={cn(
+                                        "group relative flex flex-col items-center justify-center rounded-2xl border p-4 text-center transition-all duration-300 bg-secondary/10",
+                                        isSelected ? "scale-105 z-10 " + brandActive : isConnected ? "scale-105 z-10 " + brandActive : "border-border/40 hover:bg-secondary/20 hover:scale-105",
+                                        brandHover
+                                      )}
+                                    >
+                                      {isConnected && (
+                                        <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                                      )}
+                                      <div className={cn(
+                                        "flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary/35 transition-transform duration-300 group-hover:scale-110",
+                                        isConnected || isSelected ? "bg-background shadow-md" : "text-muted-foreground group-hover:text-foreground"
+                                      )}>
+                                        <SocialIcon platform={platform} className="h-10 w-10 object-contain" />
+                                      </div>
+                                      <span className="mt-3 text-[11px] font-black tracking-tight text-muted-foreground group-hover:text-foreground truncate max-w-full">
+                                        {platform}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                 <Button className="w-full sm:w-auto" variant="secondary" type="button" onClick={() => navigator.clipboard?.writeText(`${origin}${publicPath}`)}>
@@ -472,8 +721,8 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
               <h2 className="mt-2 text-xl font-black text-foreground sm:text-2xl">Complete your creator storefront</h2>
               <form action={(fd) => saveProfile(fd)} className="mt-6 grid gap-5">
                 <div className="grid gap-4 lg:grid-cols-2">
-                  <UploadField label="Upload profile photo" bucket="public-assets" workspaceId={state.workspace.id} onUploaded={setAvatarUrl} />
-                  <UploadField label="Upload background image" bucket="page-assets" workspaceId={state.workspace.id} onUploaded={setBackgroundUrl} />
+                  <UploadField label="Upload profile photo" bucket="public-assets" onUploaded={setAvatarUrl} />
+                  <UploadField label="Upload background image" bucket="page-assets" onUploaded={setBackgroundUrl} />
                 </div>
                 <div className="grid gap-4 lg:grid-cols-2">
                   <TextField name="displayName" label="Display name" defaultValue={state.page.display_name} placeholder="Your creator name" />
@@ -494,20 +743,91 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
               </form>
 
               <div className="mt-10">
-                <h3 className="text-xl font-black text-foreground">Social media links</h3>
-                <div className="mt-4 space-y-5">
-                  {socialGroups.map((group) => (
-                    <div key={group.group}>
-                      <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">{group.group}</p>
-                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                        {group.items.map((platform) => (
-                          <button key={platform} type="button" onClick={() => addSocial(platform, group.group)} className="rounded-2xl border border-border bg-secondary/50 px-4 py-3 text-sm font-black text-foreground transition hover:border-primary/40 hover:bg-secondary">
-                            {platform}
-                          </button>
-                        ))}
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div>
+                    <h3 className="text-xl font-black text-foreground">Social media links</h3>
+                    <p className="text-sm font-semibold text-muted-foreground mt-0.5">
+                      Connect your social channels. Active channels display matching vector brand icons on your storefront.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setIsSocialDialogOpen(true);
+                      setSelectedPlatform(null);
+                      setSocialUrl("");
+                    }}
+                    className="shrink-0 rounded-full"
+                  >
+                    <Plus className="h-4 w-4 mr-1.5" /> Add Channel
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-5 sm:gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 mt-6">
+                  {state.socialLinks.map((link) => {
+                    const platform = link.platform;
+                    const brandHover = getBrandHoverClass(platform);
+                    const brandActive = getBrandActiveBorderClass(platform);
+
+                    return (
+                      <div
+                        key={link.id}
+                        onClick={() => {
+                          setIsSocialDialogOpen(true);
+                          setSelectedPlatform(platform);
+                          const cat = socialGroups.find((g) => g.items.includes(platform))?.group || "Social";
+                          setSelectedCategory(cat);
+                          setSocialUrl(link.url);
+                        }}
+                        className={cn(
+                          "group relative flex flex-col items-center justify-center rounded-2xl border p-5 text-center transition-all duration-300 bg-secondary/10 cursor-pointer scale-102 z-10 h-[142px]",
+                          brandActive,
+                          brandHover
+                        )}
+                      >
+                        {/* Green Pulse Connected dot */}
+                        <span className="absolute top-3 left-3 h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse z-10" />
+
+                        {/* Direct Delete button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteSocial(link.id);
+                          }}
+                          className="absolute top-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all duration-200 z-20 shadow-sm"
+                          title={`Disconnect ${platform}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-background shadow-md transition-transform duration-300 group-hover:scale-110">
+                          <SocialIcon platform={platform} className="h-10 w-10 object-contain" />
+                        </div>
+                        <span className="mt-3 text-xs font-black tracking-tight text-foreground truncate max-w-full">
+                          {platform}
+                        </span>
                       </div>
+                    );
+                  })}
+
+                  {/* Connect Channel Card */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSocialDialogOpen(true);
+                      setSelectedPlatform(null);
+                      setSocialUrl("");
+                    }}
+                    className="group relative flex flex-col items-center justify-center rounded-2xl border border-dashed border-border hover:border-primary/50 bg-secondary/5 hover:bg-secondary/15 p-5 text-center transition-all duration-300 h-[142px]"
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-border group-hover:border-primary/40 bg-secondary/10 group-hover:bg-primary/5 text-muted-foreground group-hover:text-primary transition-all duration-300">
+                      <Plus className="h-6 w-6 transition-transform duration-300 group-hover:scale-110" />
                     </div>
-                  ))}
+                    <span className="mt-3 text-xs font-bold tracking-tight text-muted-foreground group-hover:text-foreground">
+                      Connect Channel
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -530,7 +850,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                   <h3 className="text-xl font-black text-foreground">Photo gallery</h3>
                   <p className="mt-1 text-sm font-semibold text-muted-foreground">Upload public gallery images for the bio builder and mobile preview.</p>
                   <div className="mt-4">
-                    <UploadField label="Upload gallery image" bucket="gallery" workspaceId={state.workspace.id} onUploaded={addGalleryImage} />
+                    <UploadField label="Upload gallery image" bucket="gallery" onUploaded={addGalleryImage} />
                   </div>
                   <div className="mt-4 grid grid-cols-3 gap-2">
                     {state.gallery.slice(0, 6).map((item) => (
@@ -590,8 +910,8 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                 <form action={addProduct} className={panelClass()}>
                   <h2 className="text-2xl font-black text-foreground">Add new product</h2>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    <UploadField label="Upload cover image" bucket="public-assets" workspaceId={state.workspace.id} onUploaded={setCoverUrl} />
-                    <UploadField label="Upload digital file" bucket="product-files" workspaceId={state.workspace.id} onUploaded={setFilePath} privateFile />
+                    <UploadField label="Upload cover image" bucket="public-assets" onUploaded={setCoverUrl} />
+                    <UploadField label="Upload digital file" bucket="product-files" onUploaded={setFilePath} privateFile />
                   </div>
                   <div className="mt-5 grid gap-4">
                     <TextField name="title" label="Title" placeholder="Creator launch workbook" />

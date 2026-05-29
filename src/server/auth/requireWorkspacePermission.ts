@@ -2,54 +2,48 @@ import { redirect } from "next/navigation";
 
 import { getSession } from "./getSession";
 import { getActiveWorkspace } from "./getActiveWorkspace";
-import { canWorkspaceAccessSurface, type WorkspaceAccessRecord } from "./routeAccess";
+import { canAccountTypeAccessSurface, type WorkspaceAccessRecord } from "./routeAccess";
 import type { RouteSurface } from "./permissions";
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
-import { createWorkspaceForUser } from "@/server/workspaces/workspaceService";
+import { getDashboardForAccountType } from "@/features/auth/config/accountTypes";
+import type { AccountType } from "@/features/auth/types";
 
-function defaultWorkspaceTypeForSurface(surface: RouteSurface) {
-  if (surface === "brand") return "brand" as const;
-  if (surface === "admin") return "admin" as const;
-  return "creator" as const;
+type ProfileAccessRow = {
+  account_type: AccountType | null;
+  full_name: string | null;
+  onboarding_completed: boolean | null;
+};
+
+function currentSurfacePath(surface: RouteSurface) {
+  return `/${surface}`;
 }
 
-export async function requireWorkspacePermission(surface: RouteSurface): Promise<WorkspaceAccessRecord> {
+function redirectToAccountDashboard(accountType: AccountType, surface: RouteSurface): never {
+  const dashboard = getDashboardForAccountType(accountType);
+  redirect(dashboard === currentSurfacePath(surface) ? `/unauthorized?next=${currentSurfacePath(surface)}` : dashboard);
+}
+
+export async function requireWorkspacePermission(surface: RouteSurface): Promise<WorkspaceAccessRecord | null> {
   const { user } = await getSession();
 
   if (!user) {
     redirect(`/login?next=/${surface}`);
   }
 
-  let workspace = await getActiveWorkspace(user.id);
+  const supabase = await createSupabaseServerClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("account_type,full_name,onboarding_completed")
+    .eq("id", user.id)
+    .maybeSingle<ProfileAccessRow>();
 
-  if (!workspace) {
-    const supabase = await createSupabaseServerClient();
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name,email,avatar_url")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    const created = await createWorkspaceForUser({
-      userId: user.id,
-      name: `${profile?.full_name || profile?.email?.split("@")[0] || "KreatorOS"} Workspace`,
-      type: defaultWorkspaceTypeForSurface(surface),
-      avatarUrl: profile?.avatar_url ?? null,
-    });
-
-    if (created.ok) {
-      workspace = {
-        id: created.workspace.id,
-        type: created.workspace.type,
-        status: created.workspace.status,
-        role: "owner",
-      };
-    }
+  if (!profile?.onboarding_completed || !profile.full_name || !profile.account_type) {
+    redirect("/onboarding");
   }
 
-  if (!workspace || !canWorkspaceAccessSurface(workspace, surface)) {
-    redirect(`/unauthorized?next=/${surface}`);
+  if (!canAccountTypeAccessSurface(profile.account_type, surface)) {
+    redirectToAccountDashboard(profile.account_type, surface);
   }
 
-  return workspace;
+  return getActiveWorkspace(user.id);
 }

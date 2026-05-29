@@ -37,7 +37,7 @@ export function AuthPanel() {
           }
         : {
             title: "Create account",
-            text: "One account for creator, business, and client workspaces.",
+            text: "One login, one selected role, and the right dashboard for that role.",
             button: "Create account",
             switchText: "Already have an account?",
             switchAction: "Sign in",
@@ -121,7 +121,7 @@ export function AuthPanel() {
       <div className="relative hidden overflow-hidden lg:block">
         <img
           src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=85"
-          alt="Clean workspace with a laptop and notes"
+          alt="Clean desk with a laptop and notes"
           className="h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-br from-primary/70 via-primary/40 to-accent/40" />

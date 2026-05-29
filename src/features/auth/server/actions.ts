@@ -6,8 +6,10 @@ import { redirect } from "next/navigation";
 import { authRoutes } from "../config/authRoutes";
 import { hasSupabaseConfig } from "../../../server/supabase/config";
 import { createSupabaseServerClient } from "../../../server/supabase/serverClient";
-import { createWorkspaceForUser, workspaceTypeToAccountType } from "../../../server/workspaces/workspaceService";
+import { createWorkspaceForUser } from "../../../server/workspaces/workspaceService";
 import type { WorkspaceType } from "../../../server/auth/permissions";
+import { getDashboardForAccountType, isAccountType } from "../config/accountTypes";
+import type { AccountType } from "../types";
 
 export type ActionState = {
   status: "idle" | "success" | "error";
@@ -24,6 +26,12 @@ function requireSupabaseConfig() {
   return null;
 }
 
+function accountTypeToWorkspaceType(accountType: AccountType): WorkspaceType {
+  if (accountType === "business") return "brand";
+  if (accountType === "admin") return "admin";
+  return "creator";
+}
+
 export async function completeOnboardingAction(_previousState: ActionState, formData: FormData): Promise<ActionState> {
   const configError = requireSupabaseConfig();
   if (configError) return { status: "error", message: configError };
@@ -33,7 +41,9 @@ export async function completeOnboardingAction(_previousState: ActionState, form
   const focus = String(formData.get("focus") ?? "").trim();
   const primaryGoal = String(formData.get("primaryGoal") ?? "").trim();
   const audience = String(formData.get("audience") ?? "").trim();
-  const workspaceType = String(formData.get("workspaceType") ?? "creator") as WorkspaceType;
+  const submittedAccountType = String(formData.get("accountType") ?? "creator");
+  const accountType = isAccountType(submittedAccountType) ? submittedAccountType : "creator";
+  const workspaceType = accountTypeToWorkspaceType(accountType);
 
   if (!fullName) {
     return { status: "error", message: "Please enter your name." };
@@ -49,10 +59,9 @@ export async function completeOnboardingAction(_previousState: ActionState, form
     return { status: "error", message: "Please sign in again to complete onboarding." };
   }
 
-  const workspaceName = fullName.endsWith("Workspace") ? fullName : `${fullName} Workspace`;
   const workspaceResult = await createWorkspaceForUser({
     userId: user.id,
-    name: workspaceName,
+    name: `${fullName} ${workspaceType === "brand" ? "Brand" : "Creator"}`,
     type: workspaceType,
     avatarUrl: avatarUrl || null,
   });
@@ -66,10 +75,10 @@ export async function completeOnboardingAction(_previousState: ActionState, form
     email: user.email,
     full_name: fullName,
     avatar_url: avatarUrl || null,
-    account_type: workspaceTypeToAccountType(workspaceType),
+    account_type: accountType,
     active_workspace_id: workspaceResult.workspace.id,
     onboarding_completed: true,
-    preferences: { focus, primaryGoal, audience, workspaceType },
+    preferences: { focus, primaryGoal, audience, accountType, workspaceType },
     updated_at: new Date().toISOString(),
   });
 
@@ -78,7 +87,7 @@ export async function completeOnboardingAction(_previousState: ActionState, form
   }
 
   revalidatePath("/");
-  redirect(workspaceType === "brand" || workspaceType === "agency" ? "/brand" : workspaceType === "admin" ? "/brand" : "/creator");
+  redirect(getDashboardForAccountType(accountType));
 }
 
 export async function updateProfileAction(_previousState: ActionState, formData: FormData): Promise<ActionState> {

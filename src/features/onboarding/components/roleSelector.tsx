@@ -14,7 +14,7 @@ export function RoleSelector() {
       <div className="mx-auto max-w-5xl py-16">
         <Badge variant="accent" className="mb-6 gap-1.5">
           <PromiseIcon className="h-3.5 w-3.5" />
-          KreatorOS workspace router
+          KreatorOS account router
         </Badge>
         <p className="mb-2 text-sm font-medium uppercase tracking-wide text-accent">{onboardingPromise.eyebrow}</p>
         <h1 className="max-w-5xl font-display text-3xl font-semibold tracking-tight md:text-5xl">{onboardingPromise.title}</h1>

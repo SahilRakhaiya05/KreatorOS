@@ -21,7 +21,7 @@ export function ChatWorkspace({ catalog }: { catalog: ProviderCatalogEntry[] }) 
   return (
     <div
       className={cn(
-        "grid h-[calc(100vh-8.5rem)] min-h-0 grid-cols-1 overflow-hidden bg-transparent lg:grid-cols-[16rem_minmax(0,1fr)]",
+        "grid h-[calc(100vh-7rem)] min-h-[560px] grid-cols-1 overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:grid-cols-[16rem_minmax(0,1fr)]",
         showAgent ? "xl:grid-cols-[16rem_minmax(0,1fr)_20rem]" : "xl:grid-cols-[16rem_minmax(0,1fr)]"
       )}
     >
@@ -37,7 +37,7 @@ export function ChatWorkspace({ catalog }: { catalog: ProviderCatalogEntry[] }) 
       </div>
 
       {/* Main column */}
-      <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-background/70 backdrop-blur-sm">
+      <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-background/80 backdrop-blur-sm">
         <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-2.5 md:px-6 xl:px-8">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{getAgent(agentId).name}</p>
@@ -63,14 +63,13 @@ export function ChatWorkspace({ catalog }: { catalog: ProviderCatalogEntry[] }) 
           </div>
         </div>
 
-        {chat.error ? (
-          <div className="flex items-center gap-2 border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            {chat.error}
-          </div>
-        ) : null}
-
         <div className="no-scrollbar min-h-0 overflow-y-auto">
+          {chat.error ? (
+            <div className="mx-4 mt-4 flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive md:mx-8 lg:mx-10">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {chat.error}
+            </div>
+          ) : null}
           <ChatThread
             messages={chat.current?.messages ?? []}
             agentId={agentId}
