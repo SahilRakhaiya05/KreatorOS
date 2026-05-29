@@ -100,6 +100,9 @@ function SidebarNav({
 }) {
   const pathname = usePathname();
   const groups = nav[role];
+  const isActiveRoute = (href: string) =>
+    pathname === href || (href === "/creator/link" && pathname.startsWith("/creator/link"));
+
   return (
     <nav className="flex flex-col gap-4">
       {groups.map((group) => (
@@ -118,7 +121,7 @@ function SidebarNav({
               label={item.label}
               icon={item.icon}
               collapsed={collapsed}
-              active={pathname === item.href}
+              active={isActiveRoute(item.href)}
               onNavigate={onNavigate}
             />
           ))}

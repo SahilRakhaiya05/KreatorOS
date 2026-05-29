@@ -1,8 +1,8 @@
 import {
   Bot, Calendar, CreditCard, FileText, Gift, Globe2, Handshake, Inbox, LayoutDashboard,
-  Link as LinkIcon, LockKeyhole, MessageCircle, PlayCircle, Rocket, Settings, ShoppingBag,
+  LockKeyhole, MessageCircle, PlayCircle, Rocket, Settings, ShoppingBag,
   Sparkles, Store, Users, Wand2, Zap, BarChart3, Brain, Route, ClipboardList, PhoneCall,
-  Mic, Languages, ShieldCheck, Puzzle, Workflow
+  Mic, Languages, ShieldCheck, Workflow
 } from "lucide-react";
 
 export const creator = {
@@ -78,8 +78,6 @@ export const nav: Record<"creator" | "brand" | "portal", NavGroup[]> = {
     {
       group: "Smart Link",
       items: [
-        { href: "/creator/link/profile", label: "Profile & Links", icon: LinkIcon },
-        { href: "/creator/link/builder", label: "Bio Builder", icon: Puzzle },
         { href: "/creator/link/products", label: "Products", icon: Store },
         { href: "/creator/link/wallet", label: "Wallet", icon: CreditCard },
         { href: "/creator/link/affiliate", label: "Affiliate Links", icon: Gift },
