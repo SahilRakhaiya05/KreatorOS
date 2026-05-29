@@ -337,7 +337,7 @@ export function AppShell({ role, children }: { role: Role; children: React.React
             )}
           >
             <Brand role={role} collapsed={collapsed} />
-            <div className="flex-1 overflow-y-auto overflow-x-hidden pr-1">
+            <div className="no-scrollbar flex-1 overflow-y-auto overflow-x-hidden pr-1">
               <SidebarNav role={role} collapsed={collapsed} />
             </div>
             <div className="flex flex-col gap-1">

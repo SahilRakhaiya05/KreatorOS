@@ -8,12 +8,10 @@ import {
   ExternalLink,
   FileUp,
   Globe2,
-  Handshake,
   ImagePlus,
   Mail,
   PackagePlus,
   Plus,
-  RefreshCw,
   Rocket,
   Share2,
   ShieldCheck,
@@ -87,7 +85,7 @@ function setupItems(data: LinkCommerceData) {
 }
 
 function panelClass(extra?: string) {
-  return cn("rounded-3xl border border-border bg-card p-5 shadow-sm", extra);
+  return cn("rounded-2xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-5", extra);
 }
 
 function TextField({
@@ -111,7 +109,7 @@ function TextField({
         type={type}
         defaultValue={defaultValue ?? ""}
         placeholder={placeholder}
-        className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm font-semibold text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-4 focus:ring-primary/10"
+        className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-4 focus:ring-primary/10 sm:h-12 sm:rounded-2xl sm:px-4"
       />
     </label>
   );
@@ -125,7 +123,7 @@ function TextArea({ name, label, defaultValue, placeholder }: { name: string; la
         name={name}
         defaultValue={defaultValue ?? ""}
         placeholder={placeholder}
-        className="min-h-28 w-full resize-y rounded-2xl border border-input bg-background px-4 py-3 text-sm font-semibold leading-6 text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-4 focus:ring-primary/10"
+        className="min-h-28 w-full resize-y rounded-xl border border-input bg-background px-3 py-3 text-sm font-semibold leading-6 text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-4 focus:ring-primary/10 sm:rounded-2xl sm:px-4"
       />
     </label>
   );
@@ -167,9 +165,9 @@ function UploadField({
   }
 
   return (
-    <label className="block rounded-2xl border border-dashed border-border bg-secondary/50 p-5 text-center transition hover:border-primary/40 hover:bg-secondary">
+    <label className="block rounded-2xl border border-dashed border-border bg-secondary/50 p-4 text-center transition hover:border-primary/40 hover:bg-secondary sm:p-5">
       <input type="file" className="sr-only" onChange={(event) => upload(event.target.files?.[0])} />
-      <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-background text-muted-foreground shadow-sm">
+      <div className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-background text-muted-foreground shadow-sm sm:h-12 sm:w-12">
         {privateFile ? <FileUp className="h-5 w-5" /> : <ImagePlus className="h-5 w-5" />}
       </div>
       <p className="mt-3 text-sm font-black text-foreground">{uploading ? "Uploading..." : label}</p>
@@ -183,24 +181,24 @@ function PhonePreview({ data, origin }: { data: LinkCommerceData; origin: string
   const visibleProducts = data.products.filter((product) => product.status === "published" && product.show_on_bio);
 
   return (
-    <div className="mx-auto w-full max-w-[390px] rounded-[42px] border border-sky-300/20 bg-[#07111f] p-2 shadow-[0_30px_90px_rgba(14,165,233,.18)]">
-      <div className="h-[720px] overflow-hidden rounded-[34px] bg-black">
-        <div className="h-44 bg-gradient-to-br from-sky-950 via-blue-950 to-zinc-950">
+    <div className="mx-auto w-full max-w-[280px] rounded-[32px] border border-sky-300/20 bg-[#07111f] p-1.5 shadow-[0_18px_50px_rgba(14,165,233,.14)] xl:max-w-[300px] xl:rounded-[36px] 2xl:max-w-[320px]">
+      <div className="flex h-[min(560px,calc(100vh-7rem))] flex-col overflow-hidden rounded-[26px] bg-black xl:rounded-[30px]">
+        <div className="h-28 shrink-0 bg-gradient-to-br from-sky-950 via-blue-950 to-zinc-950 xl:h-32">
           {page.background_image_url ? <img src={page.background_image_url} alt="" className="h-full w-full object-cover opacity-75" /> : null}
         </div>
-        <div className="-mt-14 px-5 text-center">
+        <div className="-mt-10 flex flex-1 flex-col px-4 pb-5 text-center xl:-mt-12">
           {page.avatar_url ? (
-            <img src={page.avatar_url} alt="" className="mx-auto h-28 w-28 rounded-full border-4 border-black object-cover" />
+            <img src={page.avatar_url} alt="" className="mx-auto h-20 w-20 rounded-full border-4 border-black object-cover xl:h-24 xl:w-24" />
           ) : (
-            <div className="mx-auto grid h-28 w-28 place-items-center rounded-full border-4 border-black bg-gradient-to-br from-primary to-accent text-3xl font-black text-primary-foreground">
+            <div className="mx-auto grid h-20 w-20 place-items-center rounded-full border-4 border-black bg-gradient-to-br from-primary to-accent text-2xl font-black text-primary-foreground xl:h-24 xl:w-24">
               {(page.display_name ?? "C").slice(0, 1)}
             </div>
           )}
-          <h2 className="mt-4 text-3xl font-black tracking-tight text-white">{page.display_name}</h2>
+          <h2 className="mt-3 text-xl font-black tracking-tight text-white xl:text-2xl">{page.display_name}</h2>
           <p className="mt-1 text-sm font-semibold text-zinc-300">@{page.username || page.slug}</p>
-          <p className="mx-auto mt-4 max-w-xs text-sm font-semibold leading-6 text-zinc-200">{page.bio || page.headline || "Add a bio to tell visitors what to buy, book, or explore."}</p>
+          <p className="mx-auto mt-3 max-w-xs text-xs font-semibold leading-5 text-zinc-200 xl:text-sm xl:leading-6">{page.bio || page.headline || "Add a bio to tell visitors what to buy, book, or explore."}</p>
 
-          <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
             {data.socialLinks.slice(0, 8).map((link) => (
               <span key={link.id} className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black text-white">
                 {link.platform}
@@ -208,7 +206,7 @@ function PhonePreview({ data, origin }: { data: LinkCommerceData; origin: string
             ))}
           </div>
 
-          <div className="mt-5 space-y-3">
+          <div className="mt-4 space-y-3">
             {data.customLinks.slice(0, 3).map((link) => (
               <div key={link.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-3 text-left">
                 <span className="truncate text-sm font-black text-white">{link.title}</span>
@@ -227,11 +225,11 @@ function PhonePreview({ data, origin }: { data: LinkCommerceData; origin: string
             ))}
           </div>
 
-          <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.07] p-3 text-left">
+          <div className="mt-auto rounded-2xl border border-white/10 bg-white/[0.07] p-3 text-left">
             <p className="text-sm font-black text-white">AI shopping guide</p>
             <p className="mt-1 text-xs text-zinc-400">{data.assistant?.greeting || data.assistant?.welcome_message || "Ask what product, call, or link is right for you."}</p>
           </div>
-          <p className="mt-5 text-[11px] font-bold text-zinc-600">{origin}/u/{page.username || page.slug}</p>
+          <p className="mt-4 break-words text-[10px] font-bold leading-4 text-zinc-600">{origin}/u/{page.username || page.slug}</p>
         </div>
       </div>
     </div>
@@ -417,58 +415,67 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
     acc[event.event_type] = (acc[event.event_type] ?? 0) + 1;
     return acc;
   }, {});
+  const analyticsTypes = ["page.viewed", "custom_link.clicked", "product.clicked", "checkout.started"];
+  const maxAnalyticsCount = Math.max(1, ...analyticsTypes.map((type) => eventsByType[type] ?? 0));
+  const recentEvents = state.analyticsEvents.slice(0, 6);
 
   const showProfile = activeMode === "dashboard" || activeMode === "profile" || activeMode === "builder";
   const showProducts = activeMode === "products" || activeMode === "product-new";
 
   return (
-    <div className="space-y-6">
-      <section className={panelClass("overflow-hidden bg-gradient-to-br from-card via-card to-secondary/60")}>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <Badge variant="secondary" className="rounded-full">CreatorOS Link Commerce</Badge>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-foreground">Manage Your Smart Link</h1>
-            <p className="mt-1 max-w-xl text-sm font-semibold leading-6 text-muted-foreground">
-              Profile, bio builder, products, affiliate flows, referrals, AI assistant, analytics, and public shop in one workspace-aware commerce surface.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" type="button" onClick={() => navigator.clipboard?.writeText(`${origin}${publicPath}`)}>
-              <Copy className="h-4 w-4" /> Copy link
-            </Button>
-            <Button asChild variant="secondary">
-              <a href={publicPath} target="_blank"><ExternalLink className="h-4 w-4" /> View profile</a>
-            </Button>
-            <Button asChild variant="secondary">
-              <a href={shopPath} target="_blank"><Store className="h-4 w-4" /> View shop</a>
-            </Button>
-            <form action={(fd) => saveProfile(fd, "published")} className="contents">
-              <input type="hidden" name="displayName" value={state.page.display_name ?? ""} />
-              <input type="hidden" name="username" value={state.page.username ?? state.page.slug ?? ""} />
-              <input type="hidden" name="headline" value={state.page.headline ?? ""} />
-              <input type="hidden" name="bio" value={state.page.bio ?? ""} />
-              <input type="hidden" name="occupationType" value={state.page.theme?.occupationType ?? "creator"} />
-              <Button disabled={isPending}>
-                <Rocket className="h-4 w-4" /> Publish
-              </Button>
-            </form>
-          </div>
-        </div>
-        {message ? <p className="mt-4 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm font-bold text-foreground">{message}</p> : null}
-      </section>
+    <div>
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-5 2xl:grid-cols-[minmax(0,1fr)_320px]">
+        <main className="min-w-0 space-y-5 sm:space-y-6">
+          <section className={panelClass("overflow-hidden bg-gradient-to-br from-card via-card to-secondary/60")}>
+            <div className="flex flex-col gap-4">
+              <div>
+                <Badge variant="secondary" className="rounded-full">CreatorOS Link Commerce</Badge>
+                <h1 className="mt-2 text-xl font-black tracking-tight text-foreground sm:text-2xl">Manage Your Smart Link</h1>
+                <p className="mt-1 max-w-2xl text-xs font-semibold leading-5 text-muted-foreground sm:text-sm sm:leading-6">
+                  Profile, bio builder, products, affiliate flows, referrals, AI assistant, analytics, and public shop in one commerce surface.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                <Button className="w-full sm:w-auto" variant="secondary" type="button" onClick={() => navigator.clipboard?.writeText(`${origin}${publicPath}`)}>
+                  <Copy className="h-4 w-4" /> Copy link
+                </Button>
+                <Button asChild variant="secondary" className="w-full sm:w-auto">
+                  <a href={publicPath} target="_blank"><ExternalLink className="h-4 w-4" /> View profile</a>
+                </Button>
+                <Button asChild variant="secondary" className="w-full sm:w-auto">
+                  <a href={shopPath} target="_blank"><Store className="h-4 w-4" /> View shop</a>
+                </Button>
+                <Button className="w-full sm:w-auto" variant="outline" type="button" onClick={() => setActiveMode("profile")}>
+                  <Check className="h-4 w-4" /> Setup checklist {progress}%
+                </Button>
+                <Button className="w-full sm:w-auto" variant="outline" type="button" onClick={() => setActiveMode("assistant")}>
+                  <Sparkles className="h-4 w-4" /> AI actions
+                </Button>
+                <form action={(fd) => saveProfile(fd, "published")} className="contents">
+                  <input type="hidden" name="displayName" value={state.page.display_name ?? ""} />
+                  <input type="hidden" name="username" value={state.page.username ?? state.page.slug ?? ""} />
+                  <input type="hidden" name="headline" value={state.page.headline ?? ""} />
+                  <input type="hidden" name="bio" value={state.page.bio ?? ""} />
+                  <input type="hidden" name="occupationType" value={state.page.theme?.occupationType ?? "creator"} />
+                  <Button className="w-full sm:w-auto" disabled={isPending}>
+                    <Rocket className="h-4 w-4" /> Publish
+                  </Button>
+                </form>
+              </div>
+            </div>
+            {message ? <p className="mt-4 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm font-bold text-foreground">{message}</p> : null}
+          </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
-        <main className="space-y-6">
           {showProfile ? (
-            <section className={panelClass()}>
+            <section className={panelClass("overflow-hidden")}>
               <p className="text-xs font-bold uppercase tracking-[0.26em] text-muted-foreground">Profile and links</p>
-              <h2 className="mt-2 text-2xl font-black text-foreground">Complete your creator storefront</h2>
+              <h2 className="mt-2 text-xl font-black text-foreground sm:text-2xl">Complete your creator storefront</h2>
               <form action={(fd) => saveProfile(fd)} className="mt-6 grid gap-5">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 lg:grid-cols-2">
                   <UploadField label="Upload profile photo" bucket="public-assets" workspaceId={state.workspace.id} onUploaded={setAvatarUrl} />
                   <UploadField label="Upload background image" bucket="page-assets" workspaceId={state.workspace.id} onUploaded={setBackgroundUrl} />
                 </div>
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 lg:grid-cols-2">
                   <TextField name="displayName" label="Display name" defaultValue={state.page.display_name} placeholder="Your creator name" />
                   <TextField name="username" label="Username" defaultValue={state.page.username ?? state.page.slug} placeholder="your-username" />
                   <TextField name="headline" label="Headline" defaultValue={state.page.headline} placeholder="I help creators..." />
@@ -477,7 +484,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                 <TextArea name="bio" label="Bio" defaultValue={state.page.bio} placeholder="A short conversion-focused bio..." />
                 <label className="space-y-2">
                   <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Occupation type</span>
-                  <select name="occupationType" defaultValue={state.page.theme?.occupationType ?? "creator"} className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm font-semibold text-foreground outline-none">
+                  <select name="occupationType" defaultValue={state.page.theme?.occupationType ?? "creator"} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none sm:h-12 sm:rounded-2xl sm:px-4">
                     {["personal", "creator", "brand", "business", "agency", "community"].map((item) => <option key={item}>{item}</option>)}
                   </select>
                 </label>
@@ -661,17 +668,87 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
           ) : null}
 
           {activeMode === "analytics" ? (
-            <section className={panelClass()}>
-              <h2 className="text-2xl font-black text-foreground">Real analytics</h2>
-              <div className="mt-5 grid gap-3 md:grid-cols-4">
-                {["page.viewed", "custom_link.clicked", "product.clicked", "checkout.started"].map((type) => (
-                  <div key={type} className="rounded-3xl bg-secondary/60 p-5">
-                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">{type}</p>
-                    <p className="mt-2 text-3xl font-black text-foreground">{eventsByType[type] ?? 0}</p>
+            <section className="space-y-5">
+              <div className={panelClass()}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Live signal</p>
+                    <h2 className="mt-2 text-2xl font-black text-foreground">Real analytics</h2>
                   </div>
-                ))}
+                  <Badge variant="secondary" className="w-fit rounded-full">{state.analyticsEvents.length} total events</Badge>
+                </div>
+                <div className="mt-5 grid gap-3 md:grid-cols-4">
+                  {analyticsTypes.map((type) => (
+                    <div key={type} className="rounded-3xl bg-secondary/60 p-5">
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">{type}</p>
+                      <p className="mt-2 text-3xl font-black text-foreground">{eventsByType[type] ?? 0}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-              {!state.analyticsEvents.length ? <p className="mt-5 rounded-3xl border border-dashed border-border p-8 text-center text-muted-foreground">No analytics yet. Public traffic will appear here as events arrive.</p> : null}
+
+              <div className={panelClass()}>
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Visitor journey</p>
+                  <h3 className="text-xl font-black text-foreground">Conversion flow</h3>
+                </div>
+                <div className="mt-5 space-y-4">
+                  {analyticsTypes.map((type, index) => {
+                    const count = eventsByType[type] ?? 0;
+                    const width = Math.max(6, Math.round((count / maxAnalyticsCount) * 100));
+                    return (
+                      <div key={type} className="rounded-3xl border border-border bg-secondary/35 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-background text-sm font-black text-foreground shadow-sm">{index + 1}</span>
+                            <div>
+                              <p className="text-sm font-black text-foreground">{type.replace(".", " ")}</p>
+                              <p className="text-xs font-semibold text-muted-foreground">Step {index + 1} in the storefront funnel</p>
+                            </div>
+                          </div>
+                          <p className="text-lg font-black text-foreground">{count}</p>
+                        </div>
+                        <div className="mt-4 h-2 overflow-hidden rounded-full bg-background">
+                          <div className="h-full rounded-full bg-accent" style={{ width: `${width}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+                <div className={panelClass()}>
+                  <h3 className="text-xl font-black text-foreground">Recent activity</h3>
+                  <div className="mt-4 space-y-2">
+                    {recentEvents.map((event) => (
+                      <div key={event.id} className="flex items-center justify-between gap-3 rounded-2xl bg-secondary/50 px-4 py-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-foreground">{event.event_type}</p>
+                          <p className="text-xs font-semibold text-muted-foreground">{event.entity_type ?? "storefront"} event</p>
+                        </div>
+                        <Badge variant="secondary" className="shrink-0 rounded-full">live</Badge>
+                      </div>
+                    ))}
+                    {!recentEvents.length ? (
+                      <p className="rounded-3xl border border-dashed border-border p-8 text-center text-sm font-bold text-muted-foreground">
+                        No analytics yet. Public traffic will appear here as events arrive.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className={panelClass("bg-secondary/35")}>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Next read</p>
+                  <h3 className="mt-2 text-xl font-black text-foreground">Improve the path</h3>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-muted-foreground">
+                    Watch views first, then links, then product clicks. When the middle step is low, improve the profile CTA before adding more products.
+                  </p>
+                  <Button className="mt-5 w-full" type="button" onClick={() => requestAi("conversion_review")}>
+                    <Sparkles className="h-4 w-4" /> Review flow
+                  </Button>
+                </div>
+              </div>
             </section>
           ) : null}
 
@@ -686,41 +763,13 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
           ) : null}
         </main>
 
-        <aside className="space-y-4 xl:sticky xl:top-20 xl:h-fit">
-          <PhonePreview data={state} origin={origin} />
-          <div className={panelClass()}>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Setup checklist</p>
-            <div className="mt-4 flex items-center gap-4">
-              <div className="grid h-16 w-16 place-items-center rounded-full border-4 border-primary/70 text-lg font-black text-foreground">{progress}%</div>
-              <div>
-                <p className="text-2xl font-black text-foreground">{completed}/{checklist.length}</p>
-                <p className="text-xs font-semibold text-muted-foreground">requirements complete</p>
-              </div>
-            </div>
-            <div className="mt-4 space-y-2">
-              {checklist.map((item) => (
-                <div key={item.label} className="flex items-center justify-between rounded-2xl bg-secondary/50 px-3 py-2 text-sm font-semibold">
-                  <span className="text-muted-foreground">{item.label}</span>
-                  <span className={cn("grid h-5 w-5 place-items-center rounded-full text-[10px]", item.done ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}>
-                    {item.done ? "✓" : ""}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <Button className="mt-4 w-full" type="button" onClick={() => setActiveMode("profile")}>
-              <Sparkles className="h-4 w-4" /> Finish setup
-            </Button>
-          </div>
-          <div className={panelClass()}>
-            <p className="text-sm font-black text-foreground">Next best AI actions</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button size="sm" variant="secondary" type="button" onClick={() => requestAi("generate_bio")}><RefreshCw className="h-4 w-4" /> Bio</Button>
-              <Button size="sm" variant="secondary" type="button" onClick={() => requestAi("product_ideas")}><ShoppingBag className="h-4 w-4" /> Products</Button>
-              <Button size="sm" variant="secondary" type="button" onClick={() => requestAi("conversion_review")}><Handshake className="h-4 w-4" /> Conversion</Button>
-            </div>
+        <aside className="hidden min-w-0 lg:sticky lg:top-20 lg:block lg:self-start">
+          <div>
+            <PhonePreview data={state} origin={origin} />
           </div>
         </aside>
       </div>
     </div>
   );
 }
+
