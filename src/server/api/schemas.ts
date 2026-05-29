@@ -247,6 +247,8 @@ export const linkPageProfileSchema = z.object({
   occupationType: z.enum(["personal", "creator", "brand", "business", "agency", "community"]).default("creator"),
   totalFollowers: z.coerce.number().int().min(0).optional(),
   status: z.enum(["draft", "published", "paused"]).optional(),
+  themeMode: z.string().optional(),
+  themeAccent: z.string().optional(),
 });
 
 export const linkSocialLinkSchema = z.object({
@@ -293,6 +295,7 @@ export const linkContactSchema = z.object({
 });
 
 export const linkProductSchema = z.object({
+  id: z.string().uuid().optional(),
   workspaceId: z.string().uuid().optional(),
   pageId: z.string().uuid(),
   title: z.string().min(1),

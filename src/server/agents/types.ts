@@ -3,4 +3,9 @@ export type AgentResult = {
   assistantMessage: string;
   proposedToolCalls: string[];
   riskLevel: "low" | "medium" | "high";
+  suggestionTitle?: string;
+  patch?: {
+    targetType: "page" | "block" | "offer" | "workflow" | "message";
+    operations: Array<Record<string, unknown>>;
+  };
 };

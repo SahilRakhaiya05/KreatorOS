@@ -109,7 +109,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
       is_published: body.status === "published",
       published_at: body.status === "published" ? new Date().toISOString() : null,
       setup_progress: setupProgress,
-      theme: { occupationType: body.occupationType, totalFollowers: body.totalFollowers ?? 0, mode: "dark", accent: "coral" },
+      theme: {
+        occupationType: body.occupationType,
+        totalFollowers: body.totalFollowers ?? 0,
+        mode: body.themeMode ?? "dark",
+        accent: body.themeAccent ?? "coral",
+      },
       seo: { title: body.displayName, description: body.bio ?? body.headline ?? "" },
     };
     const { data: before } = await supabase.from("creator_pages").select("*").eq("id", body.pageId).maybeSingle();
@@ -259,6 +264,108 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
     if (isApiResponse(body)) return body;
     const scope = await resolveAccountScope(supabase, user.id, body.pageId, body.workspaceId);
     if (!scope) return apiError("forbidden", "This page does not belong to your account.", 403);
+
+    if (body.id) {
+      // UPDATE EXISTING PRODUCT
+      const productId = body.id;
+
+      // 1. Get existing digital product to find offer_id
+      const { data: existingProduct, error: fetchErr } = await supabase
+        .from("digital_products")
+        .select("*")
+        .eq("id", productId)
+        .maybeSingle();
+
+      if (fetchErr || !existingProduct) {
+        return apiError("product_not_found", "The digital product could not be found.", 404);
+      }
+
+      // 2. Update offer
+      if (existingProduct.offer_id) {
+        await supabase
+          .from("offers")
+          .update({
+            title: body.title,
+            description: body.description,
+            price_cents: body.priceCents,
+            currency: body.currency,
+            show_on_bio: body.showOnBio,
+            show_on_shop: body.showOnShop,
+            status: body.status,
+            config: {
+              delivery: body.filePath ? "private_file" : "external_or_manual",
+              showOnBio: body.showOnBio,
+              showOnShop: body.showOnShop
+            }
+          })
+          .eq("id", existingProduct.offer_id);
+      }
+
+      // 3. Update digital product
+      const { data: updatedProduct, error: updateErr } = await supabase
+        .from("digital_products")
+        .update({
+          title: body.title,
+          slug: slugify(body.title),
+          description: body.description ?? null,
+          cover_image_url: body.coverImageUrl || null,
+          file_path: body.filePath ?? null,
+          external_delivery_url: body.externalDeliveryUrl || null,
+          price_cents: body.priceCents,
+          currency: body.currency,
+          status: body.status,
+          show_on_bio: body.showOnBio,
+          show_on_shop: body.showOnShop,
+        })
+        .eq("id", productId)
+        .select("*")
+        .single();
+
+      if (updateErr) return apiError("product_update_failed", updateErr.message, 400);
+
+      // 4. Update page block if it exists, or insert it if showOnBio is now true
+      const { data: existingBlock } = await supabase
+        .from("creator_page_blocks")
+        .select("id")
+        .eq("page_id", body.pageId)
+        .eq("ref_type", "digital_product")
+        .eq("ref_id", productId)
+        .maybeSingle();
+
+      if (existingBlock) {
+        await supabase
+          .from("creator_page_blocks")
+          .update({
+            title: body.title,
+            subtitle: body.description ?? "Digital product",
+            description: body.description ?? null,
+            image_url: body.coverImageUrl || null,
+            status: body.status === "published" ? "live" : "draft",
+            is_visible: body.status === "published" && body.showOnBio,
+            metadata: { price_cents: body.priceCents, currency: body.currency, product_slug: updatedProduct.slug }
+          })
+          .eq("id", existingBlock.id);
+      } else if (body.showOnBio) {
+        await supabase.from("creator_page_blocks").insert({
+          workspace_id: scope.workspaceId,
+          page_id: body.pageId,
+          type: "product",
+          title: body.title,
+          subtitle: body.description ?? "Digital product",
+          description: body.description ?? null,
+          image_url: body.coverImageUrl || null,
+          status: body.status === "published" ? "live" : "draft",
+          is_visible: body.status === "published",
+          metadata: { price_cents: body.priceCents, currency: body.currency, product_slug: updatedProduct.slug },
+          ref_type: "digital_product",
+          ref_id: productId,
+        });
+      }
+
+      await recordEvent({ workspaceId: scope.workspaceId, pageId: body.pageId, eventType: "product.updated", metadata: { productId } });
+      return apiOk({ product: updatedProduct });
+    }
+
     const offer = await createOffer({
       workspaceId: scope.workspaceId,
       pageId: body.pageId,
@@ -421,6 +528,37 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ resou
 
     const { error } = await supabase.from("creator_social_links").delete().eq("id", id);
     if (error) return apiError("social_link_delete_failed", error.message, 400);
+    return apiOk({ deleted: true });
+  }
+
+  if (resource === "products") {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) return apiError("missing_id", "Missing product ID.", 400);
+
+    // Get the product first to find the offer_id and page_id
+    const { data: product, error: fetchErr } = await supabase
+      .from("digital_products")
+      .select("offer_id, page_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchErr || !product) {
+      return apiError("product_not_found", "Product not found.", 404);
+    }
+
+    // Delete any associated page blocks
+    await supabase.from("creator_page_blocks").delete().eq("ref_type", "digital_product").eq("ref_id", id);
+
+    // Delete the product
+    const { error: deleteErr } = await supabase.from("digital_products").delete().eq("id", id);
+    if (deleteErr) return apiError("product_delete_failed", deleteErr.message, 400);
+
+    // Delete the offer
+    if (product.offer_id) {
+      await supabase.from("offers").delete().eq("id", product.offer_id);
+    }
+
     return apiOk({ deleted: true });
   }
 

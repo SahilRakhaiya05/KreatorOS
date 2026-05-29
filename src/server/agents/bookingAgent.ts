@@ -1,5 +1,10 @@
 import type { AgentResult } from "./types";
+import { runModelAgent } from "./modelRunner";
 
-export async function runBookingAgent(): Promise<AgentResult> {
-  return { status: "draft_ready", assistantMessage: "Booking flow draft is ready with provider checks.", proposedToolCalls: ["check_availability", "hold_booking"], riskLevel: "medium" };
+export async function runBookingAgent(input: { userMessage?: string; workspaceContext?: Record<string, unknown> } = {}): Promise<AgentResult> {
+  return runModelAgent({
+    kind: "booking",
+    userMessage: input.userMessage ?? "Design a booking flow with routing, holds, payment, and reminders.",
+    workspaceContext: input.workspaceContext,
+  });
 }

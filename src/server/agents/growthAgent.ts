@@ -1,5 +1,10 @@
 import type { AgentResult } from "./types";
+import { runModelAgent } from "./modelRunner";
 
-export async function runGrowthAgent(): Promise<AgentResult> {
-  return { status: "needs_approval", assistantMessage: "Growth experiments are drafted for approval.", proposedToolCalls: ["rewrite_cta", "create_ab_test"], riskLevel: "medium" };
+export async function runGrowthAgent(input: { userMessage?: string; workspaceContext?: Record<string, unknown> } = {}): Promise<AgentResult> {
+  return runModelAgent({
+    kind: "growth",
+    userMessage: input.userMessage ?? "Draft growth experiments for the creator business.",
+    workspaceContext: input.workspaceContext,
+  });
 }

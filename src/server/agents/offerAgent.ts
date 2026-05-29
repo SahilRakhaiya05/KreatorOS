@@ -1,5 +1,10 @@
 import type { AgentResult } from "./types";
+import { runModelAgent } from "./modelRunner";
 
-export async function runOfferAgent(): Promise<AgentResult> {
-  return { status: "needs_approval", assistantMessage: "Offer drafts are prepared. Publishing and pricing changes need approval.", proposedToolCalls: ["create_offer_draft", "request_approval"], riskLevel: "high" };
+export async function runOfferAgent(input: { userMessage?: string; workspaceContext?: Record<string, unknown> } = {}): Promise<AgentResult> {
+  return runModelAgent({
+    kind: "offer",
+    userMessage: input.userMessage ?? "Draft an offer with pricing, positioning, checkout, and approval steps.",
+    workspaceContext: input.workspaceContext,
+  });
 }

@@ -1,5 +1,10 @@
 import type { AgentResult } from "./types";
+import { runModelAgent } from "./modelRunner";
 
-export async function runProductAgent(): Promise<AgentResult> {
-  return { status: "draft_ready", assistantMessage: "Product structure and fulfillment draft are ready.", proposedToolCalls: ["create_product_offer", "create_access_rule"], riskLevel: "medium" };
+export async function runProductAgent(input: { userMessage?: string; workspaceContext?: Record<string, unknown> } = {}): Promise<AgentResult> {
+  return runModelAgent({
+    kind: "product",
+    userMessage: input.userMessage ?? "Draft product structure, lessons, delivery, and access rules.",
+    workspaceContext: input.workspaceContext,
+  });
 }

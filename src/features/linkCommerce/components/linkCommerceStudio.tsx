@@ -34,6 +34,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { SocialIcon } from "@/components/ui/socialIcon";
+import { getThemeClasses } from "./publicLinkCommerce";
 
 type Mode =
   | "dashboard"
@@ -41,6 +42,7 @@ type Mode =
   | "builder"
   | "products"
   | "product-new"
+  | "product-edit"
   | "wallet"
   | "affiliate"
   | "referrals"
@@ -188,23 +190,27 @@ function PhonePreview({ data, origin }: { data: LinkCommerceData; origin: string
   const page = data.page;
   const visibleProducts = data.products.filter((product) => product.status === "published" && product.show_on_bio);
 
+  const mode = page.theme?.mode || "dark";
+  const accent = page.theme?.accent || "coral";
+  const styling = getThemeClasses(mode, accent);
+
   return (
     <div className="mx-auto w-full max-w-[280px] rounded-[32px] border border-sky-300/20 bg-[#07111f] p-1.5 shadow-[0_18px_50px_rgba(14,165,233,.14)] xl:max-w-[300px] xl:rounded-[36px] 2xl:max-w-[320px]">
-      <div className="flex h-[min(560px,calc(100vh-7rem))] flex-col overflow-hidden rounded-[26px] bg-black xl:rounded-[30px]">
-        <div className="h-28 shrink-0 bg-gradient-to-br from-sky-950 via-blue-950 to-zinc-950 xl:h-32">
+      <div className={`flex h-[min(560px,calc(100vh-7rem))] flex-col overflow-hidden rounded-[26px] xl:rounded-[30px] ${styling.bgClass}`}>
+        <div className={`h-28 shrink-0 relative overflow-hidden xl:h-32 ${styling.bannerClass}`}>
           {page.background_image_url ? <img src={page.background_image_url} alt="" className="h-full w-full object-cover opacity-75" /> : null}
         </div>
-        <div className="-mt-10 flex flex-1 flex-col px-4 pb-5 text-center xl:-mt-12">
+        <div className="-mt-10 flex flex-1 flex-col px-4 pb-5 text-center overflow-y-auto xl:-mt-12 scrollbar-none relative z-10">
           {page.avatar_url ? (
-            <img src={page.avatar_url} alt="" className="mx-auto h-20 w-20 rounded-full border-4 border-black object-cover xl:h-24 xl:w-24" />
+            <img src={page.avatar_url} alt="" className={`mx-auto h-20 w-20 rounded-full border-4 object-cover xl:h-24 xl:w-24 ${styling.avatarBorderClass}`} />
           ) : (
-            <div className="mx-auto grid h-20 w-20 place-items-center rounded-full border-4 border-black bg-gradient-to-br from-primary to-accent text-2xl font-black text-primary-foreground xl:h-24 xl:w-24">
+            <div className={`mx-auto grid h-20 w-20 place-items-center rounded-full border-4 bg-gradient-to-br from-primary to-accent text-2xl font-black text-primary-foreground xl:h-24 xl:w-24 ${styling.avatarBorderClass}`}>
               {(page.display_name ?? "C").slice(0, 1)}
             </div>
           )}
-          <h2 className="mt-3 text-xl font-black tracking-tight text-white xl:text-2xl">{page.display_name}</h2>
-          <p className="mt-1 text-sm font-semibold text-zinc-300">@{page.username || page.slug}</p>
-          <p className="mx-auto mt-3 max-w-xs text-xs font-semibold leading-5 text-zinc-200 xl:text-sm xl:leading-6">{page.bio || page.headline || "Add a bio to tell visitors what to buy, book, or explore."}</p>
+          <h2 className="mt-3 text-xl font-black tracking-tight xl:text-2xl">{page.display_name}</h2>
+          <p className={`mt-1 text-xs font-bold ${styling.accentTextClass}`}>@{page.username || page.slug}</p>
+          <p className={`mx-auto mt-3 max-w-xs text-xs font-semibold leading-5 xl:text-sm xl:leading-6 ${styling.textMutedClass}`}>{page.bio || page.headline || "Add a bio to tell visitors what to buy, book, or explore."}</p>
 
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             {data.socialLinks.map((link) => (
@@ -213,7 +219,11 @@ function PhonePreview({ data, origin }: { data: LinkCommerceData; origin: string
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:scale-110 hover:bg-white/20"
+                className={`flex h-8 w-8 items-center justify-center rounded-full border transition hover:scale-110 ${
+                  styling.isLight
+                    ? "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50 shadow-sm"
+                    : "border-white/15 bg-white/10 text-white hover:bg-white/20"
+                }`}
                 title={link.platform}
               >
                 <SocialIcon platform={link.platform} className="h-4 w-4" />
@@ -223,28 +233,28 @@ function PhonePreview({ data, origin }: { data: LinkCommerceData; origin: string
 
           <div className="mt-4 space-y-3">
             {data.customLinks.slice(0, 3).map((link) => (
-              <div key={link.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-3 text-left">
-                <span className="truncate text-sm font-black text-white">{link.title}</span>
-                <ArrowUpRight className="h-4 w-4 text-primary" />
+              <div key={link.id} className={styling.cardClass + " px-4 py-2.5"}>
+                <span className="truncate text-xs font-black">{link.title}</span>
+                <ArrowUpRight className={`h-4 w-4 ${styling.accentTextClass}`} />
               </div>
             ))}
             {visibleProducts.slice(0, 2).map((product) => (
-              <div key={product.id} className="rounded-2xl border border-primary/20 bg-primary/10 p-4 text-left">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-primary">Product</p>
-                <p className="mt-1 truncate text-sm font-black text-white">{product.title}</p>
-                <p className="mt-1 text-xs text-zinc-400">{money(product.price_cents, product.currency)}</p>
+              <div key={product.id} className={styling.productCardClass + " text-left text-xs p-3 flex flex-col"}>
+                <p className={`text-[10px] font-black uppercase tracking-[0.14em] ${styling.accentTextClass}`}>Product</p>
+                <p className="mt-1 truncate font-black">{product.title}</p>
+                <p className={`mt-1 text-[10px] ${styling.textMutedClass}`}>{money(product.price_cents, product.currency)}</p>
               </div>
             ))}
             {data.gallery.slice(0, 2).map((item) => (
-              <img key={item.id} src={item.image_url} alt={item.alt_text ?? ""} className="h-24 w-full rounded-2xl object-cover" />
+              <img key={item.id} src={item.image_url} alt={item.alt_text ?? ""} className="h-24 w-full rounded-2xl object-cover border border-border/10" />
             ))}
           </div>
 
-          <div className="mt-auto rounded-2xl border border-white/10 bg-white/[0.07] p-3 text-left">
-            <p className="text-sm font-black text-white">AI shopping guide</p>
-            <p className="mt-1 text-xs text-zinc-400">{data.assistant?.greeting || data.assistant?.welcome_message || "Ask what product, call, or link is right for you."}</p>
+          <div className={`mt-auto rounded-2xl border p-3 text-left ${styling.poweredClass} shadow-none`}>
+            <p className="text-xs font-black">AI shopping guide</p>
+            <p className={`mt-1 text-[10px] leading-relaxed ${styling.textMutedClass}`}>{data.assistant?.greeting || data.assistant?.welcome_message || "Ask what product, call, or link is right for you."}</p>
           </div>
-          <p className="mt-4 break-words text-[10px] font-bold leading-4 text-zinc-600">{origin}/u/{page.username || page.slug}</p>
+          <p className={`mt-4 break-words text-[9px] font-bold leading-4 ${styling.textMutedClass}`}>{origin}/u/{page.username || page.slug}</p>
         </div>
       </div>
     </div>
@@ -285,37 +295,38 @@ function getBrandHoverClass(platform: string): string {
 function getBrandActiveBorderClass(platform: string): string {
   const norm = platform.toLowerCase().trim();
   switch (norm) {
-    case "instagram": return "border-[#E1306C] shadow-[0_0_12px_rgba(225,48,108,0.2)] bg-[#E1306C]/5";
+    case "instagram": return "border-[#E1306C] bg-[#E1306C]/5";
     case "x / twitter":
     case "x":
-    case "twitter": return "border-white shadow-[0_0_12px_rgba(255,255,255,0.12)] bg-white/5";
-    case "facebook": return "border-[#1877F2] shadow-[0_0_12px_rgba(24,119,242,0.2)] bg-[#1877F2]/5";
-    case "reddit": return "border-[#FF4500] shadow-[0_0_12px_rgba(255,69,0,0.2)] bg-[#FF4500]/5";
-    case "pinterest": return "border-[#BD081C] shadow-[0_0_12px_rgba(189,8,28,0.2)] bg-[#BD081C]/5";
-    case "threads": return "border-white shadow-[0_0_12px_rgba(255,255,255,0.12)] bg-white/5";
-    case "youtube": return "border-[#FF0000] shadow-[0_0_12px_rgba(255,0,0,0.2)] bg-[#FF0000]/5";
-    case "tiktok": return "border-[#00f2fe] shadow-[0_0_12px_rgba(0,242,254,0.2)] bg-[#00f2fe]/5";
-    case "twitch": return "border-[#9146FF] shadow-[0_0_12px_rgba(145,70,255,0.2)] bg-[#9146FF]/5";
-    case "vimeo": return "border-[#1AB7EA] shadow-[0_0_12px_rgba(26,183,234,0.2)] bg-[#1AB7EA]/5";
-    case "spotify": return "border-[#1DB954] shadow-[0_0_12px_rgba(29,185,84,0.2)] bg-[#1DB954]/5";
-    case "soundcloud": return "border-[#FF5500] shadow-[0_0_12px_rgba(255,85,0,0.2)] bg-[#FF5500]/5";
-    case "apple music": return "border-[#FC3C44] shadow-[0_0_12px_rgba(252,60,68,0.2)] bg-[#FC3C44]/5";
-    case "youtube music": return "border-[#FF0000] shadow-[0_0_12px_rgba(255,0,0,0.2)] bg-[#FF0000]/5";
-    case "bandcamp": return "border-[#629AA9] shadow-[0_0_12px_rgba(98,154,169,0.2)] bg-[#629AA9]/5";
-    case "mixcloud": return "border-[#52AAD8] shadow-[0_0_12px_rgba(82,170,216,0.2)] bg-[#52AAD8]/5";
-    case "whatsapp": return "border-[#25D366] shadow-[0_0_12px_rgba(37,211,102,0.2)] bg-[#25D366]/5";
-    case "telegram": return "border-[#0088cc] shadow-[0_0_12px_rgba(0,136,204,0.2)] bg-[#0088cc]/5";
-    case "discord": return "border-[#5865F2] shadow-[0_0_12px_rgba(88,101,242,0.2)] bg-[#5865F2]/5";
-    case "snapchat": return "border-[#FFFC00] shadow-[0_0_12px_rgba(255,252,0,0.2)] bg-[#FFFC00]/5";
-    case "linkedin": return "border-[#0A66C2] shadow-[0_0_12px_rgba(10,102,194,0.2)] bg-[#0A66C2]/5";
-    case "github": return "border-zinc-400 shadow-[0_0_12px_rgba(255,255,255,0.08)] bg-zinc-800/10";
-    default: return "border-primary shadow-[0_0_12px_rgba(var(--primary-rgb),0.2)] bg-primary/5";
+    case "twitter": return "border-white bg-white/5";
+    case "facebook": return "border-[#1877F2] bg-[#1877F2]/5";
+    case "reddit": return "border-[#FF4500] bg-[#FF4500]/5";
+    case "pinterest": return "border-[#BD081C] bg-[#BD081C]/5";
+    case "threads": return "border-white bg-white/5";
+    case "youtube": return "border-[#FF0000] bg-[#FF0000]/5";
+    case "tiktok": return "border-[#00f2fe] bg-[#00f2fe]/5";
+    case "twitch": return "border-[#9146FF] bg-[#9146FF]/5";
+    case "vimeo": return "border-[#1AB7EA] bg-[#1AB7EA]/5";
+    case "spotify": return "border-[#1DB954] bg-[#1DB954]/5";
+    case "soundcloud": return "border-[#FF5500] bg-[#FF5500]/5";
+    case "apple music": return "border-[#FC3C44] bg-[#FC3C44]/5";
+    case "youtube music": return "border-[#FF0000] bg-[#FF0000]/5";
+    case "bandcamp": return "border-[#629AA9] bg-[#629AA9]/5";
+    case "mixcloud": return "border-[#52AAD8] bg-[#52AAD8]/5";
+    case "whatsapp": return "border-[#25D366] bg-[#25D366]/5";
+    case "telegram": return "border-[#0088cc] bg-[#0088cc]/5";
+    case "discord": return "border-[#5865F2] bg-[#5865F2]/5";
+    case "snapchat": return "border-[#FFFC00] bg-[#FFFC00]/5";
+    case "linkedin": return "border-[#0A66C2] bg-[#0A66C2]/5";
+    case "github": return "border-zinc-400 bg-zinc-800/10";
+    default: return "border-primary bg-primary/5";
   }
 }
 
 export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCommerceData; mode?: Mode }) {
   const [state, setState] = useState(data);
   const [activeMode, setActiveMode] = useState<Mode>(mode);
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [origin, setOrigin] = useState("current-domain");
   const [message, setMessage] = useState("");
   const [avatarUrl, setAvatarUrl] = useState(data.page.avatar_url ?? "");
@@ -323,6 +334,9 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
   const [coverUrl, setCoverUrl] = useState("");
   const [filePath, setFilePath] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  const [themeMode, setThemeMode] = useState(data.page.theme?.mode ?? "dark");
+  const [themeAccent, setThemeAccent] = useState(data.page.theme?.accent ?? "coral");
 
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("Social");
@@ -364,15 +378,17 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
       "profile",
       {
         pageId: state.page.id,
-        displayName: String(formData.get("displayName") ?? ""),
+        displayName: String(formData.get("displayName") ?? state.page.display_name ?? ""),
         username,
-        headline: String(formData.get("headline") ?? ""),
-        bio: String(formData.get("bio") ?? ""),
+        headline: String(formData.get("headline") ?? state.page.headline ?? ""),
+        bio: String(formData.get("bio") ?? state.page.bio ?? ""),
         avatarUrl,
         backgroundImageUrl: backgroundUrl,
-        occupationType: String(formData.get("occupationType") ?? "creator"),
-        totalFollowers: Number(formData.get("totalFollowers") ?? 0),
+        occupationType: String(formData.get("occupationType") ?? state.page.theme?.occupationType ?? "creator"),
+        totalFollowers: Number(formData.get("totalFollowers") ?? state.page.theme?.totalFollowers ?? 0),
         status: status ?? state.page.status ?? "draft",
+        themeMode,
+        themeAccent,
       },
       (payload) => setState((prev) => ({ ...prev, page: payload.page })),
     );
@@ -436,24 +452,64 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
     );
   }
 
-  function addProduct(formData: FormData) {
+  function saveProduct(formData: FormData) {
+    const productId = editingProduct?.id;
     post(
       "products",
       {
+        id: productId,
         pageId: state.page.id,
         title: String(formData.get("title") ?? ""),
         description: String(formData.get("description") ?? ""),
         priceCents: Math.max(0, Math.round(Number(formData.get("price") ?? 0) * 100)),
         currency: "usd",
-        coverImageUrl: coverUrl,
-        filePath,
+        coverImageUrl: coverUrl || editingProduct?.cover_image_url || "",
+        filePath: filePath || editingProduct?.file_path || "",
         externalDeliveryUrl: String(formData.get("externalDeliveryUrl") ?? ""),
         showOnBio: formData.get("showOnBio") === "on",
         showOnShop: formData.get("showOnShop") === "on",
         status: formData.get("publish") === "on" ? "published" : "draft",
       },
-      (payload) => setState((prev) => ({ ...prev, products: [payload.product, ...prev.products], offers: [payload.offer, ...prev.offers] })),
+      (payload) => {
+        setState((prev) => {
+          if (productId) {
+            return {
+              ...prev,
+              products: prev.products.map((p) => p.id === productId ? payload.product : p)
+            };
+          } else {
+            return {
+              ...prev,
+              products: [payload.product, ...prev.products],
+              offers: [payload.offer, ...prev.offers]
+            };
+          }
+        });
+        setEditingProduct(null);
+        setCoverUrl("");
+        setFilePath("");
+        setActiveMode("products");
+      }
     );
+  }
+
+  function deleteProduct(id: string) {
+    if (!window.confirm("Are you sure you want to delete this digital product? This will also remove its associated checkout offer.")) return;
+    startTransition(async () => {
+      const res = await fetch(`/api/link-commerce/products?id=${id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (json?.ok) {
+        setState((prev) => ({
+          ...prev,
+          products: prev.products.filter((product) => product.id !== id),
+        }));
+        setMessage("Product deleted.");
+      } else {
+        setMessage(json?.error?.message ?? "Could not delete product.");
+      }
+    });
   }
 
   function saveContact(formData: FormData) {
@@ -522,7 +578,19 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
   const recentEvents = state.analyticsEvents.slice(0, 6);
 
   const showProfile = activeMode === "dashboard" || activeMode === "profile" || activeMode === "builder";
-  const showProducts = activeMode === "products" || activeMode === "product-new";
+  const showProducts = activeMode === "products" || activeMode === "product-new" || activeMode === "product-edit";
+
+  const previewState = {
+    ...state,
+    page: {
+      ...state.page,
+      theme: {
+        ...state.page.theme,
+        mode: themeMode,
+        accent: themeAccent,
+      }
+    }
+  };
 
   return (
     <div>
@@ -737,6 +805,74 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                     {["personal", "creator", "brand", "business", "agency", "community"].map((item) => <option key={item}>{item}</option>)}
                   </select>
                 </label>
+
+                {/* Theme & Appearance Section */}
+                <div className="rounded-3xl border border-border bg-secondary/15 p-5 space-y-5">
+                  <div>
+                    <h3 className="text-lg font-black text-foreground">Theme & Appearance</h3>
+                    <p className="text-xs font-semibold text-muted-foreground">Select a baseline style theme and accent colors for your public page.</p>
+                  </div>
+
+                  <div className="grid gap-4">
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground block mb-2">Theme Style Preset</span>
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                        {[
+                          { name: "Sleek Dark", val: "dark", desc: "Studio dark slate", previewBg: "bg-black" },
+                          { name: "Pure White", val: "light", desc: "Elegant clean light", previewBg: "bg-slate-100 border border-zinc-200" },
+                          { name: "Glassmorphic", val: "glass", desc: "Frosted aesthetic", previewBg: "bg-slate-900 bg-gradient-to-tr from-slate-950 via-zinc-900 to-slate-950" },
+                          { name: "Sunset Breeze", val: "sunset", desc: "Warm cozy vibe", previewBg: "bg-gradient-to-b from-amber-100 to-rose-200" },
+                          { name: "Cyber Neon", val: "cyber", desc: "High contrast neon", previewBg: "bg-[#060810]" }
+                        ].map((t) => (
+                          <button
+                            key={t.val}
+                            type="button"
+                            onClick={() => setThemeMode(t.val)}
+                            className={cn(
+                              "flex flex-col items-center justify-between rounded-2xl border p-3 text-center transition-all duration-200 hover:-translate-y-0.5",
+                              themeMode === t.val
+                                ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
+                                : "border-border/60 bg-background/50 hover:bg-background/80"
+                            )}
+                          >
+                            <div className={cn("h-10 w-full rounded-xl border border-border/20 mb-2 shadow-inner", t.previewBg)} />
+                            <span className="text-xs font-black text-foreground block truncate w-full">{t.name}</span>
+                            <span className="text-[9px] font-semibold text-muted-foreground mt-0.5 block truncate w-full">{t.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground block mb-2">Accent Color</span>
+                      <div className="flex flex-wrap gap-3">
+                        {[
+                          { name: "Coral Glow", val: "coral", color: "bg-orange-400" },
+                          { name: "Sweet Rose", val: "rose", color: "bg-rose-400" },
+                          { name: "Emerald Mint", val: "emerald", color: "bg-emerald-400" },
+                          { name: "Royal Indigo", val: "indigo", color: "bg-indigo-400" },
+                          { name: "Amber Honey", val: "amber", color: "bg-amber-500" }
+                        ].map((a) => (
+                          <button
+                            key={a.val}
+                            type="button"
+                            onClick={() => setThemeAccent(a.val)}
+                            className={cn(
+                              "flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-bold transition-all duration-200",
+                              themeAccent === a.val
+                                ? "border-primary bg-primary/5 shadow-sm ring-2 ring-primary/20"
+                                : "border-border/60 bg-background/50 hover:bg-background/80"
+                            )}
+                          >
+                            <span className={cn("h-3 w-3 rounded-full shadow-sm", a.color)} />
+                            <span className="text-foreground">{a.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <Button disabled={isPending}>
                   <Check className="h-4 w-4" /> Save profile
                 </Button>
@@ -892,14 +1028,42 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                 </div>
                 <div className="mt-5 grid gap-3 md:grid-cols-3">
                   {state.products.map((product) => (
-                    <div key={product.id} className="rounded-3xl border border-border bg-secondary/40 p-4">
-                      <div className="grid h-28 place-items-center overflow-hidden rounded-2xl bg-background">
-                        {product.cover_image_url ? <img src={product.cover_image_url} alt="" className="h-full w-full object-cover" /> : <ShoppingBag className="h-8 w-8 text-muted-foreground" />}
+                    <div key={product.id} className="rounded-3xl border border-border bg-secondary/40 p-4 flex flex-col justify-between">
+                      <div>
+                        <div className="grid h-28 place-items-center overflow-hidden rounded-2xl bg-background">
+                          {product.cover_image_url ? <img src={product.cover_image_url} alt="" className="h-full w-full object-cover" /> : <ShoppingBag className="h-8 w-8 text-muted-foreground" />}
+                        </div>
+                        <Badge variant="secondary" className="mt-4">{product.status}</Badge>
+                        <h3 className="mt-3 text-lg font-black text-foreground">{product.title}</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">{money(product.price_cents, product.currency)}</p>
+                        <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{product.description || "No description yet."}</p>
                       </div>
-                      <Badge variant="secondary" className="mt-4">{product.status}</Badge>
-                      <h3 className="mt-3 text-lg font-black text-foreground">{product.title}</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">{money(product.price_cents, product.currency)}</p>
-                      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{product.description || "No description yet."}</p>
+
+                      <div className="mt-4 flex items-center justify-end gap-2 border-t border-border/30 pt-3">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditingProduct(product);
+                            setCoverUrl(product.cover_image_url || "");
+                            setFilePath(product.file_path || "");
+                            setActiveMode("product-edit");
+                          }}
+                          className="h-8 rounded-lg px-2 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                        >
+                          <Edit className="mr-1 h-3.5 w-3.5" /> Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteProduct(product.id)}
+                          className="h-8 rounded-lg px-2 text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                        >
+                          <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
+                        </Button>
+                      </div>
                     </div>
                   ))}
                   {!state.products.length ? <div className="rounded-3xl border border-dashed border-border p-10 text-center text-muted-foreground md:col-span-3">No products yet. Add the first file-backed product.</div> : null}
@@ -907,7 +1071,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
               </div>
 
               {activeMode === "product-new" ? (
-                <form action={addProduct} className={panelClass()}>
+                <form action={saveProduct} className={panelClass()}>
                   <h2 className="text-2xl font-black text-foreground">Add new product</h2>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <UploadField label="Upload cover image" bucket="public-assets" onUploaded={setCoverUrl} />
@@ -927,6 +1091,67 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                       <Button type="button" variant="secondary" onClick={() => requestAi("product_description")}><Sparkles className="h-4 w-4" /> AI description</Button>
                       <Button type="button" variant="secondary" onClick={() => requestAi("pricing_suggestion")}><Sparkles className="h-4 w-4" /> AI price</Button>
                       <Button><Plus className="h-4 w-4" /> Create product</Button>
+                    </div>
+                  </div>
+                </form>
+              ) : null}
+
+              {activeMode === "product-edit" && editingProduct ? (
+                <form action={saveProduct} className={panelClass()}>
+                  <div className="flex items-center justify-between border-b border-border/30 pb-3 mb-4">
+                    <h2 className="text-2xl font-black text-foreground">Edit product</h2>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setEditingProduct(null);
+                        setCoverUrl("");
+                        setFilePath("");
+                        setActiveMode("products");
+                      }}
+                      className="rounded-full"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <UploadField label="Upload cover image" bucket="public-assets" onUploaded={setCoverUrl} />
+                      {(coverUrl || editingProduct.cover_image_url) && (
+                        <p className="mt-2 text-xs font-semibold text-muted-foreground truncate">
+                          Current: {coverUrl || editingProduct.cover_image_url}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <UploadField label="Upload digital file" bucket="product-files" onUploaded={setFilePath} privateFile />
+                      {(filePath || editingProduct.file_path) && (
+                        <p className="mt-2 text-xs font-semibold text-muted-foreground truncate">
+                          Current: {filePath || editingProduct.file_path}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-5 grid gap-4">
+                    <TextField name="title" label="Title" defaultValue={editingProduct.title} placeholder="Creator launch workbook" />
+                    <TextArea name="description" label="Description" defaultValue={editingProduct.description} placeholder="Describe exactly what buyers receive." />
+                    <TextField name="price" label="Price USD" type="number" defaultValue={Math.round(editingProduct.price_cents / 100)} />
+                    <TextField name="externalDeliveryUrl" label="External delivery URL" defaultValue={editingProduct.external_delivery_url} placeholder="Optional secure external delivery page" />
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <label className="rounded-2xl border border-border bg-secondary/50 p-4 text-sm font-bold text-foreground">
+                        <input name="showOnBio" type="checkbox" defaultChecked={editingProduct.show_on_bio} /> Show on Bio
+                      </label>
+                      <label className="rounded-2xl border border-border bg-secondary/50 p-4 text-sm font-bold text-foreground">
+                        <input name="showOnShop" type="checkbox" defaultChecked={editingProduct.show_on_shop} /> Show on Shop
+                      </label>
+                      <label className="rounded-2xl border border-border bg-secondary/50 p-4 text-sm font-bold text-foreground">
+                        <input name="publish" type="checkbox" defaultChecked={editingProduct.status === "published"} /> Published
+                      </label>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="secondary" onClick={() => requestAi("product_description")}><Sparkles className="h-4 w-4" /> AI description</Button>
+                      <Button type="button" variant="secondary" onClick={() => requestAi("pricing_suggestion")}><Sparkles className="h-4 w-4" /> AI price</Button>
+                      <Button><Check className="h-4 w-4" /> Save changes</Button>
                     </div>
                   </div>
                 </form>
@@ -1085,7 +1310,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
 
         <aside className="hidden min-w-0 lg:sticky lg:top-20 lg:block lg:self-start">
           <div>
-            <PhonePreview data={state} origin={origin} />
+            <PhonePreview data={previewState} origin={origin} />
           </div>
         </aside>
       </div>

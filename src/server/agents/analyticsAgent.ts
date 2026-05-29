@@ -1,5 +1,10 @@
 import type { AgentResult } from "./types";
+import { runModelAgent } from "./modelRunner";
 
-export async function runAnalyticsAgent(): Promise<AgentResult> {
-  return { status: "draft_ready", assistantMessage: "Analytics insight draft is ready from available events.", proposedToolCalls: ["read_analytics", "create_experiment_suggestion"], riskLevel: "low" };
+export async function runAnalyticsAgent(input: { userMessage?: string; workspaceContext?: Record<string, unknown> } = {}): Promise<AgentResult> {
+  return runModelAgent({
+    kind: "analytics",
+    userMessage: input.userMessage ?? "Summarize analytics and propose the next measured action.",
+    workspaceContext: input.workspaceContext,
+  });
 }

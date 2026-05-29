@@ -83,6 +83,8 @@ export default async function CreatorCommand() {
     },
   ];
 
+  const isMissingServiceKey = !process.env.SUPABASE_SERVICE_ROLE_KEY;
+
   return (
     <AppShell role="creator">
       <PageHeader
@@ -95,6 +97,15 @@ export default async function CreatorCommand() {
           </Button>
         }
       />
+
+      {isMissingServiceKey && (
+        <div className="mb-6 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
+          <p className="font-semibold text-amber-500">Action Required: Missing SUPABASE_SERVICE_ROLE_KEY</p>
+          <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
+            Your environment is missing the <code className="rounded bg-secondary px-1 py-0.5 font-mono text-xs">SUPABASE_SERVICE_ROLE_KEY</code> in your <code className="rounded bg-secondary px-1 py-0.5 font-mono text-xs">.env.local</code>. This key is required to initialize, heal, and manage workspace memberships correctly. Please obtain the service_role key from your Supabase Dashboard settings, add it to your environment, and restart your server.
+          </p>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

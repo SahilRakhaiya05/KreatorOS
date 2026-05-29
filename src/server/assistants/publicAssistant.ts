@@ -3,6 +3,9 @@ import { recordEvent } from "@/server/analytics/recordEvent";
 import type { AssistantReply, PublicAssistantOffer } from "./types";
 import { hasSupabaseServiceConfig } from "@/server/supabase/config";
 import { createSupabaseServiceClient } from "@/server/supabase/serviceClient";
+import { generateObject } from "ai";
+import { z } from "zod";
+import { isProviderConfigured, resolveModel } from "@/server/ai/providers";
 
 async function getPublicAssistantClient() {
   return hasSupabaseServiceConfig() ? createSupabaseServiceClient() : await createSupabaseServerClient();
@@ -24,6 +27,52 @@ function formatPrice(offer: PublicAssistantOffer) {
     currency: offer.currency.toUpperCase(),
     maximumFractionDigits: 0,
   }).format(offer.price_cents / 100);
+}
+
+const assistantReplySchema = z.object({
+  message: z.string().min(1).max(700),
+  recommendedOfferIds: z.array(z.string()).max(3).default([]),
+  leadCapturePrompt: z.string().min(1).max(160).optional(),
+});
+
+async function buildModelReply(input: {
+  visitorMessage: string;
+  pageBio?: string | null;
+  assistantPrompt?: string | null;
+  knowledgeSummary?: string | null;
+  offers: PublicAssistantOffer[];
+}) {
+  if (!isProviderConfigured("google")) return null;
+
+  try {
+    const { object } = await generateObject({
+      model: resolveModel("google", "gemini-2.0-flash"),
+      schema: assistantReplySchema,
+      temperature: 0.35,
+      system: [
+        "You are the public AI guide on a KreatorOS creator page.",
+        "Help visitors choose relevant offers, bookings, products, memberships, or next steps.",
+        "Do not invent policies, discounts, inventory, or provider actions.",
+        "Recommend only offer IDs from the provided catalog.",
+      ].join(" "),
+      prompt: JSON.stringify({
+        visitorMessage: input.visitorMessage,
+        pageBio: input.pageBio,
+        assistantPrompt: input.assistantPrompt,
+        knowledgeSummary: input.knowledgeSummary,
+        offers: input.offers.map((offer) => ({
+          id: offer.id,
+          title: offer.title,
+          type: offer.type,
+          description: offer.description,
+          price: formatPrice(offer),
+        })),
+      }),
+    });
+    return object;
+  } catch {
+    return null;
+  }
 }
 
 export async function getOrCreatePublicAssistant(pageId: string) {
@@ -118,25 +167,49 @@ export async function replyToPublicAssistant(input: {
     .eq("page_id", input.pageId)
     .eq("status", "published");
 
-  const { data: page } = await supabase.from("creator_pages").select("slug").eq("id", input.pageId).maybeSingle();
+  const [{ data: page }, { data: assistant }] = await Promise.all([
+    supabase.from("creator_pages").select("slug,bio").eq("id", input.pageId).maybeSingle(),
+    supabase
+      .from("creator_ai_assistants")
+      .select("system_prompt,knowledge_summary")
+      .eq("id", activeAssistantId)
+      .maybeSingle(),
+  ]);
   const pageSlug = page?.slug ?? input.pageId;
 
-  const rankedOffers = ((offers ?? []) as PublicAssistantOffer[])
+  const offerCatalog = (offers ?? []) as PublicAssistantOffer[];
+  const rankedOffers = offerCatalog
     .map((offer) => ({ offer, score: scoreOffer(input.message, offer) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
     .map((item) => item.offer);
 
-  const top = rankedOffers[0];
-  const message = top
-    ? `I would start with ${top.title}. It is ${formatPrice(top)} and matches what you asked for.`
-    : "Tell me your goal, budget, and timeline, and I will help you choose the right next step.";
+  const modelReply = await buildModelReply({
+    visitorMessage: input.message,
+    pageBio: page?.bio,
+    assistantPrompt: assistant?.system_prompt,
+    knowledgeSummary: assistant?.knowledge_summary,
+    offers: offerCatalog,
+  });
+
+  const modelOffers = modelReply
+    ? modelReply.recommendedOfferIds
+        .map((id) => offerCatalog.find((offer) => offer.id === id))
+        .filter((offer): offer is PublicAssistantOffer => Boolean(offer))
+    : [];
+  const recommendedOffers = modelOffers.length > 0 ? modelOffers : rankedOffers;
+  const top = recommendedOffers[0];
+  const message =
+    modelReply?.message ??
+    (top
+      ? `I would start with ${top.title}. It is ${formatPrice(top)} and matches what you asked for.`
+      : "Tell me your goal, budget, and timeline, and I will help you choose the right next step.");
 
   const reply: AssistantReply = {
     message,
-    recommendedOffers: rankedOffers,
-    leadCapturePrompt: "Want me to send the best option to your email?",
-    nextActions: rankedOffers.map((offer) => ({
+    recommendedOffers,
+    leadCapturePrompt: modelReply?.leadCapturePrompt ?? "Want me to send the best option to your email?",
+    nextActions: recommendedOffers.map((offer) => ({
       label: offer.type === "booking" ? `Book ${offer.title}` : `View ${offer.title}`,
       type: offer.type === "booking" ? "booking" : "checkout",
       href: `/u/${pageSlug}?offer=${offer.slug}`,
@@ -151,7 +224,7 @@ export async function replyToPublicAssistant(input: {
     assistant_id: activeAssistantId,
     role: "assistant",
     content: reply.message,
-    metadata: { recommendedOffers: rankedOffers },
+    metadata: { recommendedOffers, generatedBy: modelReply ? "gemini" : "fallback" },
   });
 
   await recordEvent({
@@ -159,7 +232,7 @@ export async function replyToPublicAssistant(input: {
     pageId: input.pageId,
     eventType: "assistant.message",
     visitorId: input.visitorId,
-    metadata: { sessionId: activeSession.id, recommendedOfferIds: rankedOffers.map((offer) => offer.id) },
+    metadata: { sessionId: activeSession.id, recommendedOfferIds: recommendedOffers.map((offer) => offer.id) },
   });
 
   return { ok: true, sessionId: activeSession.id, reply };

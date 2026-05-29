@@ -1,5 +1,10 @@
 import type { AgentResult } from "./types";
+import { runModelAgent } from "./modelRunner";
 
-export async function runSetupAgent(): Promise<AgentResult> {
-  return { status: "draft_ready", assistantMessage: "Workspace, page, and starter offers are ready to draft.", proposedToolCalls: ["create_page", "create_offer_draft"], riskLevel: "medium" };
+export async function runSetupAgent(input: { userMessage?: string; workspaceContext?: Record<string, unknown> } = {}): Promise<AgentResult> {
+  return runModelAgent({
+    kind: "setup",
+    userMessage: input.userMessage ?? "Configure workspace and page onboarding.",
+    workspaceContext: input.workspaceContext,
+  });
 }

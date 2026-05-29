@@ -1,4 +1,6 @@
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
+import { createSupabaseServiceClient } from "@/server/supabase/serviceClient";
+import { hasSupabaseServiceConfig } from "@/server/supabase/config";
 import { writeAuditLog } from "@/server/audit/writeAuditLog";
 import type { WorkspaceType } from "@/server/auth/permissions";
 
@@ -24,7 +26,9 @@ export async function createWorkspaceForUser(input: {
   slug?: string;
   avatarUrl?: string | null;
 }) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = hasSupabaseServiceConfig()
+    ? createSupabaseServiceClient()
+    : await createSupabaseServerClient();
   const baseSlug = slugify(input.slug || input.name) || "workspace";
   const slug = `${baseSlug}-${input.userId.slice(0, 6)}`;
 
@@ -36,6 +40,29 @@ export async function createWorkspaceForUser(input: {
     .maybeSingle();
 
   if (existing) {
+    // Ensure membership exists and is active
+    const { data: existingMember } = await supabase
+      .from("workspace_members")
+      .select("*")
+      .eq("workspace_id", existing.id)
+      .eq("user_id", input.userId)
+      .maybeSingle();
+
+    if (!existingMember) {
+      await supabase.from("workspace_members").insert({
+        workspace_id: existing.id,
+        user_id: input.userId,
+        role: "owner",
+        status: "active",
+      });
+    } else if (existingMember.status !== "active") {
+      await supabase
+        .from("workspace_members")
+        .update({ status: "active" })
+        .eq("workspace_id", existing.id)
+        .eq("user_id", input.userId);
+    }
+
     await supabase.from("profiles").update({ active_workspace_id: existing.id }).eq("id", input.userId);
     return { ok: true as const, workspace: existing, created: false };
   }
@@ -58,6 +85,7 @@ export async function createWorkspaceForUser(input: {
     workspace_id: workspace.id,
     user_id: input.userId,
     role: "owner",
+    status: "active",
   });
 
   await supabase.from("profiles").update({ active_workspace_id: workspace.id }).eq("id", input.userId);
