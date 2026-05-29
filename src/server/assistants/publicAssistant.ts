@@ -167,15 +167,49 @@ export async function replyToPublicAssistant(input: {
     .eq("page_id", input.pageId)
     .eq("status", "published");
 
-  const [{ data: page }, { data: assistant }] = await Promise.all([
+  const [{ data: page }, { data: assistant }, { data: knowledgeSources }] = await Promise.all([
     supabase.from("creator_pages").select("slug,bio").eq("id", input.pageId).maybeSingle(),
     supabase
       .from("creator_ai_assistants")
       .select("system_prompt,knowledge_summary")
       .eq("id", activeAssistantId)
       .maybeSingle(),
+    supabase
+      .from("assistant_knowledge_sources")
+      .select("title, content")
+      .eq("assistant_id", activeAssistantId)
+      .eq("status", "active"),
   ]);
   const pageSlug = page?.slug ?? input.pageId;
+
+  // Simple keyword-based RAG matching over creator's knowledge base
+  let matchedKnowledge = "";
+  if (knowledgeSources && knowledgeSources.length > 0) {
+    const words = input.message.toLowerCase().split(/\W+/).filter(Boolean);
+    const matches = knowledgeSources
+      .map((source) => {
+        const textToScan = `${source.title} ${source.content ?? ""}`.toLowerCase();
+        let score = 0;
+        for (const word of words) {
+          if (textToScan.includes(word)) {
+            score += 1;
+          }
+        }
+        return { source, score };
+      })
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((item) => `[Knowledge Source: ${item.source.title}]\n${item.source.content}`);
+
+    if (matches.length > 0) {
+      matchedKnowledge = matches.join("\n\n");
+    }
+  }
+
+  const knowledgeCombined = matchedKnowledge
+    ? `${matchedKnowledge}\n\n${assistant?.knowledge_summary || ""}`
+    : assistant?.knowledge_summary;
 
   const offerCatalog = (offers ?? []) as PublicAssistantOffer[];
   const rankedOffers = offerCatalog
@@ -188,7 +222,7 @@ export async function replyToPublicAssistant(input: {
     visitorMessage: input.message,
     pageBio: page?.bio,
     assistantPrompt: assistant?.system_prompt,
-    knowledgeSummary: assistant?.knowledge_summary,
+    knowledgeSummary: knowledgeCombined,
     offers: offerCatalog,
   });
 
@@ -264,5 +298,20 @@ export async function captureAssistantLead(input: {
     .single();
 
   if (error) return { ok: false as const, message: error.message };
+
+  // Emit lead.captured event for workflow automation spine
+  try {
+    const { emitEvent } = await import("@/server/events/emitEvent");
+    await emitEvent({
+      type: "lead.captured",
+      workspaceId: page.workspace_id,
+      actorType: "customer",
+      payload: { email: input.email, name: input.name, customerId: data.id },
+      idempotencyKey: `lead:${data.id}`,
+    });
+  } catch (emitErr) {
+    console.error("Failed to emit lead.captured event:", emitErr);
+  }
+
   return { ok: true as const, lead: data };
 }

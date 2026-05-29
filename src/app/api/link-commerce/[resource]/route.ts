@@ -512,6 +512,82 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
     return apiOk({ suggestion: suggestion.data }, { status: 201 });
   }
 
+  if (resource === "assistant") {
+    const body = await req.json();
+    if (!body.pageId) {
+      return apiError("validation_error", "Missing pageId", 422);
+    }
+    const scope = await resolveAccountScope(supabase, user.id, body.pageId, body.workspaceId);
+    if (!scope) return apiError("forbidden", "This page does not belong to your account.", 403);
+
+    const updatePayload = {
+      welcome_message: body.welcomeMessage || "Tell me what you need help with and I will point you to the right offer.",
+      system_prompt: body.systemPrompt || "You are a public-facing creator assistant. Recommend published offers only. Do not reveal private dashboard data.",
+      status: body.status || "active",
+      tone: body.tone || "helpful",
+      knowledge_summary: body.knowledgeSummary || "",
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from("creator_ai_assistants")
+      .update(updatePayload)
+      .eq("page_id", body.pageId)
+      .select("*")
+      .single();
+
+    if (error) return apiError("assistant_update_failed", error.message, 400);
+    return apiOk({ assistant: data });
+  }
+
+  if (resource === "knowledge") {
+    const body = await req.json();
+    if (!body.title || !body.assistantId) {
+      return apiError("validation_error", "Missing title or assistantId", 422);
+    }
+    const { data: assistant } = await supabase
+      .from("creator_ai_assistants")
+      .select("workspace_id")
+      .eq("id", body.assistantId)
+      .maybeSingle();
+
+    if (!assistant) {
+      return apiError("forbidden", "AI assistant not found.", 403);
+    }
+
+    const payload = {
+      workspace_id: assistant.workspace_id,
+      assistant_id: body.assistantId,
+      source_type: body.sourceType || "manual",
+      title: body.title,
+      content: body.content || "",
+      source_ref: body.sourceRef || "",
+      status: body.status || "active",
+      updated_at: new Date().toISOString(),
+    };
+
+    let result;
+    if (body.id) {
+      result = await supabase
+        .from("assistant_knowledge_sources")
+        .update(payload)
+        .eq("id", body.id)
+        .select("*")
+        .single();
+    } else {
+      result = await supabase
+        .from("assistant_knowledge_sources")
+        .insert(payload)
+        .select("*")
+        .single();
+    }
+
+    const { data, error } = result;
+    if (error) return apiError("knowledge_save_failed", error.message, 400);
+
+    return apiOk({ knowledge: data }, { status: body.id ? 200 : 201 });
+  }
+
   return apiError("unknown_resource", "Unknown Link Commerce resource.", 404);
 }
 
@@ -559,6 +635,16 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ resou
       await supabase.from("offers").delete().eq("id", product.offer_id);
     }
 
+    return apiOk({ deleted: true });
+  }
+
+  if (resource === "knowledge") {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) return apiError("missing_id", "Missing knowledge ID.", 400);
+
+    const { error } = await supabase.from("assistant_knowledge_sources").delete().eq("id", id);
+    if (error) return apiError("knowledge_delete_failed", error.message, 400);
     return apiOk({ deleted: true });
   }
 

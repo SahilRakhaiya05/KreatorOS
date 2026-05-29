@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Hanken_Grotesk, Fraunces, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { PostHogProvider } from "@/components/providers/posthogProvider";
 import "./globals.css";
 
 const sans = Hanken_Grotesk({
@@ -39,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="manifest" href="/site.webmanifest" />
       </head>
       <body className={cn(sans.variable, display.variable, mono.variable, "font-sans antialiased")}>
-        {children}
+        <PostHogProvider>{children}</PostHogProvider>
       </body>
     </html>
   );

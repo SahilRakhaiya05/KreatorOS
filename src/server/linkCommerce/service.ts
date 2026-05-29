@@ -113,6 +113,7 @@ export async function getCreatorLinkWorkspace() {
     affiliateLinks,
     referralProgram,
     assistant,
+    assistantKnowledge,
     orders,
     analytics,
   ] = await Promise.all([
@@ -125,6 +126,7 @@ export async function getCreatorLinkWorkspace() {
     supabase.from("affiliate_links").select("*").eq("page_id", page.id).order("created_at", { ascending: false }),
     supabase.from("referral_programs").select("*").eq("page_id", page.id).maybeSingle(),
     supabase.from("creator_ai_assistants").select("*").eq("page_id", page.id).maybeSingle(),
+    supabase.from("assistant_knowledge_sources").select("*").eq("workspace_id", workspace.id).order("created_at", { ascending: false }),
     supabase.from("orders").select("*").eq("workspace_id", workspace.id).order("created_at", { ascending: false }).limit(25),
     supabase.from("analytics_events").select("*").eq("workspace_id", workspace.id).order("created_at", { ascending: false }).limit(250),
   ]);
@@ -146,6 +148,7 @@ export async function getCreatorLinkWorkspace() {
     affiliateLinks: affiliateLinks.data ?? [],
     referralProgram: referralProgram.data ?? null,
     assistant: assistant.data ?? null,
+    knowledgeSources: assistantKnowledge.data ?? [],
     orders: orders.data ?? [],
     analyticsEvents: analytics.data ?? [],
     wallet: {

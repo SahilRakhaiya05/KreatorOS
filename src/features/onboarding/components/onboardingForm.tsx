@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { analyticsEvents, captureClientEvent } from "@/client/posthog/events";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserProfile } from "../../auth/types";
 import { completeOnboardingAction, type ActionState } from "../../auth/server/actions";
@@ -79,7 +80,19 @@ export function OnboardingForm({ profile }: { profile?: UserProfile | null }) {
           <h1 className="hidden font-display text-2xl font-semibold tracking-tight lg:block">Tell us about you</h1>
           <p className="mt-1 hidden text-sm text-muted-foreground lg:block">This stays editable in Profile settings.</p>
 
-          <form action={action} className="mt-6 space-y-5">
+          <form
+            action={action}
+            className="mt-6 space-y-5"
+            onSubmit={(event) => {
+              const formData = new FormData(event.currentTarget);
+              captureClientEvent(analyticsEvents.onboardingSubmitted, {
+                account_type: String(formData.get("accountType") ?? ""),
+                has_focus: Boolean(String(formData.get("focus") ?? "").trim()),
+                has_audience: Boolean(String(formData.get("audience") ?? "").trim()),
+                has_primary_goal: Boolean(String(formData.get("primaryGoal") ?? "").trim()),
+              });
+            }}
+          >
             <div className="space-y-1.5">
               <Label htmlFor="fullName" className="flex items-center gap-2">
                 <UserRound className="h-4 w-4" /> Your name

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProviderId } from "@/server/ai/providers";
+import { analyticsEvents, captureClientEvent } from "@/client/posthog/events";
 import { DEFAULT_AGENT_ID } from "./agents";
 import type { ChatMessage, Conversation, ProviderCatalogEntry } from "./types";
 
@@ -162,6 +163,13 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
       const convId = activeConversation.id;
       const agentId = activeAgentId;
       const history = [...activeConversation.messages, userMsg];
+      captureClientEvent(analyticsEvents.chatMessageSent, {
+        provider,
+        model,
+        agent_id: agentId,
+        conversation_id: convId,
+        message_count: history.length,
+      });
 
       setConversations((prev) =>
         prev.map((c) =>
@@ -216,9 +224,24 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
             )
           );
         }
+
+        captureClientEvent(analyticsEvents.chatResponseCompleted, {
+          provider,
+          model,
+          agent_id: agentId,
+          conversation_id: convId,
+          response_length: acc.length,
+        });
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
         const message = err instanceof Error ? err.message : "Something went wrong.";
+        captureClientEvent(analyticsEvents.chatResponseFailed, {
+          provider,
+          model,
+          agent_id: agentId,
+          conversation_id: convId,
+          error: message,
+        });
         setError(message);
         setConversations((prev) =>
           prev.map((c) =>

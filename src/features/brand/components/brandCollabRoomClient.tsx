@@ -30,6 +30,7 @@ export function BrandCollabRoomClient() {
   const [selectedDeal, setSelectedDeal] = useState<BrandDeal | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
+  const [deliverableUrl, setDeliverableUrl] = useState("");
   const [loadingDeals, setLoadingDeals] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
@@ -41,10 +42,16 @@ export function BrandCollabRoomClient() {
       const res = await fetch("/api/creator/brand-deals");
       const json = await res.json();
       if (json.ok && Array.isArray(json.data?.deals)) {
-        const activeDeals = json.data.deals;
+        const activeDeals = json.data.deals as BrandDeal[];
         setDeals(activeDeals);
         if (activeDeals.length > 0) {
-          setSelectedDeal(activeDeals[0]);
+          setSelectedDeal((prev) => {
+            if (prev) {
+              const matched = activeDeals.find((d) => d.id === prev.id);
+              if (matched) return matched;
+            }
+            return activeDeals[0];
+          });
         }
       }
     } catch (err) {
@@ -53,6 +60,75 @@ export function BrandCollabRoomClient() {
       setLoadingDeals(false);
     }
   }
+
+  const updateDealStatus = async (newStatus: string) => {
+    if (!selectedDeal) return;
+    try {
+      const res = await fetch("/api/creator/brand-deals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedDeal.id,
+          brandName: selectedDeal.brand_name,
+          status: newStatus,
+          rateCents: selectedDeal.rate_cents,
+          deliverables: selectedDeal.deliverables,
+          dueDate: selectedDeal.due_date,
+        })
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setSelectedDeal(prev => prev ? { ...prev, status: newStatus } : null);
+        // Refresh full deal list
+        fetchDeals();
+      }
+    } catch (err) {
+      console.error("Failed to update deal status:", err);
+    }
+  };
+
+  const postCollabMessage = async (bodyText: string, senderType: "creator" | "brand" | "system") => {
+    if (!selectedDeal) return;
+    try {
+      await fetch("/api/creator/collab-messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          campaignId: selectedDeal.id,
+          body: bodyText,
+          senderType,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to post collab message:", err);
+    }
+  };
+
+  const handleAcceptPackage = async () => {
+    if (!selectedDeal) return;
+    await updateDealStatus("approved");
+    await postCollabMessage(`🤝 Creator accepted the sponsorship package rate of $${(selectedDeal.rate_cents / 100).toFixed(2)} USD. Escrow funds are now securely locked via Stripe Connect.`, "system");
+    await postCollabMessage(`Excellent! I've authorized the Stripe Connect hold. The contract is locked, and we are ready for you to create the deliverables. Please upload your draft link here as soon as it's ready!`, "brand");
+    fetchMessages(selectedDeal.id);
+  };
+
+  const handleSubmitDeliverable = async () => {
+    if (!selectedDeal || !deliverableUrl.trim()) return;
+    const url = deliverableUrl.trim();
+    setDeliverableUrl("");
+    await updateDealStatus("delivered");
+    await postCollabMessage(`🚀 Creator submitted deliverable URL for review: ${url}. Initiating automated creative review...`, "system");
+    await postCollabMessage(`Perfect! I've received your deliverable draft. Let me run our automated brand compliance check on this URL.`, "brand");
+    
+    fetchMessages(selectedDeal.id);
+
+    setTimeout(async () => {
+      await updateDealStatus("paid");
+      await postCollabMessage(`🎉 Automated Creative Review Passed! Deliverable matches brief and guidelines. Stripe Connect escrow payment of $${(selectedDeal.rate_cents / 100).toFixed(2)} USD successfully released to Creator Wallet.`, "system");
+      await postCollabMessage(`Excellent work! The video check passed and the draft is approved. Sponsorship payout has been released. Looking forward to our next collaboration!`, "brand");
+      fetchMessages(selectedDeal.id);
+    }, 2500);
+  };
 
   async function fetchMessages(campaignId: string) {
     setLoadingMessages(true);
@@ -195,6 +271,85 @@ export function BrandCollabRoomClient() {
             <RefreshCw className={`h-4 w-4 ${loadingMessages ? "animate-spin" : ""}`} />
           </Button>
         </CardHeader>
+
+        {/* Dynamic Sponsorship Escrow & Milestone Controller */}
+        {selectedDeal && (
+          <div className="border-b border-border/40 bg-secondary/10 px-5 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Handshake className="h-3.5 w-3.5 text-primary animate-pulse" /> Active Milestone Action Card
+              </p>
+              
+              {/* Milestone Details */}
+              {selectedDeal.status === "lead" || selectedDeal.status === "pitched" || selectedDeal.status === "replied" || selectedDeal.status === "negotiating" ? (
+                <p className="text-xs font-semibold text-foreground mt-1.5 leading-relaxed">
+                  Brand proposed package rate: <span className="font-mono font-black text-primary">${(selectedDeal.rate_cents / 100).toFixed(2)} USD</span>. Accept sponsorship deliverables package to lock funds.
+                </p>
+              ) : selectedDeal.status === "approved" ? (
+                <p className="text-xs font-semibold text-foreground mt-1.5 leading-relaxed">
+                  Sponsorship Escrow secured! Enter your published deliverable video/post draft URL below.
+                </p>
+              ) : selectedDeal.status === "delivered" ? (
+                <p className="text-xs font-semibold text-foreground mt-1.5 leading-relaxed flex items-center gap-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary shrink-0" /> Deliverable submitted. Running automated AI brand safety & compliance reviews...
+                </p>
+              ) : selectedDeal.status === "paid" ? (
+                <p className="text-xs font-bold text-emerald-500 mt-1.5 leading-relaxed flex items-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500 animate-bounce" /> Sponsorship funds securely released and settled in your Creator Wallet!
+                </p>
+              ) : (
+                <p className="text-xs font-semibold text-muted-foreground mt-1.5 leading-relaxed">
+                  Current campaign stage: <span className="font-bold text-foreground">{selectedDeal.status}</span>.
+                </p>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="shrink-0 flex items-center gap-2">
+              {selectedDeal.status === "lead" || selectedDeal.status === "pitched" || selectedDeal.status === "replied" || selectedDeal.status === "negotiating" ? (
+                <>
+                  <Button 
+                    size="sm" 
+                    onClick={handleAcceptPackage} 
+                    className="font-bold bg-primary text-primary-foreground h-9"
+                  >
+                    Accept Package
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => alert("Counter proposed. Let the brand rep know in the chat your ideal rate.")}
+                    className="font-bold border-border/80 h-9"
+                  >
+                    Counter
+                  </Button>
+                </>
+              ) : selectedDeal.status === "approved" ? (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="https://youtube.com/watch?..."
+                    value={deliverableUrl}
+                    onChange={(e) => setDeliverableUrl(e.target.value)}
+                    className="h-9 px-3 text-xs font-semibold rounded-xl border border-input bg-background outline-none focus:ring-4 focus:ring-primary/10 w-44"
+                  />
+                  <Button 
+                    size="sm" 
+                    onClick={handleSubmitDeliverable} 
+                    disabled={!deliverableUrl.trim()}
+                    className="font-bold h-9"
+                  >
+                    Submit URL
+                  </Button>
+                </div>
+              ) : selectedDeal.status === "delivered" ? (
+                <Badge variant="accent" className="px-3 py-1.5 font-bold animate-pulse text-[10px]">Compliance Reviewing</Badge>
+              ) : selectedDeal.status === "paid" ? (
+                <Badge variant="accent" className="px-3 py-1.5 bg-emerald-500/10 text-emerald-500 font-bold border border-emerald-500/25 text-[10px]">Escrow Settled</Badge>
+              ) : null}
+            </div>
+          </div>
+        )}
 
         {/* Message Log */}
         <div className="flex-1 overflow-y-auto bg-secondary/15 p-5 space-y-4">

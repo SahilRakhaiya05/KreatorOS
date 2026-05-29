@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { analyticsEvents, captureClientEvent } from "@/client/posthog/events";
 import { createSupabaseBrowserClient } from "../../../client/supabase/browserClient";
 
 type AuthMode = "signin" | "signup";
@@ -54,6 +55,7 @@ export function AuthPanel() {
       const email = String(formData.get("email") ?? "").trim();
       const password = String(formData.get("password") ?? "");
       const fullName = String(formData.get("fullName") ?? "").trim();
+      captureClientEvent(analyticsEvents.authStarted, { method: "email", mode });
 
       const result =
         mode === "signin"
@@ -68,17 +70,24 @@ export function AuthPanel() {
             });
 
       if (result.error) {
+        captureClientEvent(analyticsEvents.authFailed, {
+          method: "email",
+          mode,
+          error: result.error.message,
+        });
         setStatus("error");
         setMessage(result.error.message);
         return;
       }
 
       if (mode === "signup" && !result.data.session) {
+        captureClientEvent(analyticsEvents.authSucceeded, { method: "email", mode, requires_email_confirmation: true });
         setStatus("success");
         setMessage("Check your email to confirm your account, then continue onboarding.");
         return;
       }
 
+      captureClientEvent(analyticsEvents.authSucceeded, { method: "email", mode, requires_email_confirmation: false });
       setStatus("success");
       setMessage("Authenticated. Taking you to onboarding...");
       router.push(next);
@@ -96,6 +105,7 @@ export function AuthPanel() {
     startTransition(async () => {
       try {
         const supabase = createSupabaseBrowserClient();
+        captureClientEvent(analyticsEvents.authStarted, { method: "google", mode });
         const { error } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
@@ -105,6 +115,11 @@ export function AuthPanel() {
         });
 
         if (error) {
+          captureClientEvent(analyticsEvents.authFailed, {
+            method: "google",
+            mode,
+            error: error.message,
+          });
           setStatus("error");
           setMessage(error.message);
         }

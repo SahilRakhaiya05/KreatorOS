@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
 import { hasSupabaseServiceConfig } from "@/server/supabase/config";
 import { createSupabaseServiceClient } from "@/server/supabase/serviceClient";
+import { capturePostHogEvent } from "@/server/posthog/client";
 
 export async function recordEvent(input: {
   workspaceId?: string | null;
@@ -27,5 +28,19 @@ export async function recordEvent(input: {
     .single();
 
   if (error) return { ok: false as const, error };
+
+  await capturePostHogEvent({
+    distinctId: input.visitorId ?? input.sessionId ?? input.workspaceId ?? input.pageId ?? null,
+    event: input.eventType,
+    properties: {
+      event_id: data.id,
+      workspace_id: input.workspaceId ?? null,
+      page_id: input.pageId ?? null,
+      session_id: input.sessionId ?? null,
+      referrer: input.referrer ?? null,
+      ...(input.metadata ?? {}),
+    },
+  });
+
   return { ok: true as const, eventId: data.id as string };
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowUpRight, Bot, ExternalLink, Mail, ShoppingBag, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { analyticsEvents, captureClientEvent } from "@/client/posthog/events";
 import { PublicAssistantWidget } from "@/features/assistant/components/publicAssistantWidget";
 import { SocialIcon } from "@/components/ui/socialIcon";
 
@@ -41,6 +42,15 @@ function useVisitorId() {
 }
 
 function track(data: PublicData, visitorId: string, eventType: string, refType?: string, refId?: string) {
+  captureClientEvent(analyticsEvents.publicLinkClicked, {
+    event_type: eventType,
+    workspace_id: data.page.workspace_id,
+    page_id: data.page.id,
+    visitor_id: visitorId,
+    ref_type: refType,
+    ref_id: refId,
+  });
+
   fetch("/api/link-commerce/track", {
     method: "POST",
     headers: { "content-type": "application/json" },
