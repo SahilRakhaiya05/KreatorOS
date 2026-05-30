@@ -10,9 +10,14 @@ import { recordEvent } from "@/server/analytics/recordEvent";
 import { emitEvent } from "@/server/events/emitEvent";
 import { writeAuditLog } from "@/server/audit/writeAuditLog";
 import Stripe from "stripe";
+import { getStripe } from "./stripeClient";
 
 function getServiceClient() {
   return hasSupabaseServiceConfig() ? createSupabaseServiceClient() : createSupabaseServerClient();
+}
+
+function connectedAccountOptions(accountId?: string): Stripe.RequestOptions | undefined {
+  return accountId ? { stripeAccount: accountId } : undefined;
 }
 
 export const paymentService = {
@@ -63,15 +68,14 @@ export const paymentService = {
   },
 
   async handleWebhook(rawBody: string, signature: string): Promise<{ ok: boolean; error?: string }> {
-    const secretKey = process.env.STRIPE_SECRET_KEY;
+    const stripe = getStripe();
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-    if (!secretKey) {
+    if (!stripe) {
       return { ok: false, error: "Stripe key is missing." };
     }
 
     try {
-      const stripe = new Stripe(secretKey);
       let event: Stripe.Event;
 
       if (webhookSecret && signature) {
@@ -83,6 +87,7 @@ export const paymentService = {
         }
         event = JSON.parse(rawBody) as Stripe.Event;
       }
+      const connectedAccountId = event.account;
 
       if (event.type === "checkout.session.completed") {
         const session = event.data.object as Stripe.Checkout.Session;
@@ -119,7 +124,10 @@ export const paymentService = {
           .from("orders")
           .update({
             status: "paid",
+            provider_checkout_id: session.id,
+            provider_session_id: session.id,
             provider_payment_id: session.payment_intent as string || session.id,
+            provider_payment_intent_id: session.payment_intent as string || null,
             paid_at: new Date().toISOString(),
           })
           .eq("id", orderId);
@@ -128,7 +136,15 @@ export const paymentService = {
         if (intentId) {
           await supabase
             .from("checkout_intents")
-            .update({ status: "completed" })
+            .update({
+              status: "completed",
+              provider_checkout_id: session.id,
+              metadata: {
+                stripe_checkout_session_id: session.id,
+                stripe_payment_intent_id: session.payment_intent as string || null,
+                stripe_subscription_id: session.subscription as string || null,
+              },
+            })
             .eq("id", intentId);
         }
 
@@ -145,7 +161,11 @@ export const paymentService = {
           // If session is a subscription, get subscription information to populate access grant bounds
           if (session.mode === "subscription" && session.subscription) {
             try {
-              const subObj = await stripe.subscriptions.retrieve(session.subscription as string);
+              const subObj = await stripe.subscriptions.retrieve(
+                session.subscription as string,
+                undefined,
+                connectedAccountOptions(connectedAccountId)
+              );
               expiresAt = new Date((subObj as any).current_period_end * 1000).toISOString();
             } catch {
               // Ignore failure
@@ -164,6 +184,13 @@ export const paymentService = {
               reason: "stripe_payment_completed",
             },
           });
+
+          await supabase
+            .from("customers")
+            .update({
+              last_activity_at: new Date().toISOString(),
+            })
+            .eq("id", order.customer_id);
 
           // If expires_at was resolved, update the created access grant with expiration boundary
           if (expiresAt) {
@@ -197,7 +224,14 @@ export const paymentService = {
         await recordEvent({
           workspaceId,
           eventType: "payment.succeeded",
-          metadata: { orderId, offerId, stripeSessionId: session.id },
+          metadata: {
+            orderId,
+            offerId,
+            stripeSessionId: session.id,
+            stripePaymentIntentId: session.payment_intent as string || null,
+            stripeSubscriptionId: session.subscription as string || null,
+            stripeConnectedAccountId: connectedAccountId || null,
+          },
         });
 
         await emitEvent({
@@ -231,7 +265,11 @@ export const paymentService = {
 
           if (matchingGrant) {
             try {
-              const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
+              const subscription = await stripe.subscriptions.retrieve(
+                invoice.subscription as string,
+                undefined,
+                connectedAccountOptions(connectedAccountId)
+              );
               const expiresAt = new Date((subscription as any).current_period_end * 1000).toISOString();
 
               const updatedMetadata = {
@@ -268,6 +306,66 @@ export const paymentService = {
               // Fail silently in development
             }
           }
+        }
+      } else if (event.type === "checkout.session.expired") {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const metadata = session.metadata || {};
+        const supabase = await getServiceClient();
+        if (metadata.orderId) {
+          await supabase.from("orders").update({ status: "cancelled" }).eq("id", metadata.orderId);
+        }
+        if (metadata.intentId) {
+          await supabase.from("checkout_intents").update({ status: "expired" }).eq("id", metadata.intentId);
+        }
+      } else if (event.type === "payment_intent.payment_failed") {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        const orderId = paymentIntent.metadata?.orderId;
+        const intentId = paymentIntent.metadata?.intentId;
+        const workspaceId = paymentIntent.metadata?.workspaceId;
+        const supabase = await getServiceClient();
+        if (orderId) await supabase.from("orders").update({ status: "failed" }).eq("id", orderId);
+        if (intentId) await supabase.from("checkout_intents").update({ status: "failed" }).eq("id", intentId);
+        if (workspaceId) {
+          await recordEvent({
+            workspaceId,
+            eventType: "payment.failed",
+            metadata: {
+              orderId,
+              checkoutIntentId: intentId,
+              stripePaymentIntentId: paymentIntent.id,
+              failureCode: paymentIntent.last_payment_error?.code ?? null,
+            },
+          });
+        }
+      } else if (event.type === "account.updated") {
+        const account = event.data.object as Stripe.Account;
+        const supabase = await getServiceClient();
+        const { data: connection } = await supabase
+          .from("provider_connections")
+          .select("workspace_id,metadata")
+          .eq("provider", "stripe")
+          .contains("metadata", { stripe_account_id: account.id })
+          .maybeSingle();
+
+        if (connection?.workspace_id) {
+          await supabase
+            .from("provider_connections")
+            .update({
+              status: account.charges_enabled && account.payouts_enabled ? "connected" : "needs_reauth",
+              metadata: {
+                ...((connection.metadata as Record<string, unknown>) || {}),
+                stripe_account_id: account.id,
+                charges_enabled: account.charges_enabled,
+                payouts_enabled: account.payouts_enabled,
+                details_submitted: account.details_submitted,
+                requirements_currently_due: account.requirements?.currently_due ?? [],
+                requirements_past_due: account.requirements?.past_due ?? [],
+                disabled_reason: account.requirements?.disabled_reason ?? null,
+                refreshed_at: new Date().toISOString(),
+              },
+            })
+            .eq("workspace_id", connection.workspace_id)
+            .eq("provider", "stripe");
         }
       } else if (event.type === "customer.subscription.deleted" || event.type === "customer.subscription.updated") {
         const subscription = event.data.object as any;

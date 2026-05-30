@@ -35,6 +35,10 @@ export function ProductCheckoutButton({
       });
       const json = await res.json();
       if (json?.ok) {
+        if (json.data.checkout?.url) {
+          window.location.href = json.data.checkout.url;
+          return;
+        }
         setMessage(json.data.order?.amount_cents === 0 ? "Access created. Check your email in the customer portal flow." : "Checkout intent created.");
       } else {
         setMessage(json?.error?.message ?? "Checkout could not be started.");

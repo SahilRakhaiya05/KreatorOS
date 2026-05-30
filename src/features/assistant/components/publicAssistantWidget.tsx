@@ -132,6 +132,10 @@ export function PublicAssistantWidget({
       });
       const json = await res.json();
       if (json?.ok) {
+        if (json.data.checkout?.url) {
+          window.location.href = json.data.checkout.url;
+          return;
+        }
         setActionStatus(json.data.order?.amount_cents === 0 ? "Free access granted when an email is provided." : "Checkout intent created.");
       } else {
         setActionStatus(json?.error?.message ?? "Checkout could not be started.");

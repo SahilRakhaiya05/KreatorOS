@@ -1,8 +1,8 @@
 {
-  "name": "kreatoros-ai-v4-askiva-nextjs",
+  "name": "kreatoros",
   "version": "4.0.0",
   "private": true,
-  "description": "YC-grade Next.js SaaS blueprint for an AI creator business operator with Askiva-inspired automation, Calendly/Cal.com-style booking, and node-based agent workflows.",
+  "description": "An AI creator business operator with Askiva-inspired automation, Calendly/Cal.com-style booking, and node-based agent workflows.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

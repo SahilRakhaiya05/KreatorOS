@@ -126,7 +126,7 @@ function StripeCard({ stripeConnected }: { stripeConnected: boolean }) {
           </div>
           <div>
             <CardTitle className="text-base">Stripe</CardTitle>
-            <CardDescription>Powers your store checkout and revenue analytics.</CardDescription>
+            <CardDescription>Let creators connect their own Stripe account for checkout and payouts.</CardDescription>
           </div>
         </div>
         {stripeConnected ? (
@@ -139,11 +139,11 @@ function StripeCard({ stripeConnected }: { stripeConnected: boolean }) {
         <Separator />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            {stripeConnected ? "Your payouts and revenue data are flowing." : "Not connected yet."}
+            {stripeConnected ? "Your connected Stripe account is ready for checkout." : "Connect the Stripe account you own. KreatorOS stores only the connected account ID and readiness status."}
           </p>
           <Button onClick={connect} disabled={loading} className="shrink-0">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {stripeConnected ? "Manage Stripe account" : "Connect Stripe account"}
+            {stripeConnected ? "Refresh Stripe account" : "Connect your Stripe account"}
             <ArrowUpRight className="h-4 w-4" />
           </Button>
         </div>
@@ -267,7 +267,7 @@ export function SettingsClient({ stripeConnected }: { stripeConnected: boolean }
           <CardHeader>
             <CardTitle className="text-base">Optional add-ons</CardTitle>
             <CardDescription>
-              Extra connectors for calendar and meetings. Stripe stays your core payments backbone.
+              Extra connectors for calendar and meetings. Each creator connects their own Stripe account from Payments.
             </CardDescription>
           </CardHeader>
           <CardContent className="divide-y divide-border pt-0">
