@@ -1,6 +1,7 @@
 import { apiError, apiOk, isApiResponse, parseJsonBody } from "@/server/api/responses";
 import { aiSuggestionCreateSchema } from "@/server/api/schemas";
 import { createAiSuggestion } from "@/server/ai/createSuggestion";
+import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
 import { getSession } from "@/server/auth/getSession";
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
 
@@ -8,11 +9,17 @@ export async function GET(req: Request) {
   const { user } = await getSession();
   if (!user) return apiError("unauthorized", "Sign in to list AI suggestions.", 401);
 
-  const workspaceId = new URL(req.url).searchParams.get("workspaceId");
-  if (!workspaceId) return apiError("missing_workspace", "workspaceId is required.", 400);
+  const url = new URL(req.url);
+  const activeWorkspace = await getActiveWorkspace(user.id);
+  const workspaceId = url.searchParams.get("workspaceId") ?? activeWorkspace?.id;
+  if (!workspaceId) return apiError("missing_workspace", "No active workspace found.", 400);
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.from("ai_suggestions").select("*").eq("workspace_id", workspaceId).order("created_at", { ascending: false });
+  let query = supabase.from("ai_suggestions").select("*").eq("workspace_id", workspaceId);
+  const status = url.searchParams.get("status");
+  if (status) query = query.eq("status", status);
+  const limit = Number(url.searchParams.get("limit") ?? 20);
+  const { data, error } = await query.order("created_at", { ascending: false }).limit(Number.isFinite(limit) ? limit : 20);
   if (error) return apiError("ai_suggestions_failed", error.message, 400);
   return apiOk({ suggestions: data ?? [] });
 }

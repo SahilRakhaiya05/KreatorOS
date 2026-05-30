@@ -226,56 +226,51 @@ export async function POST(req: Request) {
           },
         }),
         web_search_lookup: tool({
-          description: "Perform a live web search to discover creator strategies, pricing benchmarks, and brand sponsorship structures based on a query.",
+          description: "Perform a live web lookup for current creator strategies, pricing benchmarks, and brand sponsorship structures based on a query. Never invent sources.",
           inputSchema: z.object({
             query: z.string().min(3, "Search query must be at least 3 characters."),
           }),
           execute: async ({ query }) => {
-            console.log("AI operator performing search query:", query);
-            
-            const normalized = query.toLowerCase();
-            let results: Array<{ title: string; snippet: string; url: string }> = [];
+            const url = new URL("https://api.duckduckgo.com/");
+            url.searchParams.set("q", query);
+            url.searchParams.set("format", "json");
+            url.searchParams.set("no_redirect", "1");
+            url.searchParams.set("no_html", "1");
 
-            if (normalized.includes("pricing") || normalized.includes("coaching") || normalized.includes("charge")) {
-              results = [
-                {
-                  title: "SaaS & AI Creator Pricing Benchmarks 2026",
-                  snippet: "Top AI influencers and productivity consultants typically price their 1:1 strategy calls between $150 and $350 per hour. Async video audits (like Loom reviews) represent a high-conversion entry offer priced at $20 to $49.",
-                  url: "https://creatoros.ai/insights/creator-pricing-trends",
-                },
-                {
-                  title: "How to Price Your Creator Offer Ladder",
-                  snippet: "A high-ticket offer ($500+) converts up to 3x better when preceded by a low-friction introductory product ($19) or a free value-packed lead magnet.",
-                  url: "https://whop.com/blog/creator-pricing-offer-ladders",
-                }
-              ];
-            } else if (normalized.includes("brand") || normalized.includes("sponsorship") || normalized.includes("deal")) {
-              results = [
-                {
-                  title: "Creator Sponsorship Rate Card Standard Guide",
-                  snippet: "For standard sponsorships, brand deals typically charge a baseline CPM of $20-$30 for integrated video slots, and $40-$60 for dedicated reviews. Usage rights for paid acquisition ads command a 30-50% surcharge.",
-                  url: "https://creatoros.ai/insights/brand-deal-rates",
-                },
-                {
-                  title: "Brand Deal Negotiation Best Practices",
-                  snippet: "Always negotiate usage rights (e.g. 30 days) and organic amplification separately. Bundle newsletter spots and social amplification to increase average deal size by 25%.",
-                  url: "https://passionfroot.xyz/blog/brand-deal-negotiation",
-                }
-              ];
-            } else {
-              results = [
-                {
-                  title: `Creator Business Research for: "${query}"`,
-                  snippet: `Industry benchmarks show that creator businesses optimizing for "${query}" see an average 18% increase in visitor-to-lead conversion rates when integrating interactive AI concierges on their landing links.`,
-                  url: `https://creatoros.ai/search?q=${encodeURIComponent(query)}`,
-                }
-              ];
+            const response = await fetch(url, {
+              headers: { Accept: "application/json" },
+              next: { revalidate: 900 },
+            });
+
+            if (!response.ok) {
+              return { query, results: [], error: `Search failed with status ${response.status}.` };
+            }
+
+            const data = await response.json();
+            const related = Array.isArray(data.RelatedTopics) ? data.RelatedTopics : [];
+            const results = related
+              .flatMap((item: any) => Array.isArray(item.Topics) ? item.Topics : [item])
+              .filter((item: any) => typeof item.Text === "string" && typeof item.FirstURL === "string")
+              .slice(0, 5)
+              .map((item: any) => ({
+                title: item.Text.split(" - ")[0] || item.FirstURL,
+                snippet: item.Text,
+                url: item.FirstURL,
+              }));
+
+            if (data.AbstractText && data.AbstractURL) {
+              results.unshift({
+                title: data.Heading || query,
+                snippet: data.AbstractText,
+                url: data.AbstractURL,
+              });
             }
 
             return {
               query,
               timestamp: new Date().toISOString(),
               results,
+              note: results.length ? "Use these sources carefully and cite URLs." : "No direct web results returned; say that search did not find sources.",
             };
           },
         }),

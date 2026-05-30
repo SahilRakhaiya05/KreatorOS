@@ -91,7 +91,7 @@ export const nav: Record<"creator" | "brand" | "portal", NavGroup[]> = {
       group: "Automate",
       items: [
         { href: "/creator/agents", label: "Agents", icon: Sparkles },
-        { href: "/creator/workflows", label: "Workflows", icon: Workflow },
+        { href: "/creator/workflows", label: "KOffice", icon: Workflow },
         { href: "/creator/calendar", label: "Calendar", icon: Calendar },
       ],
     },
@@ -100,6 +100,7 @@ export const nav: Record<"creator" | "brand" | "portal", NavGroup[]> = {
       items: [
         { href: "/creator/brand-crm", label: "Brand CRM", icon: Handshake },
         { href: "/creator/research-lab", label: "Research Lab", icon: Mic },
+        { href: "/creator/instagram", label: "Instagram Saves", icon: PlayCircle },
         { href: "/creator/analytics", label: "Analytics", icon: BarChart3 },
       ],
     },

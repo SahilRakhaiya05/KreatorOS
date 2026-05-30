@@ -5,9 +5,9 @@ export default function Page() {
   return (
     <AppShell role="creator">
       <PageHeader
-        eyebrow="Workflow editor"
-        title="Build node-style AI automation flows"
-        description="Turn business events into guarded automations across pages, bookings, payments, brands, research, and support. Every node has tool access, conditions, retry logic, permissions, and audit logging."
+        eyebrow="KOffice"
+        title="Run web research from a live creator office"
+        description="Search public source leads, assign research agents, track the source queue, and turn findings into creator-ready briefs inside a Claude Office-inspired workspace."
       />
       <WorkflowCanvas />
     </AppShell>

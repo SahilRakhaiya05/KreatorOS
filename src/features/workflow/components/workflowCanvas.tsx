@@ -1,618 +1,511 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { workflowNodes } from "@/shared/mock/data";
-import { Badge, Card, cn } from "@/components/ui";
-import { 
-  Bell, Bot, Calendar, CreditCard, MessageCircle, MousePointerClick, 
-  Plus, Save, Settings, Trash2, Workflow, Loader2, Sparkles, AlertCircle 
+import { useEffect, useMemo, useState } from "react";
+import {
+  BarChart3,
+  BookOpen,
+  Bot,
+  Building2,
+  CheckCircle2,
+  Clock3,
+  ExternalLink,
+  FileText,
+  Globe2,
+  LayoutGrid,
+  Loader2,
+  MessageSquareText,
+  Mic,
+  Monitor,
+  Pause,
+  Play,
+  Search,
+  Sparkles,
+  Users,
 } from "lucide-react";
+import { Card, cn } from "@/components/ui";
 
-const templates = [
-  "Paid booking autopilot",
-  "Brand inquiry to proposal",
-  "Product purchase to upsell",
-  "Member inactivity rescue",
-  "Research interview loop",
-  "Refund/support escalation"
-];
+type RunState = "idle" | "running" | "paused" | "complete";
+type ViewMode = "sources" | "agents" | "kanban" | "timeline" | "findings";
+type SidebarTab = "sources" | "log";
 
-const toneClasses: Record<string, string> = {
-  "bg-lavender": "bg-violet-50 border-violet-200 text-violet-800",
-  "bg-mint": "bg-emerald-50 border-emerald-200 text-emerald-800",
-  "bg-aqua": "bg-sky-50 border-sky-200 text-sky-800",
-  "bg-lemon": "bg-amber-50 border-amber-200 text-amber-800",
-  "bg-coral": "bg-rose-50 border-rose-200 text-rose-800",
-  "bg-white": "bg-white border-slate-200 text-slate-800",
+type ResearchSource = {
+  title: string;
+  url: string;
+  snippet: string;
+  sourceType: string;
 };
 
-const templateData: Record<string, { trigger: string; nodes: any[] }> = {
-  "Paid booking autopilot": {
-    trigger: "booking.created",
-    nodes: [
-      { id: "t1", type: "Trigger", title: "Paid booking created", meta: "booking.created", tone: "bg-lavender", policy: "Auto-run low risk" },
-      { id: "t2", type: "AI Decision", title: "Route high budget leads", meta: "pricing_test", tone: "bg-mint", policy: "Auto-run low risk" },
-      { id: "t3", type: "Action", title: "Collect Stripe deposit", meta: "create_checkout_session", tone: "bg-lemon", policy: "Require creator approval" },
-      { id: "t4", type: "Action", title: "Sync Google Calendar", meta: "create_booking", tone: "bg-aqua", policy: "Auto-run low risk" },
-      { id: "t5", type: "Notify", title: "WhatsApp confirmation", meta: "send_whatsapp_template", tone: "bg-coral", policy: "Auto-run low risk" }
-    ]
-  },
-  "Brand inquiry to proposal": {
-    trigger: "brand.inquiry",
-    nodes: [
-      { id: "b1", type: "Trigger", title: "Brand inquiry submitted", meta: "brand.inquiry", tone: "bg-lavender", policy: "Auto-run low risk" },
-      { id: "b2", type: "AI Decision", title: "Verify company budget", meta: "check_availability", tone: "bg-mint", policy: "Auto-run low risk" },
-      { id: "b3", type: "AI Action", title: "Draft brand proposal", meta: "draft_brand_proposal", tone: "bg-white", policy: "Require creator approval" },
-      { id: "b4", type: "Action", title: "Notify slack channel", meta: "send_whatsapp_template", tone: "bg-coral", policy: "Auto-run low risk" }
-    ]
-  },
-  "Product purchase to upsell": {
-    trigger: "order.paid",
-    nodes: [
-      { id: "p1", type: "Trigger", title: "Product purchase successful", meta: "order.paid", tone: "bg-lavender", policy: "Auto-run low risk" },
-      { id: "p2", type: "AI Action", title: "Personalize upsell offer", meta: "pricing_test", tone: "bg-white", policy: "Require creator approval" },
-      { id: "p3", type: "Action", title: "Create checkout link", meta: "create_checkout_session", tone: "bg-lemon", policy: "Auto-run low risk" },
-      { id: "p4", type: "Notify", title: "Send custom email invitation", meta: "send_whatsapp_template", tone: "bg-coral", policy: "Auto-run low risk" }
-    ]
-  },
-  "Member inactivity rescue": {
-    trigger: "member.inactive",
-    nodes: [
-      { id: "m1", type: "Trigger", title: "Member inactive 14 days", meta: "member.inactive", tone: "bg-lavender", policy: "Auto-run low risk" },
-      { id: "m2", type: "AI Decision", title: "Analyze engagement history", meta: "pricing_test", tone: "bg-mint", policy: "Auto-run low risk" },
-      { id: "m3", type: "AI Action", title: "Write check-in template", meta: "draft_brand_proposal", tone: "bg-white", policy: "Require creator approval" },
-      { id: "m4", type: "Notify", title: "Send email rescue", meta: "send_whatsapp_template", tone: "bg-coral", policy: "Auto-run low risk" }
-    ]
-  },
-  "Research interview loop": {
-    trigger: "interview.completed",
-    nodes: [
-      { id: "r1", type: "Trigger", title: "Interview recording ready", meta: "interview.completed", tone: "bg-lavender", policy: "Auto-run low risk" },
-      { id: "r2", type: "Action", title: "Transcribe interview", meta: "summarize_interview", tone: "bg-aqua", policy: "Auto-run low risk" },
-      { id: "r3", type: "AI Decision", title: "Extract key pain points", meta: "pricing_test", tone: "bg-mint", policy: "Auto-run low risk" },
-      { id: "r4", type: "Action", title: "Save tags to profile", meta: "create_booking", tone: "bg-coral", policy: "Require creator approval" }
-    ]
-  },
-  "Refund/support escalation": {
-    trigger: "support.ticket",
-    nodes: [
-      { id: "s1", type: "Trigger", title: "Negative feedback ticket", meta: "support.ticket", tone: "bg-lavender", policy: "Auto-run low risk" },
-      { id: "s2", type: "AI Decision", title: "Assess refund eligibility", meta: "pricing_test", tone: "bg-mint", policy: "Auto-run low risk" },
-      { id: "s3", type: "AI Action", title: "Draft compensation credit", meta: "draft_brand_proposal", tone: "bg-white", policy: "Require creator approval" },
-      { id: "s4", type: "Action", title: "Escalate to admin inbox", meta: "send_whatsapp_template", tone: "bg-coral", policy: "Require brand + creator approval" }
-    ]
-  }
+type ResearchAgent = {
+  name: string;
+  desk: string;
+  task: string;
+  status: "queued" | "reading" | "synthesizing" | "done";
 };
 
-const defaultAvailableTools = [
-  "create_booking",
-  "send_whatsapp_template",
-  "create_checkout_session",
-  "draft_brand_proposal",
-  "summarize_interview",
-  "pricing_test",
-  "check_availability"
+type ResearchResult = {
+  title: string;
+  summary: string;
+  findings: string[];
+  sourceQueries: string[];
+  sourceQueue: ResearchSource[];
+  agents: ResearchAgent[];
+  kanban: Record<"collect" | "read" | "synthesize" | "publish", string[]>;
+  timeline: Array<{ label: string; detail: string }>;
+};
+
+const spritePath = "/creator-office/sprites";
+
+const initialResearch: ResearchResult = {
+  title: "Research Office: creator offer demand",
+  summary: "KOffice is ready to collect web source leads, assign research agents, cluster findings, and turn research into creator actions.",
+  findings: [
+    "Use source-backed audience language before writing landing page copy.",
+    "Separate market facts, creator opinions, and buyer objections.",
+    "Turn every insight into a content angle, offer test, or outreach task.",
+  ],
+  sourceQueries: [
+    "creator offer demand trends",
+    "digital product buyer pain points",
+    "creator economy audience research",
+    "membership retention creator examples",
+  ],
+  sourceQueue: [
+    {
+      title: "Creator economy market overview",
+      url: "https://en.wikipedia.org/wiki/Creator_economy",
+      snippet: "Source lead for market language, definitions, and adjacent topics.",
+      sourceType: "Wikipedia",
+    },
+    {
+      title: "Hacker News creator tools discussions",
+      url: "https://hn.algolia.com/?q=creator%20tools",
+      snippet: "Discussion lead for tool fatigue, pricing, and workflow objections.",
+      sourceType: "Hacker News",
+    },
+  ],
+  agents: [
+    { name: "Scout", desk: "Source Desk", task: "Collect public web leads", status: "reading" },
+    { name: "Analyst", desk: "Trend Room", task: "Cluster claims and objections", status: "queued" },
+    { name: "Audience", desk: "Audience Lab", task: "Translate research into pain points", status: "queued" },
+    { name: "Editor", desk: "Synthesis Room", task: "Draft creator-ready brief", status: "queued" },
+  ],
+  kanban: {
+    collect: ["Search source leads", "Queue competitor pages"],
+    read: ["Scan public discussions", "Extract repeated terms"],
+    synthesize: ["Cluster objections", "Map creator actions"],
+    publish: ["Research brief", "Content angles", "Offer experiments"],
+  },
+  timeline: [
+    { label: "00:00", detail: "Open the source queue" },
+    { label: "02:00", detail: "Read top source leads" },
+    { label: "06:00", detail: "Cluster audience pain points" },
+    { label: "10:00", detail: "Write creator action brief" },
+  ],
+};
+
+const floors = [
+  { id: "web", name: "Web Source Floor", room: "Source Desk", icon: Globe2, accent: "bg-sky-500" },
+  { id: "audience", name: "Audience Lab", room: "Audience Lab", icon: Users, accent: "bg-emerald-500" },
+  { id: "trend", name: "Trend Room", room: "Trend Room", icon: BarChart3, accent: "bg-amber-500" },
+  { id: "interview", name: "Interview Room", room: "Interview Room", icon: Mic, accent: "bg-violet-500" },
+  { id: "synthesis", name: "Synthesis Room", room: "Synthesis Room", icon: FileText, accent: "bg-rose-500" },
 ];
 
-export function WorkflowCanvas() {
-  const [workflows, setWorkflows] = useState<any[]>([]);
-  const [currentWorkflowId, setCurrentWorkflowId] = useState<string | null>(null);
-  const [workflowName, setWorkflowName] = useState("Paid booking autopilot");
-  const [triggerEvent, setTriggerEvent] = useState("booking.created");
-  const [status, setStatus] = useState<"draft" | "active" | "paused" | "archived">("draft");
-  const [nodes, setNodes] = useState<any[]>([]);
-  const [selected, setSelected] = useState<any | null>(null);
-  
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+const modes: Array<{ id: ViewMode; label: string; icon: typeof Globe2 }> = [
+  { id: "sources", label: "Sources", icon: Globe2 },
+  { id: "agents", label: "Agents", icon: Bot },
+  { id: "kanban", label: "Kanban", icon: LayoutGrid },
+  { id: "timeline", label: "Timeline", icon: Clock3 },
+  { id: "findings", label: "Findings", icon: BookOpen },
+];
 
-  function showToast(message: string, type: "success" | "error" = "success") {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3500);
-  }
+function OfficeSprite({ src, className, alt = "" }: { src: string; className?: string; alt?: string }) {
+  return <img src={`${spritePath}/${src}`} alt={alt} className={cn("pointer-events-none select-none object-contain", className)} />;
+}
 
-  // Fetch saved workflows
-  async function fetchWorkflows() {
-    try {
-      const res = await fetch("/api/workflows");
-      const json = await res.json();
-      if (json.ok) {
-        setWorkflows(json.workflows || []);
-        if (json.workflows && json.workflows.length > 0) {
-          loadWorkflow(json.workflows[0]);
-        } else {
-          // Initialize with default template
-          loadTemplate("Paid booking autopilot");
-        }
-      }
-    } catch (err) {
-      showToast("Error loading workflows from database", "error");
-    } finally {
-      setLoading(false);
-    }
-  }
+function agentPosition(index: number) {
+  return [
+    { left: 16, top: 55 },
+    { left: 39, top: 49 },
+    { left: 64, top: 55 },
+    { left: 28, top: 72 },
+    { left: 55, top: 72 },
+    { left: 79, top: 68 },
+  ][index % 6];
+}
 
-  useEffect(() => {
-    fetchWorkflows();
-  }, []);
+function statusTone(status: ResearchAgent["status"]) {
+  if (status === "done") return "border-emerald-300 bg-emerald-50 text-emerald-950";
+  if (status === "reading") return "border-sky-300 bg-sky-50 text-sky-950";
+  if (status === "synthesizing") return "border-amber-300 bg-amber-50 text-amber-950";
+  return "border-stone-200 bg-white text-stone-900";
+}
 
-  function loadWorkflow(wf: any) {
-    setCurrentWorkflowId(wf.id);
-    setWorkflowName(wf.name);
-    setTriggerEvent(wf.trigger_event || "booking.created");
-    setStatus(wf.status || "draft");
-    const parsedNodes = wf.graph?.nodes || [];
-    setNodes(parsedNodes);
-    if (parsedNodes.length > 0) {
-      setSelected(parsedNodes[0]);
-    } else {
-      setSelected(null);
-    }
-  }
-
-  function loadTemplate(templateName: string) {
-    const data = templateData[templateName] || templateData["Paid booking autopilot"];
-    setCurrentWorkflowId(null);
-    setWorkflowName(templateName);
-    setTriggerEvent(data.trigger);
-    setStatus("draft");
-    
-    // Deep clone nodes
-    const templateNodes = JSON.parse(JSON.stringify(data.nodes));
-    setNodes(templateNodes);
-    if (templateNodes.length > 0) {
-      setSelected(templateNodes[0]);
-    } else {
-      setSelected(null);
-    }
-    showToast(`Loaded "${templateName}" template`);
-  }
-
-  function createCustomWorkflow() {
-    setCurrentWorkflowId(null);
-    setWorkflowName("New Custom Automation");
-    setTriggerEvent("page.viewed");
-    setStatus("draft");
-    
-    const initialNodes = [
-      { id: "node_1", type: "Trigger", title: "User visits page", meta: "page.viewed", tone: "bg-lavender", policy: "Auto-run low risk" }
-    ];
-    setNodes(initialNodes);
-    setSelected(initialNodes[0]);
-    showToast("Created a new custom workflow draft");
-  }
-
-  function addNode() {
-    const id = `node_${Date.now()}`;
-    const node = { 
-      id, 
-      type: "AI Action", 
-      title: "New automation step", 
-      meta: "pricing_test", 
-      tone: "bg-white", 
-      policy: "Require creator approval" 
-    };
-    setNodes([...nodes, node]);
-    setSelected(node);
-    showToast("Added new node step");
-  }
-
-  function deleteNode(id: string) {
-    const remaining = nodes.filter(n => n.id !== id);
-    setNodes(remaining);
-    if (remaining.length > 0) {
-      setSelected(remaining[0]);
-    } else {
-      setSelected(null);
-    }
-    showToast("Deleted node");
-  }
-
-  const updateSelectedNode = (updatedFields: Partial<any>) => {
-    if (!selected) return;
-    const updatedNode = { ...selected, ...updatedFields };
-    setSelected(updatedNode);
-    setNodes(nodes.map(n => n.id === selected.id ? updatedNode : n));
-  };
-
-  async function saveWorkflow() {
-    if (!workflowName.trim()) {
-      showToast("Workflow name cannot be empty", "error");
-      return;
-    }
-    setSaving(true);
-    try {
-      const res = await fetch("/api/workflows", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: currentWorkflowId || undefined,
-          name: workflowName,
-          trigger: triggerEvent,
-          status: status,
-          nodes: nodes,
-          edges: []
-        })
-      });
-      const json = await res.json();
-      if (json.ok) {
-        showToast(currentWorkflowId ? "Workflow changes saved!" : "Workflow created successfully!");
-        if (json.workflow?.id) {
-          setCurrentWorkflowId(json.workflow.id);
-        }
-        // Refresh workflow list
-        const listRes = await fetch("/api/workflows");
-        const listJson = await listRes.json();
-        if (listJson.ok) {
-          setWorkflows(listJson.workflows || []);
-        }
-      } else {
-        showToast(json.error || "Failed to save workflow", "error");
-      }
-    } catch (err) {
-      showToast("Network error when saving workflow", "error");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function deleteWorkflow(id: string, e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!confirm("Are you sure you want to delete this workflow?")) return;
-    try {
-      const res = await fetch(`/api/workflows?id=${id}`, {
-        method: "DELETE"
-      });
-      const json = await res.json();
-      if (json.ok) {
-        showToast("Workflow deleted");
-        if (currentWorkflowId === id) {
-          const remaining = workflows.filter(w => w.id !== id);
-          if (remaining.length > 0) {
-            loadWorkflow(remaining[0]);
-          } else {
-            loadTemplate("Paid booking autopilot");
-          }
-        }
-        setWorkflows(workflows.filter(w => w.id !== id));
-      } else {
-        showToast(json.error || "Failed to delete workflow", "error");
-      }
-    } catch (err) {
-      showToast("Network error when deleting workflow", "error");
-    }
-  }
-
-  if (loading) {
+function Whiteboard({
+  mode,
+  research,
+  activeStep,
+}: {
+  mode: ViewMode;
+  research: ResearchResult;
+  activeStep: number;
+}) {
+  if (mode === "sources") {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-700" />
-        <span className="ml-2 font-bold text-slate-700">Loading Automation Workflows...</span>
+      <div className="space-y-1.5 text-[9px]">
+        {research.sourceQueue.slice(0, 4).map((source) => (
+          <p key={source.url} className="truncate rounded bg-sky-50 px-2 py-1 font-bold text-sky-950">
+            {source.sourceType}: {source.title}
+          </p>
+        ))}
+      </div>
+    );
+  }
+
+  if (mode === "agents") {
+    return (
+      <div className="grid grid-cols-2 gap-2 text-[9px]">
+        {research.agents.slice(0, 4).map((agent) => (
+          <div key={agent.name} className="rounded bg-stone-100 p-2">
+            <p className="font-black text-stone-900">{agent.name}</p>
+            <p className="truncate text-stone-500">{agent.status}</p>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (mode === "kanban") {
+    return (
+      <div className="grid grid-cols-4 gap-1 text-[8px]">
+        {Object.entries(research.kanban).map(([column, cards]) => (
+          <div key={column} className="rounded bg-stone-100 p-1.5">
+            <p className="mb-1 font-black uppercase text-stone-500">{column}</p>
+            {cards.slice(0, 2).map((card) => (
+              <p key={card} className="mb-1 truncate rounded bg-white px-1 py-0.5 font-bold text-stone-700">{card}</p>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (mode === "timeline") {
+    return (
+      <div className="space-y-1.5 text-[9px]">
+        {research.timeline.slice(0, 5).map((item, index) => (
+          <div key={`${item.label}-${item.detail}`} className="flex items-center gap-2">
+            <span className={cn("grid h-5 w-9 place-items-center rounded-full text-[8px] font-black", index === activeStep ? "bg-emerald-600 text-white" : "bg-stone-900 text-white")}>{item.label}</span>
+            <span className="truncate font-bold text-stone-700">{item.detail}</span>
+          </div>
+        ))}
       </div>
     );
   }
 
   return (
-    <div className="relative grid gap-6 xl:grid-cols-[300px_1fr_340px]">
-      
-      {/* Toast Alert */}
-      {toast && (
-        <div className={cn(
-          "fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-black shadow-lg transition-all animate-bounce",
-          toast.type === "success" ? "bg-emerald-800 text-white" : "bg-rose-800 text-white"
-        )}>
-          {toast.type === "success" ? <Sparkles className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-          {toast.message}
-        </div>
-      )}
+    <div className="space-y-1.5 text-[9px]">
+      {research.findings.slice(0, 4).map((finding) => (
+        <p key={finding} className="truncate rounded bg-emerald-50 px-2 py-1 font-bold text-emerald-950">{finding}</p>
+      ))}
+    </div>
+  );
+}
 
-      {/* Left panel: saved list + templates */}
-      <Card className="p-5 flex flex-col gap-6">
-        <div>
-          <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">My Workflows</p>
-          <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
-            {workflows.length === 0 ? (
-              <p className="text-xs italic text-slate-400 p-2">No workflows saved yet.</p>
-            ) : (
-              workflows.map((wf) => (
-                <div 
-                  key={wf.id}
-                  onClick={() => loadWorkflow(wf)}
+export function WorkflowCanvas() {
+  const [research, setResearch] = useState<ResearchResult>(initialResearch);
+  const [query, setQuery] = useState("What AI tools and offers are creators buying in 2026, and what pain points show up in public discussions?");
+  const [audience, setAudience] = useState("solo creators, coaches, and creator-led SaaS founders");
+  const [angle, setAngle] = useState("creator product opportunities");
+  const [activeFloor, setActiveFloor] = useState("web");
+  const [mode, setMode] = useState<ViewMode>("sources");
+  const [tab, setTab] = useState<SidebarTab>("sources");
+  const [runState, setRunState] = useState<RunState>("idle");
+  const [activeStep, setActiveStep] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [provider, setProvider] = useState("Public sources");
+  const [toast, setToast] = useState<string | null>(null);
+
+  const activeFloorMeta = floors.find((floor) => floor.id === activeFloor) ?? floors[0];
+  const activeAgent = research.agents[activeStep % Math.max(1, research.agents.length)];
+  const totalCards = useMemo(
+    () => Object.values(research.kanban).reduce((sum, cards) => sum + cards.length, 0),
+    [research.kanban]
+  );
+
+  function showToast(message: string) {
+    setToast(message);
+    window.setTimeout(() => setToast(null), 2600);
+  }
+
+  async function runResearch() {
+    if (!query.trim()) return;
+    setLoading(true);
+    setRunState("running");
+    setActiveStep(0);
+
+    try {
+      const res = await fetch("/api/ai/research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, audience, angle }),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        showToast(json.error?.message ?? "Research run failed");
+        setRunState("idle");
+        return;
+      }
+
+      setResearch(json.data.research);
+      setProvider(json.data.available ? "Gemini synthesis" : "Public sources");
+      setMode("sources");
+      showToast("Research office loaded new source queue");
+    } catch {
+      showToast("Network error while running research");
+      setRunState("idle");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function toggleRun() {
+    if (runState === "running") {
+      setRunState("paused");
+      return;
+    }
+    if (runState === "complete") setActiveStep(0);
+    setRunState("running");
+  }
+
+  useEffect(() => {
+    if (runState !== "running") return undefined;
+    const maxSteps = Math.max(research.timeline.length, research.agents.length, 1);
+    const timer = window.setInterval(() => {
+      setActiveStep((step) => {
+        if (step >= maxSteps - 1) {
+          setRunState("complete");
+          return step;
+        }
+        return step + 1;
+      });
+    }, 1300);
+
+    return () => window.clearInterval(timer);
+  }, [runState, research.timeline.length, research.agents.length]);
+
+  return (
+    <div className="relative">
+      {toast ? (
+        <div className="fixed bottom-5 right-5 z-50 rounded-lg bg-stone-950 px-4 py-3 text-sm font-bold text-white shadow-xl">
+          {toast}
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 xl:grid-cols-[260px_1fr_340px]">
+        <Card className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+          <div className="border-b border-border px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">KOffice building</p>
+            <p className="text-sm font-semibold text-foreground">Web Research HQ</p>
+          </div>
+          <div className="space-y-3 p-3">
+            {floors.map((floor, index) => {
+              const Icon = floor.icon;
+              const active = activeFloor === floor.id;
+              return (
+                <button
+                  key={floor.id}
+                  onClick={() => setActiveFloor(floor.id)}
                   className={cn(
-                    "group flex items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-bold transition cursor-pointer hover:bg-slate-100",
-                    currentWorkflowId === wf.id ? "bg-slate-100 ring-1 ring-slate-200" : "bg-transparent"
+                    "group flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition",
+                    active ? "border-stone-900 bg-stone-950 text-white" : "border-border bg-background text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <div className="flex flex-col gap-0.5 truncate">
-                    <span className="text-slate-800 truncate font-black">{wf.name}</span>
-                    <span className="text-[10px] text-slate-400 truncate">{wf.trigger_event}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "text-[9px] uppercase px-1.5 py-0.5 rounded font-black",
-                      wf.status === "active" ? "bg-emerald-100 text-emerald-800" : 
-                      wf.status === "paused" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"
-                    )}>
-                      {wf.status}
-                    </span>
-                    <button 
-                      onClick={(e) => deleteWorkflow(wf.id, e)}
-                      className="opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-700 p-1 transition"
-                      title="Delete workflow"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
+                  <span className={cn("grid h-9 w-9 place-items-center rounded-md text-white", floor.accent)}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black">{index + 5}F {floor.name}</span>
+                    <span className={cn("block truncate text-xs", active ? "text-white/55" : "text-muted-foreground")}>{floor.room}</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <button 
-            onClick={createCustomWorkflow}
-            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
-          >
-            <Plus className="h-3.5 w-3.5" /> New custom workflow
-          </button>
-        </div>
+        </Card>
 
-        <div className="border-t border-slate-100 pt-4">
-          <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">Blueprint templates</p>
-          <div className="space-y-1.5">
-            {templates.map((item) => (
-              <button 
-                key={item} 
-                onClick={() => loadTemplate(item)}
-                className="w-full rounded-xl bg-slate-50 px-3 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-slate-100 transition truncate hover:translate-x-1"
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-        </div>
-      </Card>
-
-      {/* Center panel: visual canvas */}
-      <Card className="overflow-hidden flex flex-col">
-        <div className="flex flex-col gap-4 border-b border-slate-100 bg-white p-5 md:flex-row md:items-center md:justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <Workflow className="h-5 w-5 text-violet-600 animate-pulse" />
-              <input 
-                value={workflowName} 
-                onChange={(e) => setWorkflowName(e.target.value)} 
-                className="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-violet-600 focus:outline-none text-lg font-black text-slate-950 w-full max-w-xs md:max-w-md transition"
-                placeholder="Workflow name..."
-              />
-            </div>
-            <p className="mt-1 text-xs text-slate-400">
-              Active Trigger Event: <strong className="text-slate-600">{triggerEvent}</strong>
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <label className="text-[10px] font-black uppercase text-slate-400">Trigger</label>
-              <select 
-                value={triggerEvent} 
-                onChange={(e) => setTriggerEvent(e.target.value)} 
-                className="rounded-xl border border-slate-200 px-2 py-1 text-xs font-bold bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-500"
-              >
-                <option value="booking.created">booking.created</option>
-                <option value="brand.inquiry">brand.inquiry</option>
-                <option value="order.paid">order.paid</option>
-                <option value="member.inactive">member.inactive</option>
-                <option value="interview.completed">interview.completed</option>
-                <option value="support.ticket">support.ticket</option>
-                <option value="page.viewed">page.viewed</option>
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-[10px] font-black uppercase text-slate-400">Status</label>
-              <select 
-                value={status} 
-                onChange={(e) => setStatus(e.target.value as any)} 
-                className="rounded-xl border border-slate-200 px-2 py-1 text-xs font-bold bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-500"
-              >
-                <option value="draft">Draft</option>
-                <option value="active">Active</option>
-                <option value="paused">Paused</option>
-              </select>
-            </div>
-            <button 
-              onClick={saveWorkflow}
-              disabled={saving}
-              className="flex items-center gap-1.5 rounded-xl bg-slate-950 px-3.5 py-1.5 text-xs font-black text-white hover:bg-slate-800 transition disabled:opacity-50"
-            >
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              {currentWorkflowId ? "Update" : "Save"}
-            </button>
-          </div>
-        </div>
-
-        <div className="workflow-canvas min-h-[480px] overflow-x-auto p-8 bg-slate-50/50 flex flex-col justify-between">
-          <div className="flex items-center gap-8 py-4">
-            {nodes.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
-                <Workflow className="h-12 w-12 stroke-[1.5] text-slate-300 mb-2" />
-                <p className="text-sm font-bold">No nodes in this blueprint.</p>
-                <p className="text-xs">Click "Add step node" to begin building automation rules.</p>
+        <Card className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+          <div className="grid gap-3 border-b border-border p-4 lg:grid-cols-[1fr_auto]">
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <Search className="h-4 w-4 text-accent" />
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">Research prompt</p>
+                <span className="rounded bg-secondary px-2 py-0.5 text-[10px] font-black text-muted-foreground">{provider}</span>
               </div>
-            ) : (
-              nodes.map((node, index) => {
-                const isSelected = selected?.id === node.id;
-                const toneStyle = toneClasses[node.tone] || toneClasses["bg-white"];
+              <textarea
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="min-h-20 w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-ring/20"
+              />
+              <div className="mt-2 grid gap-2 md:grid-cols-2">
+                <input value={audience} onChange={(event) => setAudience(event.target.value)} className="rounded-md border border-border bg-background px-3 py-2 text-xs font-semibold outline-none" placeholder="Audience" />
+                <input value={angle} onChange={(event) => setAngle(event.target.value)} className="rounded-md border border-border bg-background px-3 py-2 text-xs font-semibold outline-none" placeholder="Research angle" />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 lg:flex-col lg:justify-end">
+              <button
+                onClick={runResearch}
+                disabled={loading}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-accent px-4 text-xs font-black text-accent-foreground transition hover:opacity-90 disabled:opacity-50"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                Research web
+              </button>
+              <button onClick={toggleRun} className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-stone-950 px-4 text-xs font-black text-white transition hover:bg-stone-800">
+                {runState === "running" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                {runState === "running" ? "Pause office" : "Run office"}
+              </button>
+            </div>
+          </div>
+
+          <div className="relative min-h-[640px] overflow-hidden bg-[#1b1d25]">
+            <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-[#11131b] to-[#303648]" />
+            <div className="absolute left-8 top-7 hidden h-20 w-36 rounded-lg border-4 border-[#6d543f] bg-[#8fd0ff] shadow-inner md:block" />
+            <div className="absolute right-8 top-5 hidden h-24 w-72 rounded-lg border-4 border-[#6d543f] bg-stone-100 p-3 md:block">
+              <Whiteboard mode={mode} research={research} activeStep={activeStep} />
+            </div>
+            <div className="absolute inset-x-0 bottom-0 h-[78%] bg-[#705a46] [background-image:linear-gradient(90deg,rgba(255,255,255,.08)_1px,transparent_1px),linear-gradient(rgba(255,255,255,.08)_1px,transparent_1px)] [background-size:42px_42px]" />
+
+            <div className="absolute left-4 top-32 z-30 flex max-w-[calc(100%-2rem)] flex-wrap gap-2">
+              {modes.map((item) => {
+                const Icon = item.icon;
                 return (
-                  <div key={node.id} className="relative flex items-center">
-                    {/* Node connector line */}
-                    {index > 0 && (
-                      <div className="absolute -left-8 right-full h-0.5 bg-slate-200 w-8 z-0"></div>
+                  <button
+                    key={item.id}
+                    onClick={() => setMode(item.id)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-black transition",
+                      mode === item.id ? "border-white bg-white text-stone-950" : "border-white/20 bg-black/20 text-white hover:bg-white/10"
                     )}
-                    
-                    <button 
-                      onClick={() => setSelected(node)} 
-                      className={cn(
-                        "relative z-10 w-44 rounded-2xl border p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md",
-                        toneStyle,
-                        isSelected ? "ring-2 ring-violet-600 border-transparent scale-105" : ""
-                      )}
-                    > 
-                      <Badge tone={
-                        node.type.includes("AI") ? "violet" : 
-                        index === 0 ? "blue" : 
-                        node.type === "Trigger" ? "amber" : "slate"
-                      }>
-                        {node.type}
-                      </Badge>
-                      <p className="mt-3 text-xs font-black text-slate-900 line-clamp-1">{node.title}</p>
-                      <p className="mt-1.5 text-[10px] font-semibold text-slate-500 truncate leading-relaxed">
-                        {node.meta}
-                      </p>
-                    </button>
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="absolute bottom-8 left-1/2 z-10 h-[395px] w-[940px] max-w-[96%] -translate-x-1/2 rounded-[18px] border border-black/20 bg-black/10 shadow-2xl">
+              <div className="absolute left-[7%] top-[12%] rounded-md bg-stone-900 px-3 py-1 text-xs font-black text-white shadow-lg">
+                {activeFloorMeta.room}
+              </div>
+              <OfficeSprite src="plant.png" className="absolute bottom-10 left-5 h-24" />
+              <OfficeSprite src="watercooler.png" className="absolute bottom-10 right-8 h-28" />
+              <OfficeSprite src="old-printer.png" className="absolute bottom-8 left-[32%] h-16" />
+              <OfficeSprite src="coffee-machine.png" className="absolute bottom-8 right-[28%] h-16" />
+
+              {research.agents.map((agent, index) => {
+                const position = agentPosition(index);
+                const active = index === activeStep % Math.max(1, research.agents.length) && runState === "running";
+                return (
+                  <div key={agent.name} className="absolute z-20 w-40 -translate-x-1/2 text-left transition duration-200" style={{ left: `${position.left}%`, top: `${position.top}%` }}>
+                    <div className={cn("rounded-lg border px-3 py-2 shadow-lg", statusTone(active ? "reading" : agent.status), active && "ring-2 ring-emerald-400")}>
+                      <div className="flex items-center gap-2">
+                        <span className="grid h-7 w-7 place-items-center rounded-md bg-white/80 ring-1 ring-black/5">
+                          <Bot className="h-3.5 w-3.5" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-[11px] font-black">{agent.name}</p>
+                          <p className="truncate text-[9px] font-bold opacity-60">{agent.task}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mx-auto mt-1 h-10 w-16">
+                      <OfficeSprite src="desk.png" className="h-full w-full" />
+                    </div>
                   </div>
                 );
-              })
-            )}
-            
-            <button 
-              onClick={addNode}
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-slate-300 bg-white text-slate-400 hover:border-violet-500 hover:text-violet-600 transition shadow-sm hover:scale-105"
-              title="Add automation step"
-            >
-              <Plus className="h-5 w-5" />
-            </button>
-          </div>
+              })}
+            </div>
 
-          <div className="border-t border-slate-200/60 pt-6 mt-6">
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-3">Available events palette</p>
-            <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+            <div className="absolute bottom-4 left-4 right-4 z-30 grid gap-2 md:grid-cols-3">
               {[
-                { label: "Trigger", desc: "booking.created, order.paid", Icon: MousePointerClick },
-                { label: "AI Decision", desc: "Route via prompt evaluation", Icon: Bot },
-                { label: "Action", desc: "Stripe, google calendar hooks", Icon: CreditCard },
-                { label: "Notify", desc: "WhatsApp, transaction email", Icon: MessageCircle }
-              ].map((item, i) => (
-                <div key={i} className="rounded-xl bg-white p-3.5 shadow-sm ring-1 ring-slate-100 hover:ring-slate-200 transition cursor-default">
-                  <item.Icon className="mb-2 h-4 w-4 text-violet-600" />
-                  <p className="text-xs font-black text-slate-800">{item.label}</p>
-                  <p className="text-[9px] text-slate-400 font-medium mt-0.5">{item.desc}</p>
+                { label: "Source leads", value: research.sourceQueue.length, icon: Globe2 },
+                { label: "Research cards", value: totalCards, icon: LayoutGrid },
+                { label: "Active agent", value: activeAgent?.name ?? "Scout", icon: Monitor },
+              ].map((stat) => (
+                <div key={stat.label} className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white backdrop-blur">
+                  <stat.icon className="h-4 w-4 text-emerald-300" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black">{stat.value}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/55">{stat.label}</p>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      </Card>
+        </Card>
 
-      {/* Right panel: settings */}
-      <Card className="p-5">
-        {selected ? (
-          <div className="flex flex-col h-full justify-between">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <p className="font-black text-sm text-slate-950">Step Configuration</p>
-                <Settings className="h-4 w-4 text-slate-400" />
-              </div>
-              
+        <div className="grid gap-4">
+          <Card className="rounded-lg border border-border bg-card p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
               <div>
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Step Title</label>
-                <input 
-                  value={selected.title} 
-                  onChange={(e) => updateSelectedNode({ title: e.target.value })} 
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-violet-500" 
-                />
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">Research brief</p>
+                <p className="text-sm font-semibold text-foreground">{research.title}</p>
               </div>
-
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Step Type</label>
-                <select 
-                  value={selected.type} 
-                  onChange={(e) => {
-                    const newType = e.target.value;
-                    let tone = "bg-white";
-                    if (newType === "Trigger") tone = "bg-lavender";
-                    else if (newType === "AI Decision") tone = "bg-mint";
-                    else if (newType === "Action") tone = "bg-aqua";
-                    else if (newType === "Notify") tone = "bg-coral";
-                    
-                    updateSelectedNode({ type: newType, tone });
-                  }} 
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-800 bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
-                >
-                  <option value="Trigger">Trigger</option>
-                  <option value="AI Decision">AI Decision</option>
-                  <option value="Action">Action</option>
-                  <option value="AI Action">AI Action</option>
-                  <option value="Notify">Notify</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Integration Tool / Target</label>
-                <select 
-                  value={selected.meta} 
-                  onChange={(e) => updateSelectedNode({ meta: e.target.value })} 
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-800 bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
-                >
-                  {defaultAvailableTools.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                  <option value="page.viewed">page.viewed</option>
-                  <option value="booking.created">booking.created</option>
-                  <option value="order.paid">order.paid</option>
-                  <option value="member.inactive">member.inactive</option>
-                  <option value="interview.completed">interview.completed</option>
-                  <option value="support.ticket">support.ticket</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Approval Policy</label>
-                <div className="mt-2 space-y-1.5">
-                  {[
-                    "Auto-run low risk", 
-                    "Require creator approval", 
-                    "Require brand + creator approval", 
-                    "Admin only"
-                  ].map(item => (
-                    <label 
-                      key={item} 
-                      className="flex items-center gap-2 rounded-xl bg-slate-50 hover:bg-slate-100 transition p-2.5 text-xs font-bold cursor-pointer text-slate-700"
-                    >
-                      <input 
-                        type="radio" 
-                        name="policy" 
-                        checked={(selected.policy || "Require creator approval") === item} 
-                        onChange={() => updateSelectedNode({ policy: item })}
-                        className="text-violet-600 focus:ring-violet-500 h-3.5 w-3.5"
-                      />
-                      {item}
-                    </label>
-                  ))}
-                </div>
-              </div>
+              <MessageSquareText className="h-4 w-4 text-muted-foreground" />
             </div>
+            <p className="text-sm leading-6 text-muted-foreground">{research.summary}</p>
+            <div className="mt-4 space-y-2">
+              {research.findings.slice(0, 5).map((finding) => (
+                <div key={finding} className="flex gap-2 rounded-md bg-secondary/60 p-2 text-xs font-semibold text-foreground">
+                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                  <span>{finding}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
 
-            <div className="mt-6 pt-4 border-t border-slate-100 space-y-3">
-              <div className="rounded-xl bg-violet-50/50 border border-violet-100 p-3 text-[11px] leading-relaxed text-violet-800">
-                <Bot className="mb-1.5 h-4 w-4 text-violet-600" />
-                AI operator can auto-propose new canvas flows or update nodes based on dashboard objectives, subject to active approval policies.
-              </div>
-              
-              <button 
-                onClick={() => deleteNode(selected.id)} 
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50/50 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100 transition"
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Delete step node
+          <Card className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+            <div className="flex border-b border-border bg-secondary/60">
+              <button onClick={() => setTab("sources")} className={cn("flex-1 px-3 py-2 text-xs font-black uppercase tracking-[0.12em]", tab === "sources" ? "bg-card text-foreground" : "text-muted-foreground")}>
+                Sources
+              </button>
+              <button onClick={() => setTab("log")} className={cn("flex-1 px-3 py-2 text-xs font-black uppercase tracking-[0.12em]", tab === "log" ? "bg-card text-foreground" : "text-muted-foreground")}>
+                Log
               </button>
             </div>
-          </div>
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center text-center text-slate-400 p-4">
-            <Settings className="h-8 w-8 text-slate-300 mb-2 animate-spin-slow" />
-            <p className="text-xs font-bold">No step selected</p>
-            <p className="text-[10px] mt-1">Select a card on the canvas layout to customize its tool configuration and triggers.</p>
-          </div>
-        )}
-      </Card>
+            <div className="max-h-96 overflow-y-auto p-4 preview-scroll">
+              {tab === "sources" ? (
+                <div className="space-y-3">
+                  {research.sourceQueue.map((source) => (
+                    <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="block rounded-lg border border-border bg-background p-3 transition hover:bg-secondary/60">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-black text-foreground">{source.title}</p>
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      </div>
+                      <p className="mt-1 text-[10px] font-black uppercase tracking-[0.12em] text-accent">{source.sourceType}</p>
+                      <p className="mt-2 text-xs leading-5 text-muted-foreground">{source.snippet || "Open source lead for review."}</p>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {research.timeline.map((item, index) => (
+                    <div key={`${item.label}-${item.detail}`} className={cn("flex gap-3 rounded-lg p-2", index === activeStep ? "bg-emerald-50" : "")}>
+                      <span className={cn("grid h-7 w-12 place-items-center rounded-full text-[10px] font-black", index < activeStep || runState === "complete" ? "bg-emerald-600 text-white" : index === activeStep && runState === "running" ? "bg-amber-500 text-white" : "bg-secondary")}>{item.label}</span>
+                      <div>
+                        <p className="text-sm font-black text-foreground">{item.detail}</p>
+                        <p className="text-xs text-muted-foreground">{index === activeStep && runState === "running" ? "running" : index < activeStep || runState === "complete" ? "complete" : "queued"}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

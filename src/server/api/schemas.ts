@@ -133,6 +133,57 @@ export const analyticsTrackSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).default({}),
 });
 
+export const instagramCaptureSchema = z.object({
+  event: z.literal("instagram.capture.v1"),
+  source: z.string().optional(),
+  extension: z
+    .object({
+      name: z.string().optional(),
+      version: z.string().optional(),
+    })
+    .optional(),
+  page: z.object({
+    url: z.string().url(),
+    canonicalUrl: z.string().url().optional(),
+    title: z.string().nullable().optional(),
+    capturedAt: z.string().datetime().optional(),
+    language: z.string().nullable().optional(),
+    referrer: z.string().nullable().optional(),
+    userAgent: z.string().nullable().optional(),
+    viewport: z.record(z.string(), z.unknown()).optional(),
+  }),
+  instagram: z
+    .object({
+      platform: z.literal("instagram").optional(),
+      type: z.string().optional(),
+      shortcode: z.string().nullable().optional(),
+      username: z.string().nullable().optional(),
+      storyId: z.string().nullable().optional(),
+      caption: z.string().nullable().optional(),
+      thumbnailUrl: z.string().url().nullable().optional().or(z.literal("")),
+      mediaImageUrls: z.array(z.string().url()).default([]),
+      mediaVideoUrls: z.array(z.string().url()).default([]),
+      openGraph: z.record(z.string(), z.unknown()).default({}),
+      twitter: z.record(z.string(), z.unknown()).default({}),
+      jsonLd: z.array(z.unknown()).default([]),
+      allMeta: z.record(z.string(), z.string()).default({}),
+    })
+    .default({
+      mediaImageUrls: [],
+      mediaVideoUrls: [],
+      openGraph: {},
+      twitter: {},
+      jsonLd: [],
+      allMeta: {},
+    }),
+  raw: z
+    .object({
+      visibleTextSample: z.string().optional(),
+      htmlLength: z.number().int().nonnegative().optional(),
+    })
+    .optional(),
+});
+
 export const pageVersionSchema = z.object({
   workspaceId: z.string().uuid().optional(),
   pageId: z.string().uuid(),

@@ -2,9 +2,11 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
-import { Bot, Sparkles, UserRound } from "lucide-react";
+import { Bot, Check, Loader2, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ChatMessage } from "../lib/types";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import type { ChatApproval, ChatMessage } from "../lib/types";
 import { getAgent } from "../lib/agents";
 
 export function ChatThread({
@@ -12,11 +14,13 @@ export function ChatThread({
   agentId,
   streaming,
   onStarter,
+  onApprove,
 }: {
   messages: ChatMessage[];
   agentId: string;
   streaming: boolean;
   onStarter: (text: string) => void;
+  onApprove: (suggestionId: string) => void;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
   const agent = getAgent(agentId);
@@ -67,6 +71,9 @@ export function ChatThread({
             )}
           >
             {m.role === "assistant" ? <AssistantContent content={m.content} streaming={streaming} /> : <UserContent content={m.content} />}
+            {m.role === "assistant" && m.approvals?.length ? (
+              <ApprovalCards approvals={m.approvals} onApprove={onApprove} />
+            ) : null}
           </div>
 
           {m.role === "user" ? (
@@ -77,6 +84,44 @@ export function ChatThread({
         </div>
       ))}
       <div ref={endRef} />
+    </div>
+  );
+}
+
+function ApprovalCards({
+  approvals,
+  onApprove,
+}: {
+  approvals: ChatApproval[];
+  onApprove: (suggestionId: string) => void;
+}) {
+  return (
+    <div className="mt-4 space-y-2 border-t border-border/70 pt-4">
+      {approvals.map((approval) => {
+        const applied = approval.status === "applied";
+        return (
+          <div key={approval.id} className="rounded-2xl border border-border bg-card/90 p-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-accent" />
+                  <p className="text-sm font-semibold text-foreground">{approval.title}</p>
+                  <Badge variant={approval.riskLevel === "high" ? "destructive" : approval.riskLevel === "medium" ? "warning" : "success"}>
+                    {approval.riskLevel}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {applied ? "Approved and applied from chat." : "Approval is required before this changes your app."}
+                </p>
+              </div>
+              <Button size="sm" disabled={applied} onClick={() => onApprove(approval.id)}>
+                {applied ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <Loader2 className="mr-1.5 h-3.5 w-3.5" />}
+                {applied ? "Applied" : "Approve"}
+              </Button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

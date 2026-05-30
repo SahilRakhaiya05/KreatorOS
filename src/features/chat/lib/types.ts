@@ -6,6 +6,14 @@ export interface ChatMessage {
   id: string;
   role: ChatRole;
   content: string;
+  approvals?: ChatApproval[];
+}
+
+export interface ChatApproval {
+  id: string;
+  title: string;
+  riskLevel: "low" | "medium" | "high";
+  status: "pending" | "approved" | "applied" | "rejected" | string;
 }
 
 export interface Conversation {

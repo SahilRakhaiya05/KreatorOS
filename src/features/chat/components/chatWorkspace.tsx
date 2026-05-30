@@ -75,10 +75,17 @@ export function ChatWorkspace({ catalog }: { catalog: ProviderCatalogEntry[] }) 
             agentId={agentId}
             streaming={chat.status === "streaming"}
             onStarter={chat.send}
+            onApprove={chat.approveSuggestion}
           />
         </div>
 
-        <ChatComposer onSend={chat.send} onStop={chat.stop} streaming={chat.status === "streaming"} />
+        <ChatComposer
+          onSend={chat.send}
+          onStop={chat.stop}
+          streaming={chat.status === "streaming"}
+          activeAgentId={agentId}
+          onAgentChange={chat.setAgent}
+        />
       </div>
 
       {/* Agent panel */}

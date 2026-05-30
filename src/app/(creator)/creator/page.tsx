@@ -9,8 +9,6 @@ import { requireUser } from "@/server/profile/profileService";
 import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
 
-import { ApprovalQueueDashboard } from "@/features/agents/components/approvalQueueDashboard";
-
 export default async function CreatorCommand() {
   const { user, profile } = await requireUser();
   const workspace = await getActiveWorkspace(user.id);
@@ -54,17 +52,6 @@ export default async function CreatorCommand() {
         .eq("brand_workspace_id", workspace.id)
     : { data: [] };
   const brandPipeline = (campaigns || []).reduce((sum, c) => sum + (c.budget_cents || 0), 0) / 100;
-
-  // 4. Pending AI suggestions
-  const { data: dbSuggestions } = workspace
-    ? await supabase
-        .from("ai_suggestions")
-        .select("id, title, risk_level, status")
-        .eq("workspace_id", workspace.id)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false })
-    : { data: [] };
-  const pendingSuggestions = dbSuggestions || [];
 
   const dashboardStats = [
     {
@@ -131,14 +118,27 @@ export default async function CreatorCommand() {
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-        {/* Approval queue */}
+        {/* Operator command */}
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle>Approval queue</CardTitle>
-            <Badge variant="warning">{pendingSuggestions.length} waiting</Badge>
+            <CardTitle>Operator command</CardTitle>
+            <Badge variant="accent">Chat approvals</Badge>
           </CardHeader>
-          <CardContent className="pt-0">
-            <ApprovalQueueDashboard initialSuggestions={pendingSuggestions} />
+          <CardContent className="grid gap-4 md:grid-cols-3">
+            {[
+              { label: "Run", value: "@operator" },
+              { label: "Build", value: "@automation" },
+              { label: "Sell", value: "@offers" },
+            ].map((item) => (
+              <Link
+                key={item.label}
+                href="/creator/chat"
+                className="rounded-xl border border-border bg-secondary/30 p-4 transition hover:border-accent/40 hover:bg-secondary"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{item.label}</p>
+                <p className="mt-2 font-mono text-lg font-semibold">{item.value}</p>
+              </Link>
+            ))}
           </CardContent>
         </Card>
 

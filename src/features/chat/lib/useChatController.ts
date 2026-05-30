@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProviderId } from "@/server/ai/providers";
 import { analyticsEvents, captureClientEvent } from "@/client/posthog/events";
-import { DEFAULT_AGENT_ID } from "./agents";
-import type { ChatMessage, Conversation, ProviderCatalogEntry } from "./types";
+import { AGENTS, DEFAULT_AGENT_ID } from "./agents";
+import type { ChatApproval, ChatMessage, Conversation, ProviderCatalogEntry } from "./types";
 
 const STORAGE_KEY = "kreatoros.chat.v1";
 
@@ -19,6 +19,15 @@ function newConversation(agentId = DEFAULT_AGENT_ID): Conversation {
 function deriveTitle(text: string) {
   const clean = text.trim().replace(/\s+/g, " ");
   return clean.length > 42 ? `${clean.slice(0, 42)}…` : clean || "New chat";
+}
+
+function normalizeApproval(item: any): ChatApproval {
+  return {
+    id: String(item.id),
+    title: String(item.title ?? "AI suggestion"),
+    riskLevel: (item.risk_level ?? "medium") as ChatApproval["riskLevel"],
+    status: String(item.status ?? "pending"),
+  };
 }
 
 export function useChatController(catalog: ProviderCatalogEntry[]) {
@@ -148,6 +157,11 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
       const value = text.trim();
       if (!value || status === "streaming") return;
       setError(null);
+      const mentionedAgent = AGENTS.find((agent) =>
+        new RegExp(`(^|\\s)${agent.handle.replace("@", "\\@")}(\\s|$)`, "i").test(value)
+      );
+      const nextAgentId = mentionedAgent?.id ?? activeAgentId;
+      if (mentionedAgent) setActiveAgentId(mentionedAgent.id);
 
       let activeConversation = current;
       if (!activeConversation) {
@@ -161,7 +175,7 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
       const userMsg: ChatMessage = { id: uid(), role: "user", content: value };
       const assistantMsg: ChatMessage = { id: uid(), role: "assistant", content: "" };
       const convId = activeConversation.id;
-      const agentId = activeAgentId;
+      const agentId = nextAgentId;
       const history = [...activeConversation.messages, userMsg];
       captureClientEvent(analyticsEvents.chatMessageSent, {
         provider,
@@ -176,6 +190,7 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
           c.id === convId
             ? {
                 ...c,
+                agentId,
                 title: c.messages.length === 0 ? deriveTitle(value) : c.title,
                 messages: [...c.messages, userMsg, assistantMsg],
                 updatedAt: Date.now(),
@@ -189,6 +204,11 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
       abortRef.current = controller;
 
       try {
+        const beforeSuggestions = await fetch("/api/ai/suggestions?status=pending&limit=12")
+          .then((res) => res.json())
+          .then((json) => new Set((json?.data?.suggestions ?? []).map((item: any) => String(item.id))))
+          .catch(() => new Set<string>());
+
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -232,6 +252,30 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
           conversation_id: convId,
           response_length: acc.length,
         });
+
+        const pendingApprovals = await fetch("/api/ai/suggestions?status=pending&limit=12")
+          .then((res) => res.json())
+          .then((json) =>
+            (json?.data?.suggestions ?? [])
+              .filter((item: any) => !beforeSuggestions.has(String(item.id)))
+              .map(normalizeApproval)
+          )
+          .catch(() => [] as ChatApproval[]);
+
+        if (pendingApprovals.length) {
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === convId
+                ? {
+                    ...c,
+                    messages: c.messages.map((m) =>
+                      m.id === assistantMsg.id ? { ...m, approvals: pendingApprovals } : m
+                    ),
+                  }
+                : c
+            )
+          );
+        }
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
         const message = err instanceof Error ? err.message : "Something went wrong.";
@@ -258,6 +302,35 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
     [current, conversations, provider, model, status, activeAgentId]
   );
 
+  const approveSuggestion = useCallback(
+    async (suggestionId: string) => {
+      try {
+        const approveRes = await fetch(`/api/ai/suggestions/${suggestionId}/approve`, { method: "POST" });
+        const approveJson = await approveRes.json();
+        if (!approveJson?.ok) throw new Error(approveJson?.error?.message ?? "Approval failed.");
+
+        const applyRes = await fetch(`/api/ai/suggestions/${suggestionId}/apply`, { method: "POST" });
+        const applyJson = await applyRes.json();
+        if (!applyJson?.ok) throw new Error(applyJson?.error?.message ?? "Apply failed.");
+
+        setConversations((prev) =>
+          prev.map((conversation) => ({
+            ...conversation,
+            messages: conversation.messages.map((message) => ({
+              ...message,
+              approvals: message.approvals?.map((approval) =>
+                approval.id === suggestionId ? { ...approval, status: "applied" } : approval
+              ),
+            })),
+          }))
+        );
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "Approval failed.");
+      }
+    },
+    []
+  );
+
   return {
     conversations,
     current,
@@ -275,5 +348,6 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
     error,
     send,
     stop,
+    approveSuggestion,
   };
 }
