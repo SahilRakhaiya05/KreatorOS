@@ -68,7 +68,7 @@ export function ChatComposer({
                     <Bot className="h-4 w-4" />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-sm font-semibold">{agent.handle} {agent.name}</span>
+                    <span className="block text-sm font-semibold">{agent.handle}</span>
                     <span className="block truncate text-xs text-muted-foreground">{agent.tagline}</span>
                   </span>
                 </button>

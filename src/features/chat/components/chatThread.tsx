@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
-import { Bot, Check, Loader2, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { Bot, Check, Loader2, ShieldCheck, Sparkles, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,12 +15,14 @@ export function ChatThread({
   streaming,
   onStarter,
   onApprove,
+  onReject,
 }: {
   messages: ChatMessage[];
   agentId: string;
   streaming: boolean;
   onStarter: (text: string) => void;
   onApprove: (suggestionId: string) => void;
+  onReject: (suggestionId: string) => void;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
   const agent = getAgent(agentId);
@@ -72,9 +74,13 @@ export function ChatThread({
                 : "border border-border/70 bg-background/80 text-foreground/90 backdrop-blur-sm"
             )}
           >
-            {m.role === "assistant" ? <AssistantContent content={m.content} streaming={streaming} /> : <UserContent content={m.content} />}
+            {m.role === "assistant" ? (
+              <AssistantContent content={m.content} streaming={streaming} onAnswer={onStarter} />
+            ) : (
+              <UserContent content={m.content} />
+            )}
             {m.role === "assistant" && m.approvals?.length ? (
-              <ApprovalCards approvals={m.approvals} onApprove={onApprove} />
+              <ApprovalCards approvals={m.approvals} onApprove={onApprove} onReject={onReject} />
             ) : null}
           </div>
 
@@ -93,16 +99,20 @@ export function ChatThread({
 function ApprovalCards({
   approvals,
   onApprove,
+  onReject,
 }: {
   approvals: ChatApproval[];
   onApprove: (suggestionId: string) => void;
+  onReject: (suggestionId: string) => void;
 }) {
   return (
     <div className="mt-4 space-y-2 border-t border-border/70 pt-4">
       {approvals.map((approval) => {
         const applied = approval.status === "applied";
+        const rejected = approval.status === "rejected";
+        const disabled = applied || rejected;
         return (
-          <div key={approval.id} className="rounded-2xl border border-border bg-card/90 p-3">
+          <div key={approval.id} className="rounded-2xl border border-border bg-card/90 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -112,14 +122,24 @@ function ApprovalCards({
                     {approval.riskLevel}
                   </Badge>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {applied ? "Approved and applied from chat." : "Approval is required before this changes your app."}
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  {applied
+                    ? "Applied. The related store, smart-link, page, or workflow record has been updated."
+                    : rejected
+                    ? "Rejected. Nothing was changed."
+                    : approval.explanation || "Review this action before it changes your workspace."}
                 </p>
               </div>
-              <Button size="sm" disabled={applied} onClick={() => onApprove(approval.id)}>
-                {applied ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <Loader2 className="mr-1.5 h-3.5 w-3.5" />}
-                {applied ? "Applied" : "Approve"}
-              </Button>
+              <div className="flex shrink-0 gap-2">
+                <Button size="sm" variant="outline" disabled={disabled} onClick={() => onReject(approval.id)}>
+                  <X className="mr-1.5 h-3.5 w-3.5" />
+                  Reject
+                </Button>
+                <Button size="sm" disabled={disabled} onClick={() => onApprove(approval.id)}>
+                  {applied ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <Loader2 className="mr-1.5 h-3.5 w-3.5" />}
+                  {applied ? "Applied" : "Approve"}
+                </Button>
+              </div>
             </div>
           </div>
         );
@@ -132,13 +152,73 @@ function UserContent({ content }: { content: string }) {
   return <div className="whitespace-pre-wrap">{content}</div>;
 }
 
-function AssistantContent({ content, streaming }: { content: string; streaming: boolean }) {
+function AssistantContent({
+  content,
+  streaming,
+  onAnswer,
+}: {
+  content: string;
+  streaming: boolean;
+  onAnswer: (text: string) => void;
+}) {
   if (!content && streaming) {
     return <StreamingDots />;
   }
 
+  const question = parseQuestion(content);
+  if (question) {
+    return <QuestionCard question={question.question} options={question.options} onAnswer={onAnswer} />;
+  }
+
   const blocks = parseBlocks(content);
   return <div className="space-y-4">{blocks.map((block, index) => renderBlock(block, index))}</div>;
+}
+
+function parseQuestion(content: string) {
+  const lines = content.replace(/\r\n/g, "\n").split("\n").map((line) => line.trim()).filter(Boolean);
+  const questionLine = lines.find((line) => /^question:/i.test(line));
+  const optionsIndex = lines.findIndex((line) => /^options:?$/i.test(line));
+  if (!questionLine || optionsIndex === -1) return null;
+
+  const options = lines
+    .slice(optionsIndex + 1)
+    .map((line) => line.replace(/^\d+[\).\s-]+/, "").trim())
+    .filter(Boolean)
+    .slice(0, 4);
+
+  if (!options.length) return null;
+  return { question: questionLine.replace(/^question:\s*/i, "").trim(), options };
+}
+
+function QuestionCard({
+  question,
+  options,
+  onAnswer,
+}: {
+  question: string;
+  options: string[];
+  onAnswer: (text: string) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <p className="text-base font-semibold text-foreground">{question}</p>
+      <div className="divide-y divide-border rounded-2xl border border-border bg-card">
+        {options.map((option, index) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onAnswer(option)}
+            className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm transition hover:bg-secondary"
+          >
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-secondary text-xs font-semibold text-muted-foreground">
+              {index + 1}
+            </span>
+            <span className="font-medium text-foreground/90">{option}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 type Block = { kind: "paragraph"; text: string } | { kind: "unordered"; items: string[] } | { kind: "ordered"; items: string[] };

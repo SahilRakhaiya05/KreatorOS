@@ -28,7 +28,7 @@ export function ConversationSidebar({
         </Button>
       </div>
       <p className="px-4 pb-1 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-        Recent
+        Chat history
       </p>
       <ScrollArea className="flex-1 px-2">
         <div className="space-y-0.5 pb-3">

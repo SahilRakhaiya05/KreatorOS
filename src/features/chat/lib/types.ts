@@ -14,6 +14,8 @@ export interface ChatApproval {
   title: string;
   riskLevel: "low" | "medium" | "high";
   status: "pending" | "approved" | "applied" | "rejected" | string;
+  explanation?: string | null;
+  patch?: unknown;
 }
 
 export interface Conversation {

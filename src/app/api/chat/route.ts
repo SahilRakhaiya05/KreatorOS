@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       system: agent.systemPrompt,
       messages,
       temperature: 0.6,
-      stopWhen: stepCountIs(5),
+      stopWhen: stepCountIs(8),
       tools: {
         read_workspace_context: tool({
           description: "Read the creator workspace context before planning or proposing changes. Includes creator page, smart-link blocks, offers, analytics, and pending approvals.",
@@ -71,11 +71,25 @@ export async function POST(req: Request) {
               .eq("workspace_id", workspace.id)
               .maybeSingle();
 
-            const [{ data: blocks }, { data: offers }, { count: pendingApprovals }, { count: pageViews }] = await Promise.all([
+            const [
+              { data: blocks },
+              { data: customLinks },
+              { data: offers },
+              { data: products },
+              { count: pendingApprovals },
+              { count: pageViews },
+            ] = await Promise.all([
               page?.id
                 ? supabase
                     .from("creator_page_blocks")
                     .select("id, type, title, subtitle, description, url, target_url, status, is_visible, sort_order, clicks, metadata")
+                    .eq("page_id", page.id)
+                    .order("sort_order", { ascending: true })
+                : Promise.resolve({ data: [] }),
+              page?.id
+                ? supabase
+                    .from("custom_links")
+                    .select("id, title, url, description, icon, is_visible, sort_order, metadata")
                     .eq("page_id", page.id)
                     .order("sort_order", { ascending: true })
                 : Promise.resolve({ data: [] }),
@@ -85,6 +99,14 @@ export async function POST(req: Request) {
                 .eq("workspace_id", workspace.id)
                 .order("created_at", { ascending: false })
                 .limit(20),
+              page?.id
+                ? supabase
+                    .from("digital_products")
+                    .select("id, title, status, price_cents, slug")
+                    .eq("page_id", page.id)
+                    .order("created_at", { ascending: false })
+                    .limit(20)
+                : Promise.resolve({ data: [] }),
               supabase
                 .from("ai_suggestions")
                 .select("id", { count: "exact", head: true })
@@ -101,7 +123,9 @@ export async function POST(req: Request) {
               workspace: { id: workspace.id, type: workspace.type, role: workspace.role },
               page,
               smartLinkBlocks: blocks ?? [],
+              customLinks: customLinks ?? [],
               offers: offers ?? [],
+              products: products ?? [],
               pendingApprovals: pendingApprovals ?? 0,
               analytics: { pageViews: pageViews ?? 0 },
             };
@@ -218,10 +242,81 @@ export async function POST(req: Request) {
             };
           },
         }),
+        propose_offer_change: tool({
+          description: "Propose editing, pausing, publishing, archiving, or deleting an existing offer. Use this when the creator asks to change a product, booking, membership, course, service, price, visibility, or store placement. The change is queued for approval before applying.",
+          inputSchema: z.object({
+            offerId: z.string(),
+            action: z.enum(["update", "delete"]),
+            title: z.string().optional(),
+            description: z.string().optional(),
+            priceCents: z.number().int().min(0).optional(),
+            currency: z.string().min(3).max(3).optional(),
+            status: z.enum(["draft", "published", "paused", "archived"]).optional(),
+            showOnBio: z.boolean().optional(),
+            showOnShop: z.boolean().optional(),
+            config: z.record(z.string(), z.any()).optional(),
+          }),
+          execute: async ({ offerId, action, title, description, priceCents, currency, status, showOnBio, showOnShop, config }) => {
+            const supabase = await createSupabaseServerClient();
+            const { data: offer } = await supabase
+              .from("offers")
+              .select("id,title,page_id")
+              .eq("id", offerId)
+              .eq("workspace_id", workspace.id)
+              .maybeSingle();
+
+            if (!offer) return { error: "Offer not found in this workspace." };
+
+            const update = {
+              ...(title ? { title } : {}),
+              ...(description ? { description } : {}),
+              ...(typeof priceCents === "number" ? { price_cents: priceCents } : {}),
+              ...(currency ? { currency } : {}),
+              ...(status ? { status } : {}),
+              ...(typeof showOnBio === "boolean" ? { show_on_bio: showOnBio } : {}),
+              ...(typeof showOnShop === "boolean" ? { show_on_shop: showOnShop } : {}),
+              ...(config ? { config } : {}),
+            };
+
+            const { data: suggestion, error } = await supabase
+              .from("ai_suggestions")
+              .insert({
+                workspace_id: workspace.id,
+                page_id: offer.page_id,
+                title: action === "delete" ? `Delete offer: "${offer.title}"` : `Update offer: "${title ?? offer.title}"`,
+                risk_level: action === "delete" || typeof priceCents === "number" ? "high" : "medium",
+                explanation:
+                  action === "delete"
+                    ? `Creator asked the operator to delete "${offer.title}".`
+                    : `Creator asked the operator to update "${offer.title}".`,
+                patch: {
+                  targetType: "offer",
+                  targetId: offerId,
+                  operations: [
+                    action === "delete"
+                      ? { op: "delete_offer", offerId }
+                      : { op: "update_offer", offerId, update },
+                  ],
+                },
+                created_by_type: "agent",
+              })
+              .select("id, title, risk_level")
+              .single();
+
+            if (error) return { error: error.message };
+            return {
+              status: "queued_for_approval",
+              suggestionId: suggestion.id,
+              message: `Offer change is queued for approval (ID: ${suggestion.id}, risk: ${suggestion.risk_level}).`,
+            };
+          },
+        }),
         propose_smart_link_update: tool({
-          description: "Propose updating the creator smart link / public page. Use this to add a new link block, update an existing block, improve copy, route visitors to an offer, or change block visibility. The change is queued for creator approval before it goes live.",
+          description: "Propose updating the creator smart link / public page. Use this to add, update, or delete a visible custom link; add a page block; improve copy; route visitors to an offer; or change visibility. The change is queued for creator approval before it goes live.",
           inputSchema: z.object({
             blockId: z.string().optional(),
+            customLinkId: z.string().optional(),
+            action: z.enum(["create", "update", "delete"]).default("create"),
             blockType: z.enum(["link", "calendar", "product", "membership", "lead_magnet", "brand_intake", "ai_concierge"]).optional(),
             title: z.string(),
             subtitle: z.string().optional(),
@@ -232,7 +327,7 @@ export async function POST(req: Request) {
             isVisible: z.boolean().optional(),
             metadata: z.record(z.string(), z.any()).optional(),
           }),
-          execute: async ({ blockId, blockType, title, subtitle, description, url, targetUrl, status, isVisible, metadata }) => {
+          execute: async ({ blockId, customLinkId, action, blockType, title, subtitle, description, url, targetUrl, status, isVisible, metadata }) => {
             const supabase = await createSupabaseServerClient();
             const { data: page } = await supabase
               .from("creator_pages")
@@ -241,6 +336,26 @@ export async function POST(req: Request) {
               .maybeSingle();
 
             if (!page?.id) return { error: "No creator page found for this workspace." };
+
+            const customLinkUpdate = {
+              title,
+              ...(url || targetUrl ? { url: url ?? targetUrl } : {}),
+              ...(description || subtitle ? { description: description ?? subtitle } : {}),
+              ...(typeof isVisible === "boolean" ? { is_visible: isVisible } : {}),
+              ...(metadata ? { metadata } : {}),
+            };
+            const customLinkOp = customLinkId
+              ? action === "delete"
+                ? { op: "delete_custom_link", customLinkId }
+                : { op: "update_custom_link", customLinkId, update: customLinkUpdate }
+              : {
+                  op: "create_custom_link",
+                  title,
+                  url: url ?? targetUrl ?? "/",
+                  description: description ?? subtitle,
+                  is_visible: isVisible,
+                  metadata,
+                };
 
             const op = blockId ? "update_block" : "create_block";
             const update = {
@@ -260,14 +375,14 @@ export async function POST(req: Request) {
                 workspace_id: workspace.id,
                 page_id: page.id,
                 title: blockId ? `Update smart-link block: "${title}"` : `Add smart-link block: "${title}"`,
-                risk_level: "medium",
-                explanation: blockId
-                  ? `Creator asked the operator to update a smart-link block named "${title}".`
-                  : `Creator asked the operator to add a new smart-link block named "${title}".`,
+                risk_level: action === "delete" ? "high" : "medium",
+                explanation: `Creator asked the operator to ${action} smart-link item "${title}".`,
                 patch: {
                   targetType: "page",
                   operations: [
-                    blockId
+                    customLinkId || (!blockId && blockType === "link")
+                      ? customLinkOp
+                      : blockId
                       ? { op, pageId: page.id, blockId, update }
                       : {
                           op,

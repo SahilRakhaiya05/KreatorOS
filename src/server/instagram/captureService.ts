@@ -33,6 +33,7 @@ export type InstagramCaptureRow = {
   topics: string[];
   opportunities: string[];
   analysis: Record<string, unknown>;
+  raw_payload: Record<string, any>;
   captured_at: string | null;
   analyzed_at: string | null;
   created_at: string;
@@ -69,18 +70,15 @@ function fallbackAnalysis(payload: InstagramCaptureInput) {
     .slice(0, 8);
 
   return {
-    summary: caption.slice(0, 260),
+    summary: caption || "No script extracted. Click 'Analyze' to reconstruct with Gemini.",
     hook: payload.page.title || caption.slice(0, 160),
     contentFormat: payload.instagram.type || "instagram_page",
     sentiment: "neutral" as const,
     tags: Array.from(new Set(words)).slice(0, 8),
     topics: Array.from(new Set(words)).slice(0, 5),
-    opportunities: [
-      "Review the hook and first frame before reusing this idea.",
-      "Turn the strongest audience pain point into a creator post or offer test.",
-    ],
-    saveReason: "Saved from Instagram for later review.",
-    remixIdeas: ["Rewrite the hook for your niche.", "Extract a short checklist from the caption."],
+    opportunities: [],
+    saveReason: "Saved from Instagram.",
+    remixIdeas: [],
   };
 }
 
@@ -95,7 +93,8 @@ async function analyzeCapture(payload: InstagramCaptureInput) {
       temperature: 0.3,
       system: [
         "You analyze Instagram posts and reels for a creator knowledge dashboard.",
-        "Extract practical creator strategy, searchable tags, content topics, and remix opportunities.",
+        "Crucial Task 1: In the 'summary' field, reconstruct or extract the exact spoken script, voiceover transcript, or narrative flow of the reel. Keep it highly detailed, authentic, and verbatim if possible.",
+        "Crucial Task 2: In the 'topics' field, identify the precise internal topics, subject matters, or niches covered inside the reel (which cannot be decided from the title alone).",
         "Do not invent metrics, private data, comments, likes, or transcript details that are not in the payload.",
       ].join(" "),
       prompt: JSON.stringify({
@@ -169,22 +168,21 @@ export async function saveInstagramCapture(input: {
 }) {
   const supabase = await createSupabaseServerClient();
   const normalized = normalizeInstagramCapture(input.payload);
-  const { analysis, provider, available } = await analyzeCapture(input.payload);
 
   const row = {
     ...normalized,
     owner_id: input.userId,
     workspace_id: input.workspaceId ?? null,
-    status: "analyzed",
-    summary: analysis.summary,
-    hook: analysis.hook,
-    content_format: analysis.contentFormat,
-    sentiment: analysis.sentiment,
-    tags: analysis.tags,
-    topics: analysis.topics,
-    opportunities: analysis.opportunities,
-    analysis: { ...analysis, provider, providerAvailable: available },
-    analyzed_at: new Date().toISOString(),
+    status: "pending",
+    summary: null,
+    hook: null,
+    content_format: normalized.media_type,
+    sentiment: null,
+    tags: [],
+    topics: [],
+    opportunities: [],
+    analysis: {},
+    analyzed_at: null,
     updated_at: new Date().toISOString(),
   };
 
@@ -195,7 +193,7 @@ export async function saveInstagramCapture(input: {
     .single<InstagramCaptureRow>();
 
   if (error) return { ok: false as const, error };
-  return { ok: true as const, data, provider, available };
+  return { ok: true as const, data, provider: "none", available: false };
 }
 
 export async function listInstagramCaptures(input: { userId: string; workspaceId?: string | null }) {

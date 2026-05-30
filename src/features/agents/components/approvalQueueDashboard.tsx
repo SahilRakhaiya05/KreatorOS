@@ -56,12 +56,11 @@ export function ApprovalQueueDashboard({ initialSuggestions }: { initialSuggesti
       });
       const data = await res.json();
       if (!data?.ok) {
-        // If DELETE/PATCH is not directly supported, we can just filter it out or call a status update endpoint
-        // Let's fallback to filtering out of local state
+        throw new Error(data?.error?.message || "Failed to reject suggestion.");
       }
       setItems((prev) => prev.filter((item) => item.id !== id));
-    } catch {
-      setItems((prev) => prev.filter((item) => item.id !== id));
+    } catch (err: any) {
+      alert(err.message || "Reject failed.");
     } finally {
       setProcessingId(null);
       setActionType(null);

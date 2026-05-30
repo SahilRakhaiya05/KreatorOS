@@ -9,7 +9,7 @@ import type { ChatApproval, ChatMessage, Conversation, ProviderCatalogEntry } fr
 const STORAGE_KEY = "kreatoros.chat.v1";
 
 function uid() {
-  return Math.random().toString(36).slice(2, 10);
+  return crypto.randomUUID();
 }
 
 function newConversation(agentId = DEFAULT_AGENT_ID): Conversation {
@@ -27,6 +27,18 @@ function normalizeApproval(item: any): ChatApproval {
     title: String(item.title ?? "AI suggestion"),
     riskLevel: (item.risk_level ?? "medium") as ChatApproval["riskLevel"],
     status: String(item.status ?? "pending"),
+    explanation: typeof item.explanation === "string" ? item.explanation : null,
+    patch: item.patch,
+  };
+}
+
+function normalizeConversation(item: any): Conversation {
+  return {
+    id: String(item.id),
+    title: String(item.title ?? "New chat"),
+    agentId: String(item.agent_id ?? item.agentId ?? DEFAULT_AGENT_ID),
+    messages: Array.isArray(item.messages) ? item.messages : [],
+    updatedAt: item.updated_at ? new Date(item.updated_at).getTime() : Date.now(),
   };
 }
 
@@ -44,25 +56,45 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
   const [status, setStatus] = useState<"idle" | "streaming">("idle");
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const serverHydratedRef = useRef(false);
 
-  // Hydrate from localStorage once.
+  // Hydrate from localStorage immediately, then replace with durable server history when available.
   useEffect(() => {
+    let localConversations: Conversation[] = [];
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const saved = JSON.parse(raw) as Conversation[];
         if (Array.isArray(saved) && saved.length) {
+          localConversations = saved;
           setConversations(saved);
           setCurrentId(saved[0].id);
-          return;
         }
       }
     } catch {
       /* ignore */
     }
-    const seed = newConversation();
-    setConversations([seed]);
-    setCurrentId(seed.id);
+
+    if (!localConversations.length) {
+      const seed = newConversation();
+      setConversations([seed]);
+      setCurrentId(seed.id);
+    }
+
+    fetch("/api/chat/sessions")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const sessions = json?.data?.sessions;
+        if (!Array.isArray(sessions) || !sessions.length) return;
+        const next = sessions.map(normalizeConversation);
+        serverHydratedRef.current = true;
+        setConversations(next);
+        setCurrentId((existing) => (next.some((item) => item.id === existing) ? existing : next[0].id));
+      })
+      .catch(() => {
+        /* localStorage remains the fallback */
+      });
   }, []);
 
   // Persist.
@@ -76,6 +108,33 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
     } catch {
       /* ignore */
     }
+  }, [conversations]);
+
+  useEffect(() => {
+    if (!conversations.length) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+
+    saveTimerRef.current = setTimeout(() => {
+      const dirty = conversations.filter((conversation) => conversation.messages.length > 0).slice(0, 30);
+      dirty.forEach((conversation) => {
+        fetch("/api/chat/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: conversation.id,
+            title: conversation.title,
+            agentId: conversation.agentId,
+            messages: conversation.messages,
+          }),
+        }).catch(() => {
+          /* localStorage remains the fallback */
+        });
+      });
+    }, serverHydratedRef.current ? 500 : 900);
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
   }, [conversations]);
 
   const current = conversations.find((c) => c.id === currentId) ?? conversations[0] ?? null;
@@ -127,6 +186,9 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
         }
         if (id === currentId) setCurrentId(next[0].id);
         return next;
+      });
+      fetch(`/api/chat/sessions/${id}`, { method: "DELETE" }).catch(() => {
+        /* local delete already happened */
       });
     },
     [currentId]
@@ -327,6 +389,35 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
     []
   );
 
+  const rejectSuggestion = useCallback(
+    async (suggestionId: string) => {
+      try {
+        const res = await fetch(`/api/ai/suggestions/${suggestionId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "rejected" }),
+        });
+        const json = await res.json();
+        if (!json?.ok) throw new Error(json?.error?.message ?? "Reject failed.");
+
+        setConversations((prev) =>
+          prev.map((conversation) => ({
+            ...conversation,
+            messages: conversation.messages.map((message) => ({
+              ...message,
+              approvals: message.approvals?.map((approval) =>
+                approval.id === suggestionId ? { ...approval, status: "rejected" } : approval
+              ),
+            })),
+          }))
+        );
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "Reject failed.");
+      }
+    },
+    []
+  );
+
   return {
     conversations,
     current,
@@ -345,5 +436,6 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
     send,
     stop,
     approveSuggestion,
+    rejectSuggestion,
   };
 }

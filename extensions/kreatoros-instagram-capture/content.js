@@ -213,12 +213,48 @@
     };
   }
 
+  function getLikesAndComments() {
+    const ogDesc = getMetaBySelector('meta[property="og:description"]') || getMetaBySelector('meta[name="description"]') || "";
+    const likesMatch = ogDesc.match(/([\d.,]+[KMB]?)\s+likes/i);
+    const commentsMatch = ogDesc.match(/([\d.,]+[KMB]?)\s+comments/i);
+    
+    let likes = likesMatch ? likesMatch[1] : null;
+    let comments = commentsMatch ? commentsMatch[1] : null;
+
+    if (!likes) {
+      // Fallback search of DOM elements for likes
+      const likesEl = Array.from(document.querySelectorAll("span, a, div"))
+        .find(el => /^[0-9,.]+[KMB]?\s+likes$/i.test(el.textContent?.trim() || ""));
+      if (likesEl) {
+        const match = likesEl.textContent.trim().match(/^([0-9,.]+[KMB]?)/i);
+        if (match) likes = match[1];
+      }
+    }
+
+    if (!comments) {
+      // Fallback search of DOM elements for comments
+      const commentsEl = Array.from(document.querySelectorAll("span, a, div"))
+        .find(el => /^[0-9,.]+[KMB]?\s+comments$/i.test(el.textContent?.trim() || ""));
+      if (commentsEl) {
+        const match = commentsEl.textContent.trim().match(/^([0-9,.]+[KMB]?)/i);
+        if (match) comments = match[1];
+      }
+    }
+
+    return {
+      likes: likes || "N/A",
+      comments: comments || "N/A",
+      views: "N/A"
+    };
+  }
+
   function collectInstagramPayload() {
     const story = getStoryInfoFromUrl();
     const openGraph = getOpenGraphData();
     const twitter = getTwitterCardData();
     const images = getImages();
     const canonicalUrl = getCanonicalUrl();
+    const metrics = getLikesAndComments();
 
     return {
       event: "instagram.capture.v1",
@@ -251,7 +287,8 @@
         openGraph,
         twitter,
         jsonLd: getJsonLd(),
-        allMeta: getAllMeta()
+        allMeta: getAllMeta(),
+        metrics
       },
       raw: {
         visibleTextSample: getVisibleTextSample(),

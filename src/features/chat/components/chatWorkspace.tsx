@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Bot, CheckCircle2 } from "lucide-react";
+import { AlertCircle, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatController } from "../lib/useChatController";
 import type { ProviderCatalogEntry } from "../lib/types";
@@ -43,10 +43,6 @@ export function ChatWorkspace({ catalog }: { catalog: ProviderCatalogEntry[] }) 
               <p className="truncate text-xs text-muted-foreground">{agent.tagline}</p>
             </div>
           </div>
-          <div className="hidden shrink-0 items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground sm:flex">
-            <CheckCircle2 className="h-3.5 w-3.5 text-accent" />
-            Chat history saved
-          </div>
         </div>
 
         <div className="no-scrollbar min-h-0 overflow-y-auto">
@@ -62,6 +58,7 @@ export function ChatWorkspace({ catalog }: { catalog: ProviderCatalogEntry[] }) 
             streaming={chat.status === "streaming"}
             onStarter={chat.send}
             onApprove={chat.approveSuggestion}
+            onReject={chat.rejectSuggestion}
           />
         </div>
 

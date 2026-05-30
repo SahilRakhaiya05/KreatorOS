@@ -225,6 +225,24 @@ export const aiSuggestionCreateSchema = z.object({
   }),
 });
 
+export const aiSuggestionUpdateSchema = z.object({
+  status: z.enum(["pending", "approved", "rejected", "applied", "cancelled"]),
+});
+
+export const chatSessionSaveSchema = z.object({
+  id: z.string().uuid().optional(),
+  title: z.string().min(1).max(160),
+  agentId: z.string().min(1).max(80).default("operator"),
+  messages: z.array(
+    z.object({
+      id: z.string().min(1),
+      role: z.enum(["user", "assistant"]),
+      content: z.string(),
+      approvals: z.array(z.record(z.string(), z.unknown())).optional(),
+    })
+  ).default([]),
+});
+
 export const assistantConfigSchema = z.object({
   workspaceId: z.string().uuid(),
   pageId: z.string().uuid(),
