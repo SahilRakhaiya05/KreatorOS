@@ -67,6 +67,10 @@ function ConnectorRow({
     try {
       const res = await fetch(`/api/connect/${provider}`, { method: "POST" });
       const json = await res.json();
+      if (json?.ok && json.data?.url) {
+        window.location.href = json.data.url as string;
+        return;
+      }
       setStatus(json?.error?.message ?? "Something went wrong.");
     } catch {
       setStatus("Something went wrong.");

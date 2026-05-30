@@ -10,13 +10,14 @@ values
   ('product-files', 'product-files', false)
 on conflict (id) do nothing;
 
--- 2. Ensure RLS is active on storage.objects (normally enabled by default)
-alter table storage.objects enable row level security;
+-- 2. storage.objects RLS is managed by Supabase and is enabled by default.
 
 -- 3. Clear existing custom object policies to avoid conflicts
 drop policy if exists "Allow public read access on public buckets" on storage.objects;
 drop policy if exists "Allow authenticated upload in public buckets" on storage.objects;
 drop policy if exists "Allow authenticated update/delete in public buckets" on storage.objects;
+drop policy if exists "Allow authenticated update in public buckets" on storage.objects;
+drop policy if exists "Allow authenticated delete in public buckets" on storage.objects;
 drop policy if exists "Allow private bucket insert for owner" on storage.objects;
 drop policy if exists "Allow private bucket read for owner" on storage.objects;
 
@@ -32,13 +33,20 @@ create policy "Allow authenticated upload in public buckets"
     and (select auth.uid())::text = split_part(name, '/', 1)
   );
 
-create policy "Allow authenticated update/delete in public buckets"
-  on storage.objects for all to authenticated
+create policy "Allow authenticated update in public buckets"
+  on storage.objects for update to authenticated
   using (
     bucket_id in ('public-assets', 'page-assets', 'gallery') 
     and (select auth.uid())::text = split_part(name, '/', 1)
   )
   with check (
+    bucket_id in ('public-assets', 'page-assets', 'gallery') 
+    and (select auth.uid())::text = split_part(name, '/', 1)
+  );
+
+create policy "Allow authenticated delete in public buckets"
+  on storage.objects for delete to authenticated
+  using (
     bucket_id in ('public-assets', 'page-assets', 'gallery') 
     and (select auth.uid())::text = split_part(name, '/', 1)
   );

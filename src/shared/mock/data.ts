@@ -79,12 +79,10 @@ export const nav: Record<"creator" | "brand" | "portal", NavGroup[]> = {
       group: "Smart Link",
       items: [
         { href: "/creator/link/products", label: "Products", icon: Store },
+        { href: "/creator/link/shortlinks", label: "Short Links", icon: Route },
         { href: "/creator/link/wallet", label: "Wallet", icon: CreditCard },
-        { href: "/creator/link/affiliate", label: "Affiliate Links", icon: Gift },
-        { href: "/creator/link/referrals", label: "Refer & Earn", icon: Users },
+        { href: "/creator/link/affiliate", label: "Affiliates & Referrals", icon: Gift },
         { href: "/creator/link/assistant", label: "AI Assistant", icon: Bot },
-        { href: "/creator/link/analytics", label: "Link Analytics", icon: BarChart3 },
-        { href: "/creator/link/settings", label: "Link Settings", icon: Settings },
       ],
     },
     {
@@ -98,10 +96,10 @@ export const nav: Record<"creator" | "brand" | "portal", NavGroup[]> = {
     {
       group: "Grow",
       items: [
-        { href: "/creator/brand-crm", label: "Brand CRM", icon: Handshake },
+        { href: "/creator/brand-crm", label: "Brand CRM & Chats", icon: Handshake },
         { href: "/creator/research-lab", label: "Research Lab", icon: Mic },
         { href: "/creator/instagram", label: "Instagram Saves", icon: PlayCircle },
-        { href: "/creator/analytics", label: "Analytics", icon: BarChart3 },
+        { href: "/creator/link/analytics", label: "Analytics", icon: BarChart3 },
       ],
     },
   ],

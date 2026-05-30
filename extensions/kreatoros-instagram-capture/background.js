@@ -62,15 +62,52 @@ async function postToServer(capturePayload) {
   return responseBody || { ok: true };
 }
 
+async function fetchImageAsBase64(url) {
+  if (!url || typeof url !== "string" || !url.startsWith("http")) return null;
+  try {
+    const res = await fetch(url, { referrerPolicy: "no-referrer" });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const buffer = await blob.arrayBuffer();
+    
+    let binary = "";
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
+    const contentType = blob.type || "image/jpeg";
+    return `data:${contentType};base64,${base64}`;
+  } catch (error) {
+    console.error(`[${EXTENSION_NAME}] Failed to fetch image as base64`, error);
+    return null;
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || message.type !== "KREATOROS_CAPTURE_INSTAGRAM") return false;
 
-  postToServer(message.payload)
-    .then((data) => sendResponse({ ok: true, data }))
-    .catch((error) => {
+  (async () => {
+    try {
+      const payload = message.payload;
+      const originalUrl = payload.instagram?.thumbnailUrl;
+      if (originalUrl && originalUrl.startsWith("http")) {
+        console.log(`[${EXTENSION_NAME}] Converting thumbnail to base64: ${originalUrl}`);
+        const base64Url = await fetchImageAsBase64(originalUrl);
+        if (base64Url) {
+          payload.instagram.thumbnailUrl = base64Url;
+          console.log(`[${EXTENSION_NAME}] Successfully converted thumbnail to Base64!`);
+        }
+      }
+      
+      const data = await postToServer(payload);
+      sendResponse({ ok: true, data });
+    } catch (error) {
       console.error(`[${EXTENSION_NAME}]`, error);
       sendResponse({ ok: false, error: error.message || "Unknown error" });
-    });
+    }
+  })();
 
   return true;
 });

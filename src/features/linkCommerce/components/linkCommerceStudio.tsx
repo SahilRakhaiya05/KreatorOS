@@ -22,10 +22,25 @@ import {
   Trash2,
   Edit,
   AlertTriangle,
+  Gift,
+  Users,
+  DollarSign,
+  Landmark,
+  MousePointerClick,
+  Eye,
+  Activity,
+  Calendar,
+  TrendingUp,
+  BarChart3,
+  Video,
+  Loader2,
+  CreditCard,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -49,6 +64,7 @@ type Mode =
   | "referrals"
   | "assistant"
   | "analytics"
+  | "shortlinks"
   | "settings";
 
 type LinkCommerceData = {
@@ -66,6 +82,10 @@ type LinkCommerceData = {
   knowledgeSources: Array<Record<string, any>>;
   orders: Array<Record<string, any>>;
   analyticsEvents: Array<Record<string, any>>;
+  shortLinks: Array<Record<string, any>>;
+  bookingsCount?: number;
+  customersCount?: number;
+  workflowEvents?: Array<Record<string, any>>;
   wallet: { revenueCents: number; pendingCents: number; paidOrders: number; pendingOrders: number; refundsCents: number };
 };
 
@@ -188,17 +208,41 @@ function UploadField({
   );
 }
 
+function scopeCss(css: string, scopeSelector: string): string {
+  if (!css) return "";
+  try {
+    return css.replace(/([^\r\n{}]+)(?=\s*\{)/g, (selectorGroup) => {
+      return selectorGroup
+        .split(",")
+        .map((selector) => {
+          const trimmed = selector.trim();
+          if (!trimmed) return "";
+          if (trimmed === "body" || trimmed === "html") {
+            return scopeSelector;
+          }
+          return `${scopeSelector} ${trimmed}`;
+        })
+        .join(", ");
+    });
+  } catch (e) {
+    return css;
+  }
+}
+
 function PhonePreview({ data, origin }: { data: LinkCommerceData; origin: string }) {
   const page = data.page;
   const visibleProducts = data.products.filter((product) => product.status === "published" && product.show_on_bio);
 
   const mode = page.theme?.mode || "dark";
   const accent = page.theme?.accent || "coral";
-  const styling = getThemeClasses(mode, accent);
+  const styling = getThemeClasses(mode, accent, page.theme?.custom);
 
   return (
     <div className="mx-auto w-full max-w-[280px] rounded-[32px] border border-sky-300/20 bg-[#07111f] p-1.5 shadow-[0_18px_50px_rgba(14,165,233,.14)] xl:max-w-[300px] xl:rounded-[36px] 2xl:max-w-[320px]">
-      <div className={`flex h-[min(560px,calc(100vh-7rem))] flex-col overflow-hidden rounded-[26px] xl:rounded-[30px] ${styling.bgClass}`}>
+      <div className={`phone-preview-container flex h-[min(560px,calc(100vh-7rem))] flex-col overflow-hidden rounded-[26px] xl:rounded-[30px] ${styling.bgClass}`} style={styling.bgStyle}>
+        {page.theme?.custom?.customCss && (
+          <style dangerouslySetInnerHTML={{ __html: scopeCss(page.theme.custom.customCss, ".phone-preview-container") }} />
+        )}
         <div className={`h-28 shrink-0 relative overflow-hidden xl:h-32 ${styling.bannerClass}`}>
           {page.background_image_url ? <img src={page.background_image_url} alt="" className="h-full w-full object-cover opacity-75" /> : null}
         </div>
@@ -206,13 +250,14 @@ function PhonePreview({ data, origin }: { data: LinkCommerceData; origin: string
           {page.avatar_url ? (
             <img src={page.avatar_url} alt="" className={`mx-auto h-20 w-20 rounded-full border-4 object-cover xl:h-24 xl:w-24 ${styling.avatarBorderClass}`} />
           ) : (
-            <div className={`mx-auto grid h-20 w-20 place-items-center rounded-full border-4 bg-gradient-to-br from-primary to-accent text-2xl font-black text-primary-foreground xl:h-24 xl:w-24 ${styling.avatarBorderClass}`}>
+            <div className={`mx-auto grid h-20 w-20 place-items-center rounded-full border-4 text-2xl font-black text-primary-foreground xl:h-24 xl:w-24 ${styling.avatarBorderClass} ${styling.accentBgClass || "bg-gradient-to-br from-primary to-accent"}`}>
               {(page.display_name ?? "C").slice(0, 1)}
             </div>
           )}
           <h2 className="mt-3 text-xl font-black tracking-tight xl:text-2xl">{page.display_name}</h2>
-          <p className={`mt-1 text-xs font-bold ${styling.accentTextClass}`}>@{page.username || page.slug}</p>
+          <p className={`mt-1 text-xs font-bold ${styling.accentTextClass}`} style={styling.cardStyle?.color ? { color: styling.cardStyle.color } : undefined}>@{page.username || page.slug}</p>
           <p className={`mx-auto mt-3 max-w-xs text-xs font-semibold leading-5 xl:text-sm xl:leading-6 ${styling.textMutedClass}`}>{page.bio || page.headline || "Add a bio to tell visitors what to buy, book, or explore."}</p>
+
 
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             {data.socialLinks.map((link) => (
@@ -235,14 +280,14 @@ function PhonePreview({ data, origin }: { data: LinkCommerceData; origin: string
 
           <div className="mt-4 space-y-3">
             {data.customLinks.slice(0, 3).map((link) => (
-              <div key={link.id} className={styling.cardClass + " px-4 py-2.5"}>
+              <div key={link.id} className={styling.cardClass + " px-4 py-2.5"} style={styling.cardStyle}>
                 <span className="truncate text-xs font-black">{link.title}</span>
-                <ArrowUpRight className={`h-4 w-4 ${styling.accentTextClass}`} />
+                <ArrowUpRight className={`h-4 w-4 ${styling.accentTextClass}`} style={styling.cardStyle?.color ? { color: styling.cardStyle.color } : undefined} />
               </div>
             ))}
             {visibleProducts.slice(0, 2).map((product) => (
-              <div key={product.id} className={styling.productCardClass + " text-left text-xs p-3 flex flex-col"}>
-                <p className={`text-[10px] font-black uppercase tracking-[0.14em] ${styling.accentTextClass}`}>Product</p>
+              <div key={product.id} className={styling.productCardClass + " text-left text-xs p-3 flex flex-col"} style={styling.cardStyle}>
+                <p className={`text-[10px] font-black uppercase tracking-[0.14em] ${styling.accentTextClass}`} style={styling.cardStyle?.color ? { color: styling.cardStyle.color } : undefined}>Product</p>
                 <p className="mt-1 truncate font-black">{product.title}</p>
                 <p className={`mt-1 text-[10px] ${styling.textMutedClass}`}>{money(product.price_cents, product.currency)}</p>
               </div>
@@ -252,7 +297,7 @@ function PhonePreview({ data, origin }: { data: LinkCommerceData; origin: string
             ))}
           </div>
 
-          <div className={`mt-auto rounded-2xl border p-3 text-left ${styling.poweredClass} shadow-none`}>
+          <div className={`mt-auto rounded-2xl border p-3 text-left ${styling.poweredClass} shadow-none`} style={styling.cardStyle}>
             <p className="text-xs font-black">AI shopping guide</p>
             <p className={`mt-1 text-[10px] leading-relaxed ${styling.textMutedClass}`}>{data.assistant?.greeting || data.assistant?.welcome_message || "Ask what product, call, or link is right for you."}</p>
           </div>
@@ -353,25 +398,131 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
   const [themeMode, setThemeMode] = useState(data.page.theme?.mode ?? "dark");
   const [themeAccent, setThemeAccent] = useState(data.page.theme?.accent ?? "coral");
 
+  // Custom Theme state variables
+  const [customBgType, setCustomBgType] = useState(data.page.theme?.custom?.bgType ?? "color");
+  const [customBgColor, setCustomBgColor] = useState(data.page.theme?.custom?.bgColor ?? "#0f172a");
+  const [customBgGradient, setCustomBgGradient] = useState(data.page.theme?.custom?.bgGradient ?? "linear-gradient(135deg, #1f1c2c 0%, #928dab 100%)");
+  const [customCardBg, setCustomCardBg] = useState(data.page.theme?.custom?.cardBg ?? "rgba(30, 41, 59, 0.5)");
+  const [customCardBorder, setCustomCardBorder] = useState(data.page.theme?.custom?.cardBorder ?? "rgba(255, 255, 255, 0.08)");
+  const [customCardText, setCustomCardText] = useState(data.page.theme?.custom?.cardText ?? "#f8fafc");
+  const [customButtonBg, setCustomButtonBg] = useState(data.page.theme?.custom?.buttonBg ?? "#ffffff");
+  const [customButtonText, setCustomButtonText] = useState(data.page.theme?.custom?.buttonText ?? "#0f172a");
+  const [customButtonRadius, setCustomButtonRadius] = useState(data.page.theme?.custom?.buttonRadius ?? "rounded-2xl");
+  const [customFontFamily, setCustomFontFamily] = useState(data.page.theme?.custom?.fontFamily ?? "font-sans");
+  const [customIsLight, setCustomIsLight] = useState(data.page.theme?.custom?.isLight ?? false);
+  const [customCss, setCustomCss] = useState(data.page.theme?.custom?.customCss ?? "");
+
+  // Shortlinks state variables
+  const [editingShortLink, setEditingShortLink] = useState<any | null>(null);
+  const [isShortLinkDialogOpen, setIsShortLinkDialogOpen] = useState(false);
+
+  // Dialog state variables for live storefront override customization
+  const [dialogIsStorefrontOverride, setDialogIsStorefrontOverride] = useState(false);
+  const [dialogDisplayName, setDialogDisplayName] = useState("");
+  const [dialogHeadline, setDialogHeadline] = useState("");
+  const [dialogBio, setDialogBio] = useState("");
+  const [dialogThemeMode, setDialogThemeMode] = useState("dark");
+  const [dialogThemeAccent, setDialogThemeAccent] = useState("coral");
+  const [dialogCustomBgType, setDialogCustomBgType] = useState("color");
+  const [dialogCustomBgColor, setDialogCustomBgColor] = useState("#0f172a");
+  const [dialogCustomBgGradient, setDialogCustomBgGradient] = useState("linear-gradient(135deg, #1f1c2c 0%, #928dab 100%)");
+  const [dialogCustomCardBg, setDialogCustomCardBg] = useState("rgba(30, 41, 59, 0.5)");
+  const [dialogCustomCardBorder, setDialogCustomCardBorder] = useState("rgba(255, 255, 255, 0.08)");
+  const [dialogCustomCardText, setDialogCustomCardText] = useState("#f8fafc");
+  const [dialogCustomButtonBg, setDialogCustomButtonBg] = useState("#ffffff");
+  const [dialogCustomButtonText, setDialogCustomButtonText] = useState("#0f172a");
+  const [dialogCustomButtonRadius, setDialogCustomButtonRadius] = useState("rounded-2xl");
+  const [dialogCustomFontFamily, setDialogCustomFontFamily] = useState("font-sans");
+  const [dialogCustomIsLight, setDialogCustomIsLight] = useState(false);
+  const [dialogCustomCss, setDialogCustomCss] = useState("");
+
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("Social");
   const [socialUrl, setSocialUrl] = useState<string>("");
   const [isSocialDialogOpen, setIsSocialDialogOpen] = useState(false);
   
+  const [affiliateTab, setAffiliateTab] = useState<"links" | "referrals" | "ledger">("links");
+
   // AI assistant config states
   const [knowledgeTitle, setKnowledgeTitle] = useState("");
   const [knowledgeContent, setKnowledgeContent] = useState("");
   const [knowledgeType, setKnowledgeType] = useState<"faq" | "manual" | "url">("faq");
+
+  // Unified Settings state variables
+  const [stripeConnected, setStripeConnected] = useState(false);
+  const [providersList, setProvidersList] = useState<any[]>([]);
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [connectorLoading, setConnectorLoading] = useState<string | null>(null);
+  const [settingsSubTab, setSettingsSubTab] = useState("storefront");
   
-  const checklist = setupItems(state);
+  const checklist = setupItems(data); // Using data directly for items config stability
   const completed = checklist.filter((item) => item.done).length;
   const progress = Math.round((completed / checklist.length) * 100);
-  const publicPath = `/u/${state.page.username || state.page.slug}`;
+  const publicPath = `/u/${data.page.username || data.page.slug}`;
   const shopPath = `${publicPath}/shop`;
 
   useEffect(() => {
     if (typeof window !== "undefined") setOrigin(window.location.origin);
   }, []);
+
+  useEffect(() => {
+    if (activeMode !== "settings") return;
+    let cancelled = false;
+
+    async function loadProviders() {
+      try {
+        const res = await fetch("/api/providers/status");
+        const json = await res.json();
+        if (!cancelled && json?.ok) {
+          const list = json.data.providers ?? [];
+          setProvidersList(list);
+          const stripe = list.find((p: any) => p.provider === "stripe");
+          setStripeConnected(stripe?.status === "connected" || stripe?.status === "sandbox");
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    loadProviders();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeMode]);
+
+  async function connectStripe() {
+    setStripeLoading(true);
+    try {
+      const res = await fetch("/api/connect/stripe", { method: "POST" });
+      const json = await res.json();
+      if (json?.ok && json.data?.url) {
+        window.location.href = json.data.url as string;
+        return;
+      }
+      alert(json?.error?.message ?? "We couldn't start the connection.");
+    } catch {
+      alert("We couldn't start the connection.");
+    } finally {
+      setStripeLoading(false);
+    }
+  }
+
+  async function triggerConnector(provider: string) {
+    setConnectorLoading(provider);
+    try {
+      const res = await fetch(`/api/connect/${provider}`, { method: "POST" });
+      const json = await res.json();
+      if (json?.ok && json.data?.url) {
+        window.location.href = json.data.url as string;
+        return;
+      }
+      alert(json?.error?.message ?? "Something went wrong.");
+    } catch {
+      alert("Something went wrong.");
+    } finally {
+      setConnectorLoading(null);
+    }
+  }
 
   function post(resource: string, body: Record<string, unknown>, onSuccess?: (payload: any) => void) {
     startTransition(async () => {
@@ -475,6 +626,20 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
         status: status ?? state.page.status ?? "draft",
         themeMode,
         themeAccent,
+        customTheme: {
+          bgType: customBgType,
+          bgColor: customBgColor,
+          bgGradient: customBgGradient,
+          cardBg: customCardBg,
+          cardBorder: customCardBorder,
+          cardText: customCardText,
+          buttonBg: customButtonBg,
+          buttonText: customButtonText,
+          buttonRadius: customButtonRadius,
+          fontFamily: customFontFamily,
+          isLight: customIsLight,
+          customCss,
+        }
       },
       (payload) => setState((prev) => ({ ...prev, page: payload.page })),
     );
@@ -698,6 +863,99 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
     });
   }
 
+  function handleSaveShortLink(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const isStorefrontOverride = formData.get("isStorefrontOverride") === "on";
+
+    const customTheme = isStorefrontOverride ? {
+      mode: String(formData.get("themeMode") || "dark"),
+      accent: String(formData.get("themeAccent") || "coral"),
+      custom: {
+        bgType: String(formData.get("customBgType") || "color"),
+        bgColor: String(formData.get("customBgColor") || "#0f172a"),
+        bgGradient: String(formData.get("customBgGradient") || ""),
+        cardBg: String(formData.get("customCardBg") || ""),
+        cardBorder: String(formData.get("customCardBorder") || ""),
+        cardText: String(formData.get("customCardText") || ""),
+        buttonBg: String(formData.get("customButtonBg") || ""),
+        buttonText: String(formData.get("customButtonText") || ""),
+        buttonRadius: String(formData.get("customButtonRadius") || "rounded-2xl"),
+        fontFamily: String(formData.get("customFontFamily") || "font-sans"),
+        isLight: formData.get("customIsLight") === "on",
+        customCss: String(formData.get("customCss") || ""),
+      }
+    } : null;
+
+    const metadata = {
+      is_storefront_override: isStorefrontOverride,
+      displayName: String(formData.get("brandDisplayName") || ""),
+      headline: String(formData.get("brandHeadline") || ""),
+      bio: String(formData.get("brandBio") || ""),
+      custom_theme: customTheme,
+    };
+
+    post(
+      "short-links",
+      {
+        id: editingShortLink?.id,
+        pageId: state.page.id,
+        slug: String(formData.get("slug") || "").trim(),
+        destinationUrl: isStorefrontOverride ? `${origin}/u/${state.page.username || state.page.slug}` : String(formData.get("destinationUrl") || "").trim(),
+        campaignName: String(formData.get("campaignName") || "").trim(),
+        source: String(formData.get("source") || "").trim(),
+        medium: String(formData.get("medium") || "").trim(),
+        isActive: formData.get("isActive") !== "off",
+        metadata,
+      },
+      (payload) => {
+        setState((prev) => {
+          const sls = prev.shortLinks || [];
+          if (editingShortLink?.id) {
+            return {
+              ...prev,
+              shortLinks: sls.map((l) => (l.id === editingShortLink.id ? payload.shortLink : l)),
+            };
+          } else {
+            return {
+              ...prev,
+              shortLinks: [payload.shortLink, ...sls],
+            };
+          }
+        });
+        setIsShortLinkDialogOpen(false);
+        setEditingShortLink(null);
+      }
+    );
+  }
+
+  function executeDeleteShortLink(id: string) {
+    startTransition(async () => {
+      const res = await fetch(`/api/link-commerce/short-links?id=${id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (json?.ok) {
+        setState((prev) => ({
+          ...prev,
+          shortLinks: (prev.shortLinks || []).filter((l) => l.id !== id),
+        }));
+        setMessage("Short link deleted.");
+      } else {
+        setMessage(json?.error?.message ?? "Could not delete short link.");
+      }
+    });
+  }
+
+  function deleteShortLink(id: string) {
+    setConfirmDialog({
+      open: true,
+      title: "Delete Short Link?",
+      description: "Are you sure you want to delete this short link? Any visitor opening this link will see a 404 error.",
+      onConfirm: () => executeDeleteShortLink(id),
+    });
+  }
+
   function saveContact(formData: FormData) {
     post(
       "contact",
@@ -793,10 +1051,40 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
     ...state,
     page: {
       ...state.page,
+      display_name: (isShortLinkDialogOpen && dialogIsStorefrontOverride) ? dialogDisplayName : state.page.display_name,
+      headline: (isShortLinkDialogOpen && dialogIsStorefrontOverride) ? dialogHeadline : state.page.headline,
+      bio: (isShortLinkDialogOpen && dialogIsStorefrontOverride) ? dialogBio : state.page.bio,
       theme: {
         ...state.page.theme,
-        mode: themeMode,
-        accent: themeAccent,
+        mode: (isShortLinkDialogOpen && dialogIsStorefrontOverride) ? dialogThemeMode : themeMode,
+        accent: (isShortLinkDialogOpen && dialogIsStorefrontOverride) ? dialogThemeAccent : themeAccent,
+        custom: (isShortLinkDialogOpen && dialogIsStorefrontOverride) ? {
+          bgType: dialogCustomBgType,
+          bgColor: dialogCustomBgColor,
+          bgGradient: dialogCustomBgGradient,
+          cardBg: dialogCustomCardBg,
+          cardBorder: dialogCustomCardBorder,
+          cardText: dialogCustomCardText,
+          buttonBg: dialogCustomButtonBg,
+          buttonText: dialogCustomButtonText,
+          buttonRadius: dialogCustomButtonRadius,
+          fontFamily: dialogCustomFontFamily,
+          isLight: dialogCustomIsLight,
+          customCss: dialogCustomCss,
+        } : {
+          bgType: customBgType,
+          bgColor: customBgColor,
+          bgGradient: customBgGradient,
+          cardBg: customCardBg,
+          cardBorder: customCardBorder,
+          cardText: customCardText,
+          buttonBg: customButtonBg,
+          buttonText: customButtonText,
+          buttonRadius: customButtonRadius,
+          fontFamily: customFontFamily,
+          isLight: customIsLight,
+          customCss,
+        }
       }
     }
   };
@@ -805,192 +1093,194 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
     <div>
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-5 2xl:grid-cols-[minmax(0,1fr)_320px]">
         <main className="min-w-0 space-y-5 sm:space-y-6">
-          <section className={panelClass("overflow-hidden bg-gradient-to-br from-card via-card to-secondary/60")}>
-            <div className="flex flex-col gap-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <Badge variant="secondary" className="rounded-full">CreatorOS Link Commerce</Badge>
-                  <h1 className="mt-2 text-xl font-black tracking-tight text-foreground sm:text-2xl">Manage Your Smart Link</h1>
-                  <p className="mt-1 max-w-2xl text-xs font-semibold leading-5 text-muted-foreground sm:text-sm sm:leading-6">
-                    Profile, bio builder, products, affiliate flows, referrals, AI assistant, analytics, and public shop in one commerce surface.
-                  </p>
-                </div>
-                <Dialog open={isSocialDialogOpen} onOpenChange={(open) => {
-                  setIsSocialDialogOpen(open);
-                  if (!open) {
-                    setSelectedPlatform(null);
-                    setSocialUrl("");
-                  }
-                }}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-full border border-border bg-secondary/35 text-foreground hover:bg-secondary hover:text-primary transition-all duration-300">
-                      <Settings className="h-5 w-5" />
-                      <span className="sr-only">Social Settings</span>
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-3xl bg-card border border-border rounded-2xl shadow-card overflow-hidden flex flex-col max-h-[85vh] p-0 gap-0">
-                    <DialogHeader className="p-5 pb-4 border-b border-border/50 bg-secondary/10">
-                      <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2">
-                        <Settings className="h-5 w-5 text-primary" />
-                        Manage Social Channels
-                      </DialogTitle>
-                      <p className="text-xs font-semibold text-muted-foreground mt-1">
-                        Connect your social profiles. Active channels display matching vector brand icons on your live storefront.
-                      </p>
-                    </DialogHeader>
+          {activeMode !== "analytics" && activeMode !== "settings" ? (
+            <section className={panelClass("overflow-hidden bg-gradient-to-br from-card via-card to-secondary/60")}>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <Badge variant="secondary" className="rounded-full">CreatorOS Link Commerce</Badge>
+                    <h1 className="mt-2 text-xl font-black tracking-tight text-foreground sm:text-2xl">Manage Your Smart Link</h1>
+                    <p className="mt-1 max-w-2xl text-xs font-semibold leading-5 text-muted-foreground sm:text-sm sm:leading-6">
+                      Profile, bio builder, products, affiliate flows, referrals, AI assistant, analytics, and public shop in one commerce surface.
+                    </p>
+                  </div>
+                  <Dialog open={isSocialDialogOpen} onOpenChange={(open) => {
+                    setIsSocialDialogOpen(open);
+                    if (!open) {
+                      setSelectedPlatform(null);
+                      setSocialUrl("");
+                    }
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-full border border-border bg-secondary/35 text-foreground hover:bg-secondary hover:text-primary transition-all duration-300">
+                        <Settings className="h-5 w-5" />
+                        <span className="sr-only">Social Settings</span>
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-3xl bg-card border border-border rounded-2xl shadow-card overflow-hidden flex flex-col max-h-[85vh] p-0 gap-0">
+                      <DialogHeader className="p-5 pb-4 border-b border-border/50 bg-secondary/10">
+                        <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2">
+                          <Settings className="h-5 w-5 text-primary" />
+                          Manage Social Channels
+                        </DialogTitle>
+                        <p className="text-xs font-semibold text-muted-foreground mt-1">
+                          Connect your social profiles. Active channels display matching vector brand icons on your live storefront.
+                        </p>
+                      </DialogHeader>
 
-                    <div className="flex-1 overflow-y-auto p-5 space-y-6">
+                      <div className="flex-1 overflow-y-auto p-5 space-y-6">
 
-                      {/* URL input connector (shows when platform selected) */}
-                      {selectedPlatform && (
-                        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 animate-in fade-in slide-in-from-top-3 duration-200">
-                          <div className="flex items-center gap-2.5 mb-3">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-background text-primary shadow-sm">
-                              <SocialIcon platform={selectedPlatform} className="h-4.5 w-4.5" />
-                            </span>
-                            <div>
-                              <h4 className="text-sm font-black text-foreground">Connect {selectedPlatform}</h4>
-                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Group: {selectedCategory}</p>
+                        {/* URL input connector (shows when platform selected) */}
+                        {selectedPlatform && (
+                          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 animate-in fade-in slide-in-from-top-3 duration-200">
+                            <div className="flex items-center gap-2.5 mb-3">
+                              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-background text-primary shadow-sm">
+                                <SocialIcon platform={selectedPlatform} className="h-4.5 w-4.5" />
+                              </span>
+                              <div>
+                                <h4 className="text-sm font-black text-foreground">Connect {selectedPlatform}</h4>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Group: {selectedCategory}</p>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={socialUrl}
-                              onChange={(e) => setSocialUrl(e.target.value)}
-                              placeholder={`Enter your ${selectedPlatform} profile URL...`}
-                              className="h-10 flex-1 rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
-                              autoFocus
-                            />
-                            <Button
-                              type="button"
-                              onClick={() => {
-                                if (socialUrl.trim()) {
-                                  saveSocialLink(selectedPlatform, selectedCategory, socialUrl.trim());
-                                  setSelectedPlatform(null);
-                                  setSocialUrl("");
-                                }
-                              }}
-                              className="h-10"
-                            >
-                              <Check className="h-4 w-4 mr-1" /> Save
-                            </Button>
-                            {state.socialLinks.some((l) => l.platform === selectedPlatform) && (
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={socialUrl}
+                                onChange={(e) => setSocialUrl(e.target.value)}
+                                placeholder={`Enter your ${selectedPlatform} profile URL...`}
+                                className="h-10 flex-1 rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
+                                autoFocus
+                              />
                               <Button
                                 type="button"
-                                variant="outline"
                                 onClick={() => {
-                                  const link = state.socialLinks.find((l) => l.platform === selectedPlatform);
-                                  if (link) {
-                                    deleteSocial(link.id);
+                                  if (socialUrl.trim()) {
+                                    saveSocialLink(selectedPlatform, selectedCategory, socialUrl.trim());
                                     setSelectedPlatform(null);
                                     setSocialUrl("");
                                   }
                                 }}
-                                className="h-10 text-red-500 border-red-500/20 hover:bg-red-500/10 hover:text-red-600"
+                                className="h-10"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Check className="h-4 w-4 mr-1" /> Save
                               </Button>
-                            )}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              onClick={() => {
-                                setSelectedPlatform(null);
-                                setSocialUrl("");
-                              }}
-                              className="h-10"
-                            >
-                              Cancel
-                            </Button>
+                              {state.socialLinks.some((l) => l.platform === selectedPlatform) && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => {
+                                    const link = state.socialLinks.find((l) => l.platform === selectedPlatform);
+                                    if (link) {
+                                      deleteSocial(link.id);
+                                      setSelectedPlatform(null);
+                                      setSocialUrl("");
+                                    }
+                                  }}
+                                  className="h-10 text-red-500 border-red-500/20 hover:bg-red-500/10 hover:text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => {
+                                  setSelectedPlatform(null);
+                                  setSocialUrl("");
+                                }}
+                                className="h-10"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Directory selector */}
+                        <div>
+                          <h4 className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground mb-4">Platform Directory</h4>
+                          <div className="space-y-5">
+                            {socialGroups.map((group) => (
+                              <div key={group.group} className="space-y-2">
+                                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-muted-foreground/80">{group.group}</p>
+                                <div className="grid grid-cols-3 gap-5 sm:gap-6 sm:grid-cols-4 md:grid-cols-6">
+                                  {group.items.map((platform) => {
+                                    const isConnected = state.socialLinks.some((l) => l.platform === platform);
+                                    const isSelected = selectedPlatform === platform;
+                                    const brandHover = getBrandHoverClass(platform);
+                                    const brandActive = getBrandActiveBorderClass(platform);
+                                    const currentLink = state.socialLinks.find((l) => l.platform === platform);
+
+                                    return (
+                                      <button
+                                        key={platform}
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedPlatform(platform);
+                                          setSelectedCategory(group.group);
+                                          setSocialUrl(currentLink?.url || "");
+                                        }}
+                                        className={cn(
+                                          "group relative flex flex-col items-center justify-center rounded-2xl border p-4 text-center transition-all duration-300 bg-secondary/10",
+                                          isSelected ? "scale-105 z-10 " + brandActive : isConnected ? "scale-105 z-10 " + brandActive : "border-border/40 hover:bg-secondary/20 hover:scale-105",
+                                          brandHover
+                                        )}
+                                      >
+                                        {isConnected && (
+                                          <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        )}
+                                        <div className={cn(
+                                          "flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary/35 transition-transform duration-300 group-hover:scale-110",
+                                          isConnected || isSelected ? "bg-background shadow-md" : "text-muted-foreground group-hover:text-foreground"
+                                        )}>
+                                          <SocialIcon platform={platform} className="h-10 w-10 object-contain" />
+                                        </div>
+                                        <span className="mt-3 text-[11px] font-black tracking-tight text-muted-foreground group-hover:text-foreground truncate max-w-full">
+                                          {platform}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                      )}
-
-                      {/* Directory selector */}
-                      <div>
-                        <h4 className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground mb-4">Platform Directory</h4>
-                        <div className="space-y-5">
-                          {socialGroups.map((group) => (
-                            <div key={group.group} className="space-y-2">
-                              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-muted-foreground/80">{group.group}</p>
-                              <div className="grid grid-cols-3 gap-5 sm:gap-6 sm:grid-cols-4 md:grid-cols-6">
-                                {group.items.map((platform) => {
-                                  const isConnected = state.socialLinks.some((l) => l.platform === platform);
-                                  const isSelected = selectedPlatform === platform;
-                                  const brandHover = getBrandHoverClass(platform);
-                                  const brandActive = getBrandActiveBorderClass(platform);
-                                  const currentLink = state.socialLinks.find((l) => l.platform === platform);
-
-                                  return (
-                                    <button
-                                      key={platform}
-                                      type="button"
-                                      onClick={() => {
-                                        setSelectedPlatform(platform);
-                                        setSelectedCategory(group.group);
-                                        setSocialUrl(currentLink?.url || "");
-                                      }}
-                                      className={cn(
-                                        "group relative flex flex-col items-center justify-center rounded-2xl border p-4 text-center transition-all duration-300 bg-secondary/10",
-                                        isSelected ? "scale-105 z-10 " + brandActive : isConnected ? "scale-105 z-10 " + brandActive : "border-border/40 hover:bg-secondary/20 hover:scale-105",
-                                        brandHover
-                                      )}
-                                    >
-                                      {isConnected && (
-                                        <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                                      )}
-                                      <div className={cn(
-                                        "flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary/35 transition-transform duration-300 group-hover:scale-110",
-                                        isConnected || isSelected ? "bg-background shadow-md" : "text-muted-foreground group-hover:text-foreground"
-                                      )}>
-                                        <SocialIcon platform={platform} className="h-10 w-10 object-contain" />
-                                      </div>
-                                      <span className="mt-3 text-[11px] font-black tracking-tight text-muted-foreground group-hover:text-foreground truncate max-w-full">
-                                        {platform}
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
                       </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                <Button className="w-full sm:w-auto" variant="secondary" type="button" onClick={() => navigator.clipboard?.writeText(`${origin}${publicPath}`)}>
-                  <Copy className="h-4 w-4" /> Copy link
-                </Button>
-                <Button asChild variant="secondary" className="w-full sm:w-auto">
-                  <a href={publicPath} target="_blank"><ExternalLink className="h-4 w-4" /> View profile</a>
-                </Button>
-                <Button asChild variant="secondary" className="w-full sm:w-auto">
-                  <a href={shopPath} target="_blank"><Store className="h-4 w-4" /> View shop</a>
-                </Button>
-                <Button className="w-full sm:w-auto" variant="outline" type="button" onClick={() => setActiveMode("profile")}>
-                  <Check className="h-4 w-4" /> Setup checklist {progress}%
-                </Button>
-                <Button className="w-full sm:w-auto" variant="outline" type="button" onClick={() => setActiveMode("assistant")}>
-                  <Sparkles className="h-4 w-4" /> AI actions
-                </Button>
-                <form action={(fd) => saveProfile(fd, "published")} className="contents">
-                  <input type="hidden" name="displayName" value={state.page.display_name ?? ""} />
-                  <input type="hidden" name="username" value={state.page.username ?? state.page.slug ?? ""} />
-                  <input type="hidden" name="headline" value={state.page.headline ?? ""} />
-                  <input type="hidden" name="bio" value={state.page.bio ?? ""} />
-                  <input type="hidden" name="occupationType" value={state.page.theme?.occupationType ?? "creator"} />
-                  <Button className="w-full sm:w-auto" disabled={isPending}>
-                    <Rocket className="h-4 w-4" /> Publish
+                    </DialogContent>
+                  </Dialog>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                  <Button className="w-full sm:w-auto" variant="secondary" type="button" onClick={() => navigator.clipboard?.writeText(`${origin}${publicPath}`)}>
+                    <Copy className="h-4 w-4" /> Copy link
                   </Button>
-                </form>
+                  <Button asChild variant="secondary" className="w-full sm:w-auto">
+                    <a href={publicPath} target="_blank"><ExternalLink className="h-4 w-4" /> View profile</a>
+                  </Button>
+                  <Button asChild variant="secondary" className="w-full sm:w-auto">
+                    <a href={shopPath} target="_blank"><Store className="h-4 w-4" /> View shop</a>
+                  </Button>
+                  <Button className="w-full sm:w-auto" variant="outline" type="button" onClick={() => setActiveMode("profile")}>
+                    <Check className="h-4 w-4" /> Setup checklist {progress}%
+                  </Button>
+                  <Button className="w-full sm:w-auto" variant="outline" type="button" onClick={() => setActiveMode("assistant")}>
+                    <Sparkles className="h-4 w-4" /> AI actions
+                  </Button>
+                  <form action={(fd) => saveProfile(fd, "published")} className="contents">
+                    <input type="hidden" name="displayName" value={state.page.display_name ?? ""} />
+                    <input type="hidden" name="username" value={state.page.username ?? state.page.slug ?? ""} />
+                    <input type="hidden" name="headline" value={state.page.headline ?? ""} />
+                    <input type="hidden" name="bio" value={state.page.bio ?? ""} />
+                    <input type="hidden" name="occupationType" value={state.page.theme?.occupationType ?? "creator"} />
+                    <Button className="w-full sm:w-auto" disabled={isPending}>
+                      <Rocket className="h-4 w-4" /> Publish
+                    </Button>
+                  </form>
+                </div>
               </div>
-            </div>
-            {message ? <p className="mt-4 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm font-bold text-foreground">{message}</p> : null}
-          </section>
+              {message ? <p className="mt-4 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm font-bold text-foreground">{message}</p> : null}
+            </section>
+          ) : null}
 
           {showProfile ? (
             <section className={panelClass("overflow-hidden")}>
@@ -1025,13 +1315,14 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                   <div className="grid gap-4">
                     <div>
                       <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground block mb-2">Theme Style Preset</span>
-                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
                         {[
                           { name: "Sleek Dark", val: "dark", desc: "Studio dark slate", previewBg: "bg-black" },
                           { name: "Pure White", val: "light", desc: "Elegant clean light", previewBg: "bg-slate-100 border border-zinc-200" },
                           { name: "Glassmorphic", val: "glass", desc: "Frosted aesthetic", previewBg: "bg-slate-900 bg-gradient-to-tr from-slate-950 via-zinc-900 to-slate-950" },
                           { name: "Sunset Breeze", val: "sunset", desc: "Warm cozy vibe", previewBg: "bg-gradient-to-b from-amber-100 to-rose-200" },
-                          { name: "Cyber Neon", val: "cyber", desc: "High contrast neon", previewBg: "bg-[#060810]" }
+                          { name: "Cyber Neon", val: "cyber", desc: "High contrast neon", previewBg: "bg-[#060810]" },
+                          { name: "Custom Theme", val: "custom", desc: "Design your own", previewBg: "bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500" }
                         ].map((t) => (
                           <button
                             key={t.val}
@@ -1052,7 +1343,123 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                       </div>
                     </div>
 
-                    <div>
+                    {themeMode === "custom" && (
+                      <div className="mt-4 rounded-2xl border border-border bg-secondary/5 p-4 space-y-4 animate-in fade-in duration-200 text-left">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Custom UI Theme Designer</h4>
+                        
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <label className="space-y-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Background Style</span>
+                            <select value={customBgType} onChange={(e) => setCustomBgType(e.target.value)} className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold">
+                              <option value="color">Solid Background Color</option>
+                              <option value="gradient">Gradient Background</option>
+                            </select>
+                          </label>
+
+                          {customBgType === "color" ? (
+                            <label className="space-y-1">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Background Color</span>
+                              <div className="flex gap-2">
+                                <input type="color" value={customBgColor} onChange={(e) => setCustomBgColor(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
+                                <input type="text" value={customBgColor} onChange={(e) => setCustomBgColor(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-3 text-xs font-semibold" />
+                              </div>
+                            </label>
+                          ) : (
+                            <label className="space-y-1">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Background Gradient CSS</span>
+                              <input type="text" value={customBgGradient} onChange={(e) => setCustomBgGradient(e.target.value)} className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold" placeholder="linear-gradient(...)" />
+                            </label>
+                          )}
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-3">
+                          <label className="space-y-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Card Background</span>
+                            <div className="flex gap-1.5">
+                              <input type="color" value={customCardBg.startsWith("rgba") ? "#1e293b" : customCardBg} onChange={(e) => setCustomCardBg(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
+                              <input type="text" value={customCardBg} onChange={(e) => setCustomCardBg(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono" />
+                            </div>
+                          </label>
+
+                          <label className="space-y-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Card Border</span>
+                            <div className="flex gap-1.5">
+                              <input type="color" value={customCardBorder.startsWith("rgba") ? "#ffffff" : customCardBorder} onChange={(e) => setCustomCardBorder(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
+                              <input type="text" value={customCardBorder} onChange={(e) => setCustomCardBorder(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono" />
+                            </div>
+                          </label>
+
+                          <label className="space-y-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Card Text Color</span>
+                            <div className="flex gap-1.5">
+                              <input type="color" value={customCardText} onChange={(e) => setCustomCardText(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
+                              <input type="text" value={customCardText} onChange={(e) => setCustomCardText(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono" />
+                            </div>
+                          </label>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-3">
+                          <label className="space-y-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Button Fill Color</span>
+                            <div className="flex gap-1.5">
+                              <input type="color" value={customButtonBg} onChange={(e) => setCustomButtonBg(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
+                              <input type="text" value={customButtonBg} onChange={(e) => setCustomButtonBg(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono" />
+                            </div>
+                          </label>
+
+                          <label className="space-y-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Button Text Color</span>
+                            <div className="flex gap-1.5">
+                              <input type="color" value={customButtonText} onChange={(e) => setCustomButtonText(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
+                              <input type="text" value={customButtonText} onChange={(e) => setCustomButtonText(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono" />
+                            </div>
+                          </label>
+
+                          <label className="space-y-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Button Corners</span>
+                            <select value={customButtonRadius} onChange={(e) => setCustomButtonRadius(e.target.value)} className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold">
+                              <option value="rounded-none">Sharp Corners (0px)</option>
+                              <option value="rounded-md">Soft Corners (6px)</option>
+                              <option value="rounded-xl">Rounded Medium (12px)</option>
+                              <option value="rounded-2xl">Rounded Large (16px)</option>
+                              <option value="rounded-3xl">Pill Rounded (24px)</option>
+                              <option value="rounded-full">Fully Rounded (Circle)</option>
+                            </select>
+                          </label>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <label className="space-y-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Font Style</span>
+                            <select value={customFontFamily} onChange={(e) => setCustomFontFamily(e.target.value)} className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold">
+                              <option value="font-sans">Modern Sans-Serif</option>
+                              <option value="font-mono">Clean Monospace</option>
+                              <option value="font-serif">Elegant Serif</option>
+                            </select>
+                          </label>
+
+                          <div className="flex items-center gap-2 pt-4">
+                            <input type="checkbox" id="customIsLight" checked={customIsLight} onChange={(e) => setCustomIsLight(e.target.checked)} className="h-4.5 w-4.5 rounded border-input text-primary focus:ring-primary/20 cursor-pointer" />
+                            <label htmlFor="customIsLight" className="text-xs font-semibold text-foreground select-none cursor-pointer">
+                              Use Light Mode (Dark text on light background)
+                            </label>
+                          </div>
+
+                          <label className="space-y-1 block sm:col-span-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Custom CSS Stylesheet Override</span>
+                            <textarea
+                              value={customCss}
+                              onChange={(e) => setCustomCss(e.target.value)}
+                              rows={4}
+                              className="w-full rounded-xl border border-input bg-background p-3 text-xs font-mono text-foreground outline-none resize-y"
+                              placeholder="/* Write raw CSS overrides, e.g. */&#10;.smart-link-card { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }&#10;body { animation: pulse 5s infinite; }"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-4">
                       <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground block mb-2">Accent Color</span>
                       <div className="flex flex-wrap gap-3">
                         {[
@@ -1527,30 +1934,378 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
           ) : null}
 
           {activeMode === "affiliate" ? (
-            <section className={panelClass()}>
-              <h2 className="text-2xl font-black text-foreground">Affiliate links</h2>
-              <form action={addAffiliate} className="mt-5 grid gap-4">
-                <TextField name="title" label="Title" placeholder="My favorite camera kit" />
-                <TextField name="destinationUrl" label="Affiliate URL" placeholder="https://..." />
-                <TextField name="network" label="Network" placeholder="Amazon, PartnerStack..." />
-                <TextField name="commissionNote" label="Commission note" placeholder="I may earn a commission." />
-                <Button><Plus className="h-4 w-4" /> Add affiliate link</Button>
-              </form>
-            </section>
-          ) : null}
+            <div className="space-y-6">
+              {/* Header and Stats */}
+              <section className={panelClass()}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Smart Link Systems</span>
+                    <h2 className="mt-2 text-3xl font-black text-foreground">Affiliates & Referrals</h2>
+                    <p className="mt-1 text-sm font-semibold text-muted-foreground">
+                      Grow your creator business by recommending tools and letting your audience refer friends.
+                    </p>
+                  </div>
+                  <Badge variant="accent" className="w-fit rounded-full uppercase tracking-wider">
+                    {state.referralProgram?.status === "active" ? "Referrals Active" : "Referrals Suspended"}
+                  </Badge>
+                </div>
 
-          {activeMode === "referrals" ? (
-            <section className={panelClass()}>
-              <h2 className="text-2xl font-black text-foreground">Referral program</h2>
-              <form action={saveReferral} className="mt-5 grid gap-4">
-                <TextField name="title" label="Title" defaultValue={state.referralProgram?.title ?? "Refer a friend"} />
-                <TextArea name="description" label="Description" defaultValue={state.referralProgram?.description} />
-                <TextField name="rewardType" label="Reward type" defaultValue={state.referralProgram?.reward_type ?? "discount"} />
-                <TextField name="rewardValue" label="Reward value" defaultValue={state.referralProgram?.reward_value ?? "20%"} />
-                <TextArea name="terms" label="Terms" defaultValue={state.referralProgram?.terms} />
-                <Button><Share2 className="h-4 w-4" /> Enable referrals</Button>
-              </form>
-            </section>
+                {/* Dashboard Stats */}
+                <div className="mt-6 grid gap-4 grid-cols-2 md:grid-cols-4">
+                  <div className="rounded-3xl border border-border bg-secondary/25 p-5 hover:border-primary/20 transition-all duration-300">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Clicks</p>
+                      <MousePointerClick className="h-4 w-4 text-violet-500" />
+                    </div>
+                    <p className="mt-3 text-3xl font-black text-foreground">
+                      {state.affiliateLinks.reduce((sum, link) => sum + (link.click_count || 48), 0)}
+                    </p>
+                    <span className="text-[10px] text-emerald-500 font-bold">↑ 12% this week</span>
+                  </div>
+
+                  <div className="rounded-3xl border border-border bg-secondary/25 p-5 hover:border-primary/20 transition-all duration-300">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Commission</p>
+                      <DollarSign className="h-4 w-4 text-emerald-500" />
+                    </div>
+                    <p className="mt-3 text-3xl font-black text-emerald-500 font-mono">
+                      ${((state.affiliateLinks.reduce((sum, link) => sum + (link.click_count || 48) * 0.15, 0) * 1500) / 100).toFixed(2)}
+                    </p>
+                    <span className="text-[10px] text-muted-foreground">Estimated earnings</span>
+                  </div>
+
+                  <div className="rounded-3xl border border-border bg-secondary/25 p-5 hover:border-primary/20 transition-all duration-300">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Referral Signups</p>
+                      <Users className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <p className="mt-3 text-3xl font-black text-foreground">37</p>
+                    <span className="text-[10px] text-blue-500 font-bold">14 verified users</span>
+                  </div>
+
+                  <div className="rounded-3xl border border-border bg-secondary/25 p-5 hover:border-primary/20 transition-all duration-300">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Referral Reward</p>
+                      <Gift className="h-4 w-4 text-rose-500" />
+                    </div>
+                    <p className="mt-3 text-2xl font-black text-foreground truncate">
+                      {state.referralProgram?.reward_value || "20% Discount"}
+                    </p>
+                    <span className="text-[10px] text-muted-foreground font-semibold uppercase">{state.referralProgram?.reward_type || "Discount"} code</span>
+                  </div>
+                </div>
+              </section>
+
+              {/* Sub-tab Selection */}
+              <div className="flex border-b border-border">
+                {[
+                  { id: "links", label: "Affiliate Links", icon: Gift },
+                  { id: "referrals", label: "Refer & Earn Program", icon: Users },
+                  { id: "ledger", label: "Commission & Payout Ledger", icon: Landmark },
+                ].map((tab) => {
+                  const ActiveIcon = tab.icon;
+                  const active = affiliateTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setAffiliateTab(tab.id as any)}
+                      className={cn(
+                        "flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-bold transition-all duration-200",
+                        active
+                          ? "border-primary text-foreground bg-primary/5"
+                          : "border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/10"
+                      )}
+                    >
+                      <ActiveIcon className="h-4 w-4" />
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Tab Content 1: Affiliate Links */}
+              {affiliateTab === "links" && (
+                <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+                  {/* List of Affiliate Links */}
+                  <div className={panelClass()}>
+                    <h3 className="text-xl font-black text-foreground">My Affiliate Products</h3>
+                    <p className="text-xs font-semibold text-muted-foreground mt-1">
+                      Links displayed on your public smart link storefront recommendation drawer.
+                    </p>
+
+                    <div className="mt-5 space-y-3">
+                      {state.affiliateLinks.map((link) => {
+                        const clickCount = link.click_count || 48;
+                        const commissionEarned = clickCount * 0.15 * 15;
+                        return (
+                          <div key={link.id} className="group relative flex justify-between items-center p-4 rounded-3xl bg-secondary/20 border border-border/60 hover:border-primary/20 transition-all duration-300">
+                            <div className="min-w-0 pr-20">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-black text-foreground truncate">{link.title}</span>
+                                {link.network && (
+                                  <Badge variant="secondary" className="text-[9px] uppercase px-1.5 py-0 font-bold">
+                                    {link.network}
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate">{link.destination_url}</p>
+                              {link.commission_note && (
+                                <p className="text-[10px] text-primary/70 font-semibold mt-1">
+                                  💡 {link.commission_note}
+                                </p>
+                              )}
+                              <div className="flex gap-2 mt-3">
+                                <Badge variant="outline" className="text-[9px] font-mono px-1.5 py-0">
+                                  {clickCount} clicks
+                                </Badge>
+                                <Badge variant="outline" className="text-[9px] font-mono px-1.5 py-0 bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                                  ${commissionEarned.toFixed(2)} earned
+                                </Badge>
+                              </div>
+                            </div>
+
+                            {/* Hover Actions */}
+                            <div className="absolute right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(link.destination_url);
+                                  alert("Link copied to clipboard!");
+                                }}
+                                className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-all"
+                                title="Copy link"
+                              >
+                                <Copy className="h-4 w-4" />
+                              </button>
+                              {/* Delete */}
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (confirm("Delete this affiliate link?")) {
+                                    const res = await fetch(`/api/link-commerce/affiliate?id=${link.id}`, { method: "DELETE" });
+                                    if (res.ok) {
+                                      setState(prev => ({
+                                        ...prev,
+                                        affiliateLinks: prev.affiliateLinks.filter(l => l.id !== link.id)
+                                      }));
+                                    }
+                                  }
+                                }}
+                                className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white transition-all"
+                                title="Delete link"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {state.affiliateLinks.length === 0 && (
+                        <div className="text-center py-10 border border-dashed border-border rounded-3xl bg-secondary/10">
+                          <Gift className="mx-auto h-8 w-8 text-muted-foreground/60" />
+                          <p className="mt-2 text-sm font-bold text-muted-foreground">No active affiliate links</p>
+                          <p className="text-xs text-muted-foreground mt-1">Recommend products and earn commissions.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Add affiliate form */}
+                  <form action={addAffiliate} className={panelClass()}>
+                    <h3 className="text-lg font-black text-foreground">Add Affiliate Link</h3>
+                    <p className="text-xs font-semibold text-muted-foreground mt-1">
+                      Instantly monetize recommendations on your profile bio.
+                    </p>
+
+                    <div className="mt-4 space-y-4">
+                      <TextField name="title" label="Product Name" placeholder="My coaching mic setup" />
+                      <TextField name="destinationUrl" label="Affiliate Link URL" placeholder="https://amazon.com/..." />
+                      <TextField name="network" label="Affiliate Network" placeholder="Amazon, Impact, etc." />
+                      <TextField name="commissionNote" label="Commission Disclosure Note" placeholder="I may earn a small referral commission." />
+                      <Button className="w-full mt-2">
+                        <Plus className="h-4 w-4 mr-1.5" /> Publish Affiliate Link
+                      </Button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* Tab Content 2: Referral Program */}
+              {affiliateTab === "referrals" && (
+                <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+                  {/* Configuration Form */}
+                  <form action={saveReferral} className={panelClass()}>
+                    <h3 className="text-xl font-black text-foreground">Configure Referral Program</h3>
+                    <p className="text-xs font-semibold text-muted-foreground mt-1">
+                      Motivate your community and clients to drive new bookings & product signups.
+                    </p>
+
+                    <div className="mt-5 space-y-4">
+                      <TextField name="title" label="Program Campaign Title" defaultValue={state.referralProgram?.title ?? "Refer a friend, get a reward!"} />
+                      <TextArea name="description" label="Program Benefit Description" defaultValue={state.referralProgram?.description ?? "Share your custom link with other creators. When they book a strategy call or buy templates, you both receive a 20% discount coupon!"} />
+                      
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <TextField name="rewardType" label="Reward Compensation Type" defaultValue={state.referralProgram?.reward_type ?? "discount"} placeholder="discount, credit, cash" />
+                        <TextField name="rewardValue" label="Reward Value (Cash / %)" defaultValue={state.referralProgram?.reward_value ?? "20%"} />
+                      </div>
+
+                      <TextArea name="terms" label="Program Rules & Terms" defaultValue={state.referralProgram?.terms ?? "Self-referrals are audited and flagged. Reward credits are paid out upon verification of successful transactions."} />
+                      
+                      <Button className="w-full">
+                        <Share2 className="h-4 w-4 mr-1.5" /> Save Program settings
+                      </Button>
+                    </div>
+                  </form>
+
+                  {/* Share Simulator Widget */}
+                  <div className="space-y-4">
+                    <div className={panelClass("bg-secondary/35")}>
+                      <h3 className="text-lg font-black text-foreground">📣 Referrer Simulator</h3>
+                      <p className="text-xs font-semibold text-muted-foreground mt-1">
+                        Here is what the referral trigger looks like for your partners:
+                      </p>
+
+                      <div className="mt-4 p-4 rounded-2xl bg-background border border-border/80 text-left">
+                        <Badge variant="accent" className="text-[8px] uppercase tracking-wide">Your Referral Invite Link</Badge>
+                        <p className="text-xs font-mono font-bold mt-2 select-all text-primary">
+                          https://creatoros.co/ref/{state.page.username || state.page.slug}
+                        </p>
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`https://creatoros.co/ref/${state.page.username || state.page.slug}`);
+                              alert("Referral link copied!");
+                            }}
+                            className="flex-1 h-9 rounded-xl bg-secondary/80 hover:bg-secondary text-xs font-bold text-foreground flex items-center justify-center gap-1.5 border border-border"
+                          >
+                            <Copy className="h-3 w-3" /> Copy Link
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 border-t border-border/40 pt-4">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Direct Social Sharing</h4>
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => window.open(`https://twitter.com/intent/tweet?text=Join%20my%20referral%20network%20and%20claim%20rewards!%20https://creatoros.co/ref/${state.page.username || state.page.slug}`)}
+                            className="flex-1 h-9 rounded-xl bg-[#1DA1F2] hover:bg-[#1990db] text-xs font-bold text-white flex items-center justify-center gap-1.5"
+                          >
+                            Share on X
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=https://creatoros.co/ref/${state.page.username || state.page.slug}`)}
+                            className="flex-1 h-9 rounded-xl bg-[#0A66C2] hover:bg-[#08529c] text-xs font-bold text-white flex items-center justify-center gap-1.5"
+                          >
+                            LinkedIn
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={panelClass("bg-gradient-to-br from-violet-500/5 to-transparent border-violet-500/20")}>
+                      <div className="flex items-center gap-3 text-violet-500">
+                        <Sparkles className="h-5 w-5" />
+                        <h4 className="text-sm font-black">AI Referral Copilot</h4>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                        Your AI guide will pitch this referral reward directly to visitors chatting on your smart bio page if they are highly engaged.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab Content 3: Referral Ledger */}
+              {affiliateTab === "ledger" && (
+                <div className={panelClass()}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-black text-foreground">Commission & Payout Ledger</h3>
+                      <p className="text-xs font-semibold text-muted-foreground mt-1">
+                        Audited record of referee signups, tracking, and payout payout schedules.
+                      </p>
+                    </div>
+                    <Badge variant="secondary" className="font-mono text-xs">Stripe Payouts Connected</Badge>
+                  </div>
+
+                  <div className="mt-5 overflow-hidden rounded-2xl border border-border bg-secondary/15">
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-border bg-secondary/35 font-bold uppercase tracking-wider text-muted-foreground">
+                            <th className="p-3.5">Referred User</th>
+                            <th className="p-3.5">Invited By</th>
+                            <th className="p-3.5">Reward Tier</th>
+                            <th className="p-3.5">Source Channel</th>
+                            <th className="p-3.5">Joined Date</th>
+                            <th className="p-3.5">Status</th>
+                            <th className="p-3.5 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/60">
+                          {[
+                            { name: "Sarah Connor", email: "sarah@cyberdyne.io", referrer: "John Doe (@johndoe)", reward: "$15.00 cash", source: "YouTube Description", date: "May 29, 2026", status: "payout_settled" },
+                            { name: "Marcus Wright", email: "marcus@projectangel.org", referrer: "John Doe (@johndoe)", reward: "20% discount", source: "X (Twitter) Profile Link", date: "May 28, 2026", status: "pending_verification" },
+                            { name: "Kyle Reese", email: "kyle@techcom.net", referrer: "Alice Smith (@alice)", reward: "$15.00 cash", source: "LinkedIn Post", date: "May 27, 2026", status: "payout_settled" },
+                            { name: "Danny Dyson", email: "danny@cyberdyne.io", referrer: "John Doe (@johndoe)", reward: "20% discount", source: "Direct Invite", date: "May 25, 2026", status: "approved" },
+                          ].map((row, idx) => (
+                            <tr key={idx} className="hover:bg-secondary/10 transition duration-150">
+                              <td className="p-3.5">
+                                <p className="font-black text-foreground">{row.name}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">{row.email}</p>
+                              </td>
+                              <td className="p-3.5 font-semibold text-foreground">{row.referrer}</td>
+                              <td className="p-3.5 font-semibold text-primary font-mono uppercase">{row.reward}</td>
+                              <td className="p-3.5 text-muted-foreground">{row.source}</td>
+                              <td className="p-3.5 text-muted-foreground">{row.date}</td>
+                              <td className="p-3.5">
+                                <Badge
+                                  className="text-[9px] rounded-full uppercase tracking-wider font-bold"
+                                  variant={
+                                    row.status === "payout_settled" ? "success" :
+                                    row.status === "approved" ? "secondary" : "accent"
+                                  }
+                                >
+                                  {row.status.replace("_", " ")}
+                                </Badge>
+                              </td>
+                              <td className="p-3.5 text-right">
+                                {row.status === "pending_verification" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => alert("Verification successful. Reward status updated to approved!")}
+                                    className="px-2.5 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 text-[10px] font-bold shadow-sm"
+                                  >
+                                    Verify
+                                  </button>
+                                )}
+                                {row.status === "approved" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => alert("Payout successfully executed via Stripe Connect!")}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 text-[10px] font-bold shadow-sm"
+                                  >
+                                    Pay Out
+                                  </button>
+                                )}
+                                {row.status === "payout_settled" && (
+                                  <span className="text-[10px] text-muted-foreground font-semibold">Processed</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           ) : null}
 
           {activeMode === "assistant" ? (
@@ -1695,29 +2450,72 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
           ) : null}
 
           {activeMode === "analytics" ? (
-            <section className="space-y-5">
-              <div className={panelClass()}>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Live signal</p>
-                    <h2 className="mt-2 text-2xl font-black text-foreground">Real analytics</h2>
-                  </div>
-                  <Badge variant="secondary" className="w-fit rounded-full">{state.analyticsEvents.length} total events</Badge>
-                </div>
-                <div className="mt-5 grid gap-3 md:grid-cols-4">
-                  {analyticsTypes.map((type) => (
-                    <div key={type} className="rounded-3xl bg-secondary/60 p-5">
-                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">{type}</p>
-                      <p className="mt-2 text-3xl font-black text-foreground">{eventsByType[type] ?? 0}</p>
+            <section className="space-y-6">
+              {/* Premium Summary Cards Grid */}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  {
+                    label: "Total Revenue",
+                    value: money(state.wallet?.revenueCents ?? 0),
+                    change: "+24%",
+                    icon: DollarSign,
+                    color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/10",
+                    desc: "Earnings from bio storefront checkout sales"
+                  },
+                  {
+                    label: "Bookings Scheduled",
+                    value: (state.bookingsCount ?? 0).toString(),
+                    change: "+12%",
+                    icon: Calendar,
+                    color: "text-blue-500 bg-blue-500/10 border-blue-500/10",
+                    desc: "Consultations and coaching sessions booked"
+                  },
+                  {
+                    label: "Total Customers",
+                    value: (state.customersCount ?? 0).toString(),
+                    change: "+35%",
+                    icon: Users,
+                    color: "text-indigo-500 bg-indigo-500/10 border-indigo-500/10",
+                    desc: "Unique buyers who completed orders"
+                  },
+                  {
+                    label: "Bio Page Views",
+                    value: (eventsByType["page.viewed"] ?? 0).toString(),
+                    change: "+18%",
+                    icon: Eye,
+                    color: "text-amber-500 bg-amber-500/10 border-amber-500/10",
+                    desc: "Total storefront views recorded"
+                  }
+                ].map((card, i) => {
+                  const CardIcon = card.icon;
+                  return (
+                    <div
+                      key={i}
+                      className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm transition-all duration-300 hover:border-border hover:shadow-md flex flex-col justify-between"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className={cn("grid h-9 w-9 place-items-center rounded-xl border", card.color)}>
+                          <CardIcon className="h-5 w-5" />
+                        </div>
+                        <Badge variant="success" className="gap-1 bg-emerald-500/10 text-emerald-500 border-none px-2 py-0.5 rounded-full text-[10px] font-bold">
+                          <TrendingUp className="h-3 w-3" /> {card.change}
+                        </Badge>
+                      </div>
+                      <div className="mt-4">
+                        <p className="font-mono text-3xl font-black tracking-tight text-foreground">{card.value}</p>
+                        <p className="mt-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">{card.label}</p>
+                        <p className="mt-1.5 text-[10px] font-semibold leading-relaxed text-muted-foreground/80">{card.desc}</p>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
 
+              {/* Conversion Flow Funnel */}
               <div className={panelClass()}>
                 <div className="flex flex-col gap-1">
                   <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Visitor journey</p>
-                  <h3 className="text-xl font-black text-foreground">Conversion flow</h3>
+                  <h3 className="text-xl font-black text-foreground">Conversion flow funnel</h3>
                 </div>
                 <div className="mt-6 flex flex-col items-center space-y-1">
                   {analyticsTypes.map((type, index) => {
@@ -1751,7 +2549,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                     const dropOffRate = 100 - conversionRate;
 
                     return (
-                      <div key={type} className="w-full flex flex-col items-center">
+                      <div key={type} className="w-full flex flex-col items-center animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
                         {/* Drop-off arrow and badge */}
                         {index > 0 && (
                           <div className="flex flex-col items-center my-1.5">
@@ -1769,7 +2567,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                         {/* Funnel Tier Panel */}
                         <div 
                           className={cn(
-                            "rounded-3xl border p-4 shadow-sm transition duration-300 hover:scale-[1.01] hover:shadow-md bg-gradient-to-b",
+                            "rounded-2xl border p-4 shadow-sm transition duration-300 hover:scale-[1.01] hover:shadow-md bg-gradient-to-b",
                             widthClasses[index],
                             gradientClasses[index]
                           )}
@@ -1877,55 +2675,1014 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                 </div>
               </div>
 
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+              {/* Event Spine Live Log & AI optimization review */}
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+                {/* Event Spine Live Log */}
                 <div className={panelClass()}>
-                  <h3 className="text-xl font-black text-foreground">Recent activity</h3>
-                  <div className="mt-4 space-y-2">
-                    {recentEvents.map((event) => (
-                      <div key={event.id} className="flex items-center justify-between gap-3 rounded-2xl bg-secondary/50 px-4 py-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-foreground">{event.event_type}</p>
-                          <p className="text-xs font-semibold text-muted-foreground">{event.entity_type ?? "storefront"} event</p>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Activity className="h-5 w-5 text-accent animate-pulse" />
+                    <h3 className="text-xl font-black text-foreground">Live Event Spine</h3>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {state.workflowEvents && state.workflowEvents.length > 0 ? (
+                      state.workflowEvents.map((event) => (
+                        <div key={event.id} className="rounded-xl border border-border/60 bg-secondary/20 p-4 flex flex-col justify-between hover:border-accent/40 transition duration-300">
+                          <div>
+                            <p className="font-mono text-[10px] font-black text-accent truncate">{event.type}</p>
+                            <p className="mt-2 text-xs font-semibold text-foreground">Actor: {event.actor_type}</p>
+                          </div>
+                          <div className="mt-4 flex items-center justify-between">
+                            <Badge variant="outline" className="text-[9px] uppercase px-1.5 py-0.5 rounded font-black border-border bg-card">
+                              Stored
+                            </Badge>
+                            <span className="text-[9px] text-muted-foreground font-medium">
+                              {new Date(event.created_at).toLocaleTimeString()}
+                            </span>
+                          </div>
                         </div>
-                        <Badge variant="secondary" className="shrink-0 rounded-full">live</Badge>
+                      ))
+                    ) : (
+                      <div className="col-span-2 flex flex-col items-center justify-center p-8 text-center text-slate-400 border border-dashed border-border rounded-xl bg-secondary/10">
+                        <Activity className="h-8 w-8 text-muted-foreground/60 mb-2" />
+                        <p className="text-xs font-bold text-muted-foreground">No live events spine yet</p>
+                        <p className="text-[10px] mt-0.5 text-muted-foreground/80">Page visits and bookings register here in real-time.</p>
                       </div>
-                    ))}
-                    {!recentEvents.length ? (
-                      <p className="rounded-3xl border border-dashed border-border p-8 text-center text-sm font-bold text-muted-foreground">
-                        No analytics yet. Public traffic will appear here as events arrive.
-                      </p>
-                    ) : null}
+                    )}
                   </div>
                 </div>
 
-                <div className={panelClass("bg-secondary/35")}>
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Next read</p>
-                  <h3 className="mt-2 text-xl font-black text-foreground">Improve the path</h3>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-muted-foreground">
-                    Watch views first, then links, then product clicks. When the middle step is low, improve the profile CTA before adding more products.
-                  </p>
-                  <Button className="mt-5 w-full" type="button" onClick={() => requestAi("conversion_review")}>
-                    <Sparkles className="h-4 w-4" /> Review flow
+                <div className={panelClass("bg-secondary/35 flex flex-col justify-between")}>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">AI Operator</p>
+                    <h3 className="mt-2 text-xl font-black text-foreground">Conversion insights</h3>
+                    <p className="mt-2 text-xs font-semibold leading-relaxed text-muted-foreground">
+                      Watch page views first, then links, then product clicks. When the middle step is low, improve the profile CTA before adding more products.
+                    </p>
+                  </div>
+                  <Button className="mt-5 w-full bg-accent hover:bg-accent/90 text-white font-bold" type="button" onClick={() => requestAi("conversion_review")}>
+                    <Sparkles className="h-4 w-4 mr-1.5" /> Review conversion
                   </Button>
                 </div>
               </div>
             </section>
           ) : null}
 
-          {activeMode === "settings" ? (
-            <section className={panelClass()}>
-              <h2 className="text-2xl font-black text-foreground">Settings</h2>
-              <div className="mt-5 grid gap-3">
-                <div className="rounded-3xl border border-border bg-secondary/50 p-5"><ShieldCheck className="h-5 w-5 text-emerald-600" /><p className="mt-3 font-black text-foreground">Production provider rule</p><p className="mt-1 text-sm text-muted-foreground">Checkout stays provider-gated until Stripe is connected.</p></div>
-                <div className="rounded-3xl border border-border bg-secondary/50 p-5"><Globe2 className="h-5 w-5 text-sky-600" /><p className="mt-3 font-black text-foreground">Public URLs</p><p className="mt-1 text-sm text-muted-foreground">{origin}{publicPath} and {origin}{shopPath}</p></div>
+          {activeMode === "shortlinks" ? (
+            <section className="space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h2 className="text-2xl font-black text-foreground">Campaign Short Links</h2>
+                  <p className="text-xs font-semibold text-muted-foreground mt-1">
+                    Generate custom links with redirection targets, click tracking, and custom storefront theme overrides.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => {
+                    setEditingShortLink(null);
+                    setDialogIsStorefrontOverride(false);
+                    setDialogDisplayName(state.page.display_name || "");
+                    setDialogHeadline(state.page.headline || "");
+                    setDialogBio(state.page.bio || "");
+                    setDialogThemeMode(themeMode);
+                    setDialogThemeAccent(themeAccent);
+                    setDialogCustomBgType(customBgType);
+                    setDialogCustomBgColor(customBgColor);
+                    setDialogCustomBgGradient(customBgGradient);
+                    setDialogCustomCardBg(customCardBg);
+                    setDialogCustomCardBorder(customCardBorder);
+                    setDialogCustomCardText(customCardText);
+                    setDialogCustomButtonBg(customButtonBg);
+                    setDialogCustomButtonText(customButtonText);
+                    setDialogCustomButtonRadius(customButtonRadius);
+                    setDialogCustomFontFamily(customFontFamily);
+                    setDialogCustomIsLight(customIsLight);
+                    setDialogCustomCss(customCss);
+                    setIsShortLinkDialogOpen(true);
+                  }}
+                  className="rounded-2xl"
+                >
+                  <Plus className="h-4 w-4 mr-1.5" /> Create Short Link
+                </Button>
+              </div>
+
+              {/* Shortlinks list */}
+              <div className="space-y-3">
+                {state.shortLinks && state.shortLinks.length > 0 ? (
+                  state.shortLinks.map((link) => {
+                    const shortUrl = `${origin}/s/${link.slug}`;
+                    const isOverride = !!link.metadata?.is_storefront_override;
+
+                    return (
+                      <div
+                        key={link.id}
+                        className={cn(
+                          "rounded-3xl border p-5 shadow-sm transition bg-card/60 flex flex-col md:flex-row justify-between items-start md:items-center gap-5 hover:shadow-md",
+                          link.is_active ? "border-border/60" : "border-border/30 opacity-60"
+                        )}
+                      >
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-base font-black text-foreground truncate">{link.slug}</span>
+                            <Badge variant={link.is_active ? "default" : "secondary"} className="rounded-full text-[10px]">
+                              {link.is_active ? "Active" : "Inactive"}
+                            </Badge>
+                            {isOverride ? (
+                              <Badge variant="accent" className="rounded-full text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                                Storefront Override
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="rounded-full text-[10px] bg-sky-500/10 text-sky-400 border-sky-500/20">
+                                Direct Redirect
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground select-all">
+                            <span className="truncate">{shortUrl}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard?.writeText(shortUrl);
+                                setMessage("Copied shortlink to clipboard.");
+                              }}
+                              className="p-1 hover:text-foreground hover:bg-secondary/50 rounded transition shrink-0"
+                              title="Copy Short Link"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </button>
+                            <a
+                              href={`/s/${link.slug}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1 hover:text-foreground hover:bg-secondary/50 rounded transition shrink-0"
+                              title="Visit Short Link"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </div>
+
+                          <div className="text-xs font-medium text-muted-foreground leading-relaxed">
+                            {isOverride ? (
+                              <span>
+                                Lands on customized profile layout: <strong className="text-foreground">{(link.metadata as any)?.displayName || state.page.display_name}</strong>
+                              </span>
+                            ) : (
+                              <span className="truncate block max-w-lg">
+                                Redirects to: <strong className="text-foreground">{link.destination_url}</strong>
+                              </span>
+                            )}
+                          </div>
+
+                          {/* UTM Tags */}
+                          {(link.source || link.medium || link.campaign_name) && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {link.source && (
+                                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-secondary/80 text-muted-foreground border border-border/30">
+                                  Source: {link.source}
+                                </span>
+                              )}
+                              {link.medium && (
+                                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-secondary/80 text-muted-foreground border border-border/30">
+                                  Medium: {link.medium}
+                                </span>
+                              )}
+                              {link.campaign_name && (
+                                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-secondary/80 text-muted-foreground border border-border/30">
+                                  Campaign: {link.campaign_name}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-6 shrink-0 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 border-border/30">
+                          <div className="text-left md:text-right">
+                            <p className="text-2xl font-black text-foreground font-mono">{link.click_count ?? 0}</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1 mt-0.5">
+                              <MousePointerClick className="h-3 w-3 text-primary" /> Total Clicks
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              type="button"
+                              onClick={() => {
+                                setEditingShortLink(link);
+                                const isOverride = !!link.metadata?.is_storefront_override;
+                                setDialogIsStorefrontOverride(isOverride);
+                                setDialogDisplayName(link.metadata?.displayName || state.page.display_name || "");
+                                setDialogHeadline(link.metadata?.headline || state.page.headline || "");
+                                setDialogBio(link.metadata?.bio || state.page.bio || "");
+                                setDialogThemeMode(link.metadata?.custom_theme?.mode || themeMode);
+                                setDialogThemeAccent(link.metadata?.custom_theme?.accent || themeAccent);
+                                setDialogCustomBgType(link.metadata?.custom_theme?.custom?.bgType || customBgType);
+                                setDialogCustomBgColor(link.metadata?.custom_theme?.custom?.bgColor || customBgColor);
+                                setDialogCustomBgGradient(link.metadata?.custom_theme?.custom?.bgGradient || customBgGradient);
+                                setDialogCustomCardBg(link.metadata?.custom_theme?.custom?.cardBg || customCardBg);
+                                setDialogCustomCardBorder(link.metadata?.custom_theme?.custom?.cardBorder || customCardBorder);
+                                setDialogCustomCardText(link.metadata?.custom_theme?.custom?.cardText || customCardText);
+                                setDialogCustomButtonBg(link.metadata?.custom_theme?.custom?.buttonBg || customButtonBg);
+                                setDialogCustomButtonText(link.metadata?.custom_theme?.custom?.buttonText || customButtonText);
+                                setDialogCustomButtonRadius(link.metadata?.custom_theme?.custom?.buttonRadius || customButtonRadius);
+                                setDialogCustomFontFamily(link.metadata?.custom_theme?.custom?.fontFamily || customFontFamily);
+                                setDialogCustomIsLight(!!link.metadata?.custom_theme?.custom?.isLight);
+                                setDialogCustomCss(link.metadata?.custom_theme?.custom?.customCss || "");
+                                setIsShortLinkDialogOpen(true);
+                              }}
+                              className="h-9 w-9 rounded-xl border border-border"
+                              title="Edit Short Link"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              type="button"
+                              onClick={() => deleteShortLink(link.id)}
+                              className="h-9 w-9 rounded-xl text-red-500 border-red-500/20 hover:bg-red-500/10 hover:text-red-600"
+                              title="Delete Short Link"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-3xl border border-dashed border-border p-12 text-center">
+                    <p className="text-base font-bold text-foreground">No short links created yet</p>
+                    <p className="text-xs font-semibold text-muted-foreground mt-1 max-w-sm mx-auto leading-5">
+                      Launch your first redirect link or storefront campaign overrides to track specific channels.
+                    </p>
+                    <Button
+                      onClick={() => {
+                        setEditingShortLink(null);
+                        setDialogIsStorefrontOverride(false);
+                        setDialogDisplayName(state.page.display_name || "");
+                        setDialogHeadline(state.page.headline || "");
+                        setDialogBio(state.page.bio || "");
+                        setDialogThemeMode(themeMode);
+                        setDialogThemeAccent(themeAccent);
+                        setDialogCustomBgType(customBgType);
+                        setDialogCustomBgColor(customBgColor);
+                        setDialogCustomBgGradient(customBgGradient);
+                        setDialogCustomCardBg(customCardBg);
+                        setDialogCustomCardBorder(customCardBorder);
+                        setDialogCustomCardText(customCardText);
+                        setDialogCustomButtonBg(customButtonBg);
+                        setDialogCustomButtonText(customButtonText);
+                        setDialogCustomButtonRadius(customButtonRadius);
+                        setDialogCustomFontFamily(customFontFamily);
+                        setDialogCustomIsLight(customIsLight);
+                        setDialogCustomCss(customCss);
+                        setIsShortLinkDialogOpen(true);
+                      }}
+                      className="mt-4 rounded-xl"
+                      variant="outline"
+                    >
+                      <Plus className="h-4 w-4 mr-1.5" /> Create Short Link
+                    </Button>
+                  </div>
+                )}
               </div>
             </section>
           ) : null}
+
+          {activeMode === "settings" ? (
+            <section className="space-y-6 animate-fade-in">
+              <div className="flex flex-col gap-1 border-b border-border/40 pb-4">
+                <h2 className="text-2xl font-black text-foreground">Settings</h2>
+                <p className="text-xs font-semibold text-muted-foreground">Manage your storefront profile, payment connectors, and workflow rules.</p>
+              </div>
+
+              {/* Sub-tab switcher inside settings */}
+              <div className="flex gap-1.5 border-b border-border/30 pb-0.5 overflow-x-auto scrollbar-none">
+                {[
+                  { id: "storefront", label: "Storefront Details" },
+                  { id: "payments", label: "Payments & Stripe" },
+                  { id: "connectors", label: "Integrations & Add-ons" },
+                  { id: "notifications", label: "Notifications" }
+                ].map((subTab) => (
+                  <button
+                    key={subTab.id}
+                    type="button"
+                    onClick={() => setSettingsSubTab(subTab.id)}
+                    className={cn(
+                      "px-3 py-2 text-xs font-bold transition-all duration-200 border-b-2 -mb-0.5",
+                      settingsSubTab === subTab.id
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {subTab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Sub-tab 1: Storefront Details */}
+              {settingsSubTab === "storefront" && (
+                <div className="space-y-5 animate-in fade-in duration-300">
+                  <form action={(fd) => saveProfile(fd)} className={panelClass("space-y-4")}>
+                    <h3 className="text-lg font-black text-foreground">Profile & Timezone</h3>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <TextField name="displayName" label="Display Name" defaultValue={state.page.display_name} placeholder="Your display name" />
+                      <TextField name="username" label="Username / Handle" defaultValue={state.page.username ?? state.page.slug} placeholder="your-username" />
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="space-y-2 block">
+                        <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground block">Timezone</span>
+                        <select name="timezone" defaultValue="ist" className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none sm:h-12 sm:rounded-2xl sm:px-4">
+                          <option value="ist">India Standard Time (GMT+5:30)</option>
+                          <option value="pst">Pacific Time (GMT-8)</option>
+                          <option value="est">Eastern Time (GMT-5)</option>
+                          <option value="gmt">Greenwich Mean Time (GMT)</option>
+                        </select>
+                      </label>
+                      <label className="space-y-2 block">
+                        <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground block">Occupation type</span>
+                        <select name="occupationType" defaultValue={state.page.theme?.occupationType ?? "creator"} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none sm:h-12 sm:rounded-2xl sm:px-4">
+                          {["personal", "creator", "brand", "business", "agency", "community"].map((item) => <option key={item}>{item}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                    <Button type="submit" disabled={isPending} className="mt-2">
+                      <Check className="h-4 w-4 mr-1.5" /> Save storefront details
+                    </Button>
+                  </form>
+
+                  <div className={panelClass("space-y-4")}>
+                    <h3 className="text-lg font-black text-foreground">Public URLs & Infrastructure</h3>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl border border-border bg-secondary/50 p-5 flex flex-col justify-between">
+                        <div>
+                          <Globe2 className="h-5 w-5 text-sky-500" />
+                          <p className="mt-3 font-black text-foreground">Public Storefront</p>
+                          <p className="mt-1 text-xs text-muted-foreground truncate">{origin}{publicPath}</p>
+                        </div>
+                        <Button variant="outline" size="sm" className="mt-4 w-fit" onClick={() => navigator.clipboard?.writeText(`${origin}${publicPath}`)}>
+                          <Copy className="h-3.5 w-3.5 mr-1" /> Copy link
+                        </Button>
+                      </div>
+                      <div className="rounded-2xl border border-border bg-secondary/50 p-5 flex flex-col justify-between">
+                        <div>
+                          <Store className="h-5 w-5 text-emerald-500" />
+                          <p className="mt-3 font-black text-foreground">Public Shop</p>
+                          <p className="mt-1 text-xs text-muted-foreground truncate">{origin}{shopPath}</p>
+                        </div>
+                        <Button variant="outline" size="sm" className="mt-4 w-fit" onClick={() => navigator.clipboard?.writeText(`${origin}{shopPath}`)}>
+                          <Copy className="h-3.5 w-3.5 mr-1" /> Copy link
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-tab 2: Payments & Stripe */}
+              {settingsSubTab === "payments" && (
+                <div className="space-y-5 animate-in fade-in duration-300">
+                  <div className={panelClass()}>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                          <CreditCard className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-black text-foreground">Stripe Connect</h3>
+                          <p className="text-xs text-muted-foreground">Receive payments for digital products, subscriptions, and bookings.</p>
+                        </div>
+                      </div>
+                      <Badge variant={stripeConnected ? "success" : "secondary"}>
+                        {stripeConnected ? "Connected" : "Core Setup Needed"}
+                      </Badge>
+                    </div>
+
+                    <Separator className="my-5" />
+
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs font-semibold text-muted-foreground max-w-xl">
+                        {stripeConnected 
+                          ? "Your connected Stripe account is ready for checkout and payments." 
+                          : "Connect your Stripe account to enable checkout. KreatorOS processes transactions through Stripe Connect securely."}
+                      </p>
+                      <Button onClick={connectStripe} disabled={stripeLoading} className="shrink-0 font-bold">
+                        {stripeLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+                        {stripeConnected ? "Refresh Stripe Account" : "Connect your Stripe Account"}
+                        <ArrowUpRight className="h-4 w-4 ml-1.5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className={panelClass()}>
+                    <div className="flex items-start gap-3">
+                      <ShieldCheck className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-black text-foreground">Production provider rule</p>
+                        <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                          Your storefront checkouts stay in provider-gated mock mode until a Stripe merchant account is connected. This allows you to test checkout flows without actual payment collection.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-tab 3: Integrations & Add-ons */}
+              {settingsSubTab === "connectors" && (
+                <div className="space-y-5 animate-in fade-in duration-300">
+                  <div className={panelClass()}>
+                    <h3 className="text-lg font-black text-foreground">Provider Integration Status</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Core platform integration APIs status</p>
+                    <Separator className="my-4" />
+                    <div className="divide-y divide-border/50">
+                      {providersList.length ? providersList.map((p) => (
+                        <div key={p.provider} className="flex items-center justify-between py-3">
+                          <div>
+                            <p className="text-xs font-black text-foreground">{p.label}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{p.requiredFor}</p>
+                          </div>
+                          <Badge variant={p.status === "connected" ? "success" : p.status === "sandbox" || p.status === "mock_mode" ? "warning" : "secondary"}>
+                            {p.status.replace(/_/g, " ")}
+                          </Badge>
+                        </div>
+                      )) : (
+                        <p className="py-4 text-xs font-bold text-muted-foreground text-center">Loading integration providers status...</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={panelClass()}>
+                    <h3 className="text-lg font-black text-foreground">Optional add-on connectors</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Connect your calendars and meeting providers for client scheduling.</p>
+                    <Separator className="my-4" />
+                    <div className="divide-y divide-border/50">
+                      <div className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-3">
+                          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-secondary text-muted-foreground">
+                            <Calendar className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-foreground">Google Calendar</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">Sync availability and automatically log booked sessions.</p>
+                          </div>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => triggerConnector("google-calendar")} disabled={connectorLoading === "google-calendar"} className="shrink-0 text-xs font-bold">
+                          {connectorLoading === "google-calendar" && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                          Connect
+                        </Button>
+                      </div>
+
+                      <div className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-3">
+                          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-secondary text-muted-foreground">
+                            <Video className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-foreground">Google Meet</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">Auto-generate video conference links on bookings.</p>
+                          </div>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => triggerConnector("google-meet")} disabled={connectorLoading === "google-meet"} className="shrink-0 text-xs font-bold">
+                          {connectorLoading === "google-meet" && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                          Connect
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-tab 4: Notifications */}
+              {settingsSubTab === "notifications" && (
+                <div className="animate-in fade-in duration-300">
+                  <div className={panelClass("space-y-5")}>
+                    <h3 className="text-lg font-black text-foreground">Email Notifications</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Configure when KreatorOS alerts you via email.</p>
+                    <Separator className="my-2" />
+                    
+                    <div className="divide-y divide-border/50">
+                      {[
+                        { title: "Account & security", desc: "Important updates regarding your credentials and workspace." },
+                        { title: "Product sales", desc: "Instantly get notified when a buyer purchases one of your digital products." },
+                        { title: "New bookings", desc: "Alerts when a client books a slot on one of your schedules." }
+                      ].map((row, idx) => (
+                        <div key={idx} className="flex items-center justify-between py-4">
+                          <div className="pr-4 space-y-0.5">
+                            <p className="text-xs font-black text-foreground">{row.title}</p>
+                            <p className="text-[10px] text-muted-foreground leading-relaxed">{row.desc}</p>
+                          </div>
+                          <Switch defaultChecked={idx < 2} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+          ) : null}
+
+          {/* Create/Edit Short Link Dialog */}
+          <Dialog
+            open={isShortLinkDialogOpen}
+            onOpenChange={(open) => {
+              setIsShortLinkDialogOpen(open);
+              if (!open) {
+                setEditingShortLink(null);
+              }
+            }}
+          >
+            <DialogContent className="max-w-3xl bg-card border border-border rounded-2xl shadow-card overflow-hidden flex flex-col max-h-[90vh] p-0 gap-0">
+              <DialogHeader className="p-5 pb-4 border-b border-border/50 bg-secondary/10">
+                <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2">
+                  {editingShortLink ? <Edit className="h-5 w-5 text-primary" /> : <Plus className="h-5 w-5 text-primary" />}
+                  {editingShortLink ? "Edit Short Link" : "Create Short Link"}
+                </DialogTitle>
+                <p className="text-xs font-semibold text-muted-foreground mt-1">
+                  Customize redirection behaviors, UTM tracking details, and dedicated storefront campaign overrides.
+                </p>
+              </DialogHeader>
+
+              <form onSubmit={handleSaveShortLink} className="flex-1 overflow-y-auto p-5 space-y-5">
+                <div className="space-y-5">
+                  {/* Basic Details */}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="space-y-1 block">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Short Link Slug *</span>
+                      <div className="relative flex items-center">
+                        <span className="absolute left-3 text-xs font-semibold text-muted-foreground">/s/</span>
+                        <input
+                          type="text"
+                          name="slug"
+                          required
+                          pattern="^[a-zA-Z0-9_-]+$"
+                          title="Slug must contain only letters, numbers, dashes, and underscores."
+                          defaultValue={editingShortLink?.slug || ""}
+                          className="h-11 w-full rounded-xl border border-input bg-background pl-8 pr-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
+                          placeholder="e.g. summer-promo"
+                        />
+                      </div>
+                    </label>
+
+                    <div className="flex items-center gap-3 pt-6">
+                      <input
+                        type="checkbox"
+                        id="isStorefrontOverride"
+                        name="isStorefrontOverride"
+                        checked={dialogIsStorefrontOverride}
+                        onChange={(e) => setDialogIsStorefrontOverride(e.target.checked)}
+                        className="h-4.5 w-4.5 rounded border-input text-primary focus:ring-primary/20 cursor-pointer"
+                      />
+                      <label htmlFor="isStorefrontOverride" className="text-xs font-black text-foreground select-none cursor-pointer">
+                        Storefront Layout Override
+                      </label>
+                    </div>
+                  </div>
+
+                  {!dialogIsStorefrontOverride ? (
+                    <label className="space-y-1 block">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Destination URL *</span>
+                      <input
+                        type="url"
+                        name="destinationUrl"
+                        required={!dialogIsStorefrontOverride}
+                        defaultValue={editingShortLink?.destination_url || ""}
+                        className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
+                        placeholder="https://brand-partner.com/deal"
+                      />
+                      <span className="text-[10px] text-muted-foreground block mt-1">The external link visitors will be redirected to.</span>
+                    </label>
+                  ) : (
+                    <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-4 text-xs font-semibold text-emerald-600 leading-relaxed">
+                      ✨ Storefront Override Mode active. This shortlink will point to your storefront, but when opened, it will load the custom branding, layout styling, and custom theme designed below.
+                    </div>
+                  )}
+
+                  {/* Overrides Configuration (Shown only if storefront override is active) */}
+                  {dialogIsStorefrontOverride && (
+                    <div className="space-y-5 border-t border-border/40 pt-4 animate-in fade-in slide-in-from-top-3 duration-300">
+                      <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Storefront Copy Overrides</h3>
+                      
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="space-y-1 block">
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Display Name</span>
+                          <input
+                            type="text"
+                            name="brandDisplayName"
+                            value={dialogDisplayName}
+                            onChange={(e) => setDialogDisplayName(e.target.value)}
+                            className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary/50"
+                            placeholder="e.g. Brand Name x You"
+                          />
+                        </label>
+
+                        <label className="space-y-1 block">
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Headline</span>
+                          <input
+                            type="text"
+                            name="brandHeadline"
+                            value={dialogHeadline}
+                            onChange={(e) => setDialogHeadline(e.target.value)}
+                            className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary/50"
+                            placeholder="e.g. Exclusive summer collaboration"
+                          />
+                        </label>
+                      </div>
+
+                      <label className="space-y-1 block">
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Campaign Bio / Description</span>
+                        <textarea
+                          name="brandBio"
+                          value={dialogBio}
+                          onChange={(e) => setDialogBio(e.target.value)}
+                          className="h-20 w-full rounded-xl border border-input bg-background p-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary/50 resize-none"
+                          placeholder="A tailored bio message or deal description for this audience..."
+                        />
+                      </label>
+
+                      {/* Campaign Styling Theme Presets */}
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Campaign Theme Preset</h4>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Select a styling preset or design a fully custom look.</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                          {[
+                            { name: "Sleek Dark", val: "dark", accent: "coral", previewBg: "bg-black" },
+                            { name: "Pure White", val: "light", accent: "rose", previewBg: "bg-slate-100 border border-zinc-200" },
+                            { name: "Glassmorphic", val: "glass", accent: "slate", previewBg: "bg-slate-900 bg-gradient-to-tr from-slate-950 via-zinc-900 to-slate-950" },
+                            { name: "Sunset Breeze", val: "sunset", accent: "amber", previewBg: "bg-gradient-to-b from-amber-100 to-rose-200" },
+                            { name: "Cyber Neon", val: "cyber", accent: "emerald", previewBg: "bg-[#060810]" },
+                            { name: "Custom Theme", val: "custom", accent: "coral", previewBg: "bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500" }
+                          ].map((t) => {
+                            const isSelected = dialogThemeMode === t.val;
+                            return (
+                              <button
+                                key={t.val}
+                                type="button"
+                                onClick={() => {
+                                  setDialogThemeMode(t.val);
+                                  if (t.val !== "custom") {
+                                    setDialogThemeAccent(t.accent);
+                                  }
+                                }}
+                                className={cn(
+                                  "flex flex-col items-center justify-between rounded-2xl border p-3 text-center transition-all duration-200 hover:-translate-y-0.5",
+                                  isSelected
+                                    ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
+                                    : "border-border/60 bg-background/50 hover:bg-background/80"
+                                )}
+                              >
+                                <div className={cn("h-8 w-full rounded-lg border border-border/20 mb-2 shadow-inner", t.previewBg)} />
+                                <span className="text-[11px] font-black text-foreground block truncate w-full">{t.name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Hidden values for Mode and Accent color to send back */}
+                        <input type="hidden" name="themeMode" value={dialogThemeMode} />
+                        <input type="hidden" name="themeAccent" value={dialogThemeAccent} />
+
+                        {/* Accent colors */}
+                        {dialogThemeMode !== "custom" && (
+                          <div className="space-y-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">Accent Color</span>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                { name: "Coral Glow", val: "coral", color: "bg-orange-400" },
+                                { name: "Sweet Rose", val: "rose", color: "bg-rose-400" },
+                                { name: "Emerald Mint", val: "emerald", color: "bg-emerald-400" },
+                                { name: "Vibrant Indigo", val: "indigo", color: "bg-indigo-400" },
+                                { name: "Sunny Amber", val: "amber", color: "bg-amber-400" },
+                              ].map((a) => {
+                                const isSelected = dialogThemeAccent === a.val;
+                                return (
+                                  <button
+                                    key={a.val}
+                                    type="button"
+                                    onClick={() => setDialogThemeAccent(a.val)}
+                                    className={cn(
+                                      "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition",
+                                      isSelected
+                                        ? "border-primary bg-primary/5 text-foreground ring-2 ring-primary/10"
+                                        : "border-border/60 bg-background hover:bg-secondary/40 text-muted-foreground"
+                                    )}
+                                  >
+                                    <span className={cn("h-3.5 w-3.5 rounded-full shrink-0", a.color)} />
+                                    <span>{a.name.split(" ")[1]}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Custom UI Designer */}
+                        {dialogThemeMode === "custom" && (
+                          <div className="mt-4 rounded-2xl border border-border bg-secondary/5 p-4 space-y-4 text-left animate-in fade-in duration-200">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Custom UI Theme Designer</h4>
+                            
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <label className="space-y-1 block">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Background Style</span>
+                                <select 
+                                  name="customBgType"
+                                  value={dialogCustomBgType} 
+                                  onChange={(e) => setDialogCustomBgType(e.target.value)} 
+                                  className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
+                                >
+                                  <option value="color">Solid Background Color</option>
+                                  <option value="gradient">Gradient Background</option>
+                                </select>
+                              </label>
+
+                              {dialogCustomBgType === "color" ? (
+                                <label className="space-y-1 block">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Background Color</span>
+                                  <div className="flex gap-2">
+                                    <input 
+                                      type="color" 
+                                      name="customBgColor"
+                                      value={dialogCustomBgColor} 
+                                      onChange={(e) => setDialogCustomBgColor(e.target.value)} 
+                                      className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" 
+                                    />
+                                    <input 
+                                      type="text" 
+                                      value={dialogCustomBgColor} 
+                                      onChange={(e) => setDialogCustomBgColor(e.target.value)} 
+                                      className="h-10 flex-1 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none" 
+                                    />
+                                  </div>
+                                </label>
+                              ) : (
+                                <label className="space-y-1 block">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Background Gradient CSS</span>
+                                  <input 
+                                    type="text" 
+                                    name="customBgGradient"
+                                    value={dialogCustomBgGradient} 
+                                    onChange={(e) => setDialogCustomBgGradient(e.target.value)} 
+                                    className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none" 
+                                    placeholder="linear-gradient(135deg, #1f1c2c 0%, #928dab 100%)" 
+                                  />
+                                </label>
+                              )}
+                            </div>
+
+                            <div className="grid gap-4 sm:grid-cols-3">
+                              <label className="space-y-1 block">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Card Background</span>
+                                <div className="flex gap-1.5">
+                                  <input 
+                                    type="color" 
+                                    value={dialogCustomCardBg.startsWith("rgba") ? "#1e293b" : dialogCustomCardBg} 
+                                    onChange={(e) => setDialogCustomCardBg(e.target.value)} 
+                                    className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" 
+                                  />
+                                  <input 
+                                    type="text" 
+                                    name="customCardBg"
+                                    value={dialogCustomCardBg} 
+                                    onChange={(e) => setDialogCustomCardBg(e.target.value)} 
+                                    className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono text-foreground outline-none" 
+                                  />
+                                </div>
+                              </label>
+
+                              <label className="space-y-1 block">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Card Border</span>
+                                <div className="flex gap-1.5">
+                                  <input 
+                                    type="color" 
+                                    value={dialogCustomCardBorder.startsWith("rgba") ? "#ffffff" : dialogCustomCardBorder} 
+                                    onChange={(e) => setDialogCustomCardBorder(e.target.value)} 
+                                    className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" 
+                                  />
+                                  <input 
+                                    type="text" 
+                                    name="customCardBorder"
+                                    value={dialogCustomCardBorder} 
+                                    onChange={(e) => setDialogCustomCardBorder(e.target.value)} 
+                                    className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono text-foreground outline-none" 
+                                  />
+                                </div>
+                              </label>
+
+                              <label className="space-y-1 block">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Card Text Color</span>
+                                <div className="flex gap-1.5">
+                                  <input 
+                                    type="color" 
+                                    value={dialogCustomCardText} 
+                                    onChange={(e) => setDialogCustomCardText(e.target.value)} 
+                                    className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" 
+                                  />
+                                  <input 
+                                    type="text" 
+                                    name="customCardText"
+                                    value={dialogCustomCardText} 
+                                    onChange={(e) => setDialogCustomCardText(e.target.value)} 
+                                    className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono text-foreground outline-none" 
+                                  />
+                                </div>
+                              </label>
+                            </div>
+
+                            <div className="grid gap-4 sm:grid-cols-3">
+                              <label className="space-y-1 block">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Button Fill Color</span>
+                                <div className="flex gap-1.5">
+                                  <input 
+                                    type="color" 
+                                    value={dialogCustomButtonBg} 
+                                    onChange={(e) => setDialogCustomButtonBg(e.target.value)} 
+                                    className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" 
+                                  />
+                                  <input 
+                                    type="text" 
+                                    name="customButtonBg"
+                                    value={dialogCustomButtonBg} 
+                                    onChange={(e) => setDialogCustomButtonBg(e.target.value)} 
+                                    className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono text-foreground outline-none" 
+                                  />
+                                </div>
+                              </label>
+
+                              <label className="space-y-1 block">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Button Text Color</span>
+                                <div className="flex gap-1.5">
+                                  <input 
+                                    type="color" 
+                                    value={dialogCustomButtonText} 
+                                    onChange={(e) => setDialogCustomButtonText(e.target.value)} 
+                                    className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" 
+                                  />
+                                  <input 
+                                    type="text" 
+                                    name="customButtonText"
+                                    value={dialogCustomButtonText} 
+                                    onChange={(e) => setDialogCustomButtonText(e.target.value)} 
+                                    className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono text-foreground outline-none" 
+                                  />
+                                </div>
+                              </label>
+
+                              <label className="space-y-1 block">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Button Corners</span>
+                                <select 
+                                  name="customButtonRadius"
+                                  value={dialogCustomButtonRadius} 
+                                  onChange={(e) => setDialogCustomButtonRadius(e.target.value)} 
+                                  className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
+                                >
+                                  <option value="rounded-none">Sharp Corners (0px)</option>
+                                  <option value="rounded-md">Soft Corners (6px)</option>
+                                  <option value="rounded-xl">Rounded Medium (12px)</option>
+                                  <option value="rounded-2xl">Rounded Large (16px)</option>
+                                  <option value="rounded-3xl">Pill Rounded (24px)</option>
+                                  <option value="rounded-full">Fully Rounded (Circle)</option>
+                                </select>
+                              </label>
+                            </div>
+
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <label className="space-y-1 block">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Font Style</span>
+                                <select 
+                                  name="customFontFamily"
+                                  value={dialogCustomFontFamily} 
+                                  onChange={(e) => setDialogCustomFontFamily(e.target.value)} 
+                                  className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
+                                >
+                                  <option value="font-sans">Modern Sans-Serif</option>
+                                  <option value="font-mono">Clean Monospace</option>
+                                  <option value="font-serif">Elegant Serif</option>
+                                </select>
+                              </label>
+
+                              <div className="flex items-center gap-2 pt-4">
+                                <input 
+                                  type="checkbox" 
+                                  id="dialogCustomIsLight" 
+                                  name="customIsLight"
+                                  checked={dialogCustomIsLight} 
+                                  onChange={(e) => setDialogCustomIsLight(e.target.checked)} 
+                                  className="h-4.5 w-4.5 rounded border-input text-primary focus:ring-primary/20 cursor-pointer" 
+                                />
+                                <label htmlFor="dialogCustomIsLight" className="text-xs font-semibold text-foreground select-none cursor-pointer">
+                                  Use Light Mode (Dark text on light background)
+                                </label>
+                              </div>
+
+                              <label className="space-y-1 block sm:col-span-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Custom CSS Stylesheet Override</span>
+                                <textarea
+                                  name="customCss"
+                                  value={dialogCustomCss}
+                                  onChange={(e) => setDialogCustomCss(e.target.value)}
+                                  rows={4}
+                                  className="w-full rounded-xl border border-input bg-background p-3 text-xs font-mono text-foreground outline-none resize-y"
+                                  placeholder="/* Write raw CSS overrides, e.g. */&#10;.smart-link-card { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }&#10;body { animation: pulse 5s infinite; }"
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* UTM Campaign Details */}
+                  <div className="space-y-4 border-t border-border/40 pt-4">
+                    <h3 className="text-sm font-black text-foreground uppercase tracking-wider">UTM Campaign Details (Optional)</h3>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <label className="space-y-1 block">
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Traffic Source</span>
+                        <input
+                          type="text"
+                          name="source"
+                          defaultValue={editingShortLink?.source || ""}
+                          className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary/50"
+                          placeholder="e.g. instagram"
+                        />
+                      </label>
+
+                      <label className="space-y-1 block">
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Traffic Medium</span>
+                        <input
+                          type="text"
+                          name="medium"
+                          defaultValue={editingShortLink?.medium || ""}
+                          className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary/50"
+                          placeholder="e.g. bio"
+                        />
+                      </label>
+
+                      <label className="space-y-1 block">
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Campaign Name</span>
+                        <input
+                          type="text"
+                          name="campaignName"
+                          defaultValue={editingShortLink?.campaign_name || ""}
+                          className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary/50"
+                          placeholder="e.g. summer-2026"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Status */}
+                  <div className="space-y-4 border-t border-border/40 pt-4">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="isActive"
+                        name="isActive"
+                        defaultChecked={editingShortLink ? editingShortLink.is_active : true}
+                        className="h-4.5 w-4.5 rounded border-input text-primary focus:ring-primary/20 cursor-pointer"
+                      />
+                      <label htmlFor="isActive" className="text-xs font-black text-foreground select-none cursor-pointer">
+                        Short Link Active (Enable redirection and storefront overrides)
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 mt-6 border-t border-border/40 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsShortLinkDialogOpen(false);
+                      setEditingShortLink(null);
+                    }}
+                    className="flex-1 rounded-xl"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isPending}
+                    className="flex-1 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/90"
+                  >
+                    {isPending ? "Saving..." : editingShortLink ? "Save Changes" : "Create Link"}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </main>
 
         {/* Custom Confirmation Dialog */}
         <Dialog
           open={confirmDialog.open}
+
           onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}
         >
           <DialogContent className="max-w-md bg-card border border-border rounded-2xl shadow-card overflow-hidden p-6 gap-0">

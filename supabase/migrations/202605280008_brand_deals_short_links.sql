@@ -32,19 +32,12 @@ create table if not exists public.brand_deals (
 
 create index if not exists idx_short_links_workspace on public.short_links(workspace_id);
 create index if not exists idx_brand_deals_workspace on public.brand_deals(workspace_id);
+create index if not exists idx_brand_deals_campaign_short_link on public.brand_deals(campaign_short_link_id);
 
 alter table public.short_links enable row level security;
 alter table public.brand_deals enable row level security;
 
-create policy "workspace members manage short_links" on public.short_links
-  for all to authenticated
-  using (app_private.is_workspace_member(workspace_id))
-  with check (app_private.is_workspace_member(workspace_id));
-
-create policy "public reads short_links" on public.short_links
-  for select to anon, authenticated
-  using (is_active = true);
-
+drop policy if exists "workspace members manage brand_deals" on public.brand_deals;
 create policy "workspace members manage brand_deals" on public.brand_deals
   for all to authenticated
   using (app_private.is_workspace_member(workspace_id))

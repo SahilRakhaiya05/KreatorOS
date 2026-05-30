@@ -6,7 +6,7 @@ export default async function Page() {
   const data = await getCreatorLinkWorkspace();
   return (
     <AppShell role="creator">
-      <LinkCommerceStudio data={data} mode="referrals" />
+      <LinkCommerceStudio data={data} mode="affiliate" />
     </AppShell>
   );
 }

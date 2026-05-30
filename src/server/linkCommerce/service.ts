@@ -116,6 +116,10 @@ export async function getCreatorLinkWorkspace() {
     assistantKnowledge,
     orders,
     analytics,
+    shortLinks,
+    bookings,
+    customers,
+    workflowEvents,
   ] = await Promise.all([
     supabase.from("creator_social_links").select("*").eq("page_id", page.id).order("sort_order", { ascending: true }),
     supabase.from("custom_links").select("*").eq("page_id", page.id).order("sort_order", { ascending: true }),
@@ -129,6 +133,10 @@ export async function getCreatorLinkWorkspace() {
     supabase.from("assistant_knowledge_sources").select("*").eq("workspace_id", workspace.id).order("created_at", { ascending: false }),
     supabase.from("orders").select("*").eq("workspace_id", workspace.id).order("created_at", { ascending: false }).limit(25),
     supabase.from("analytics_events").select("*").eq("workspace_id", workspace.id).order("created_at", { ascending: false }).limit(250),
+    supabase.from("short_links").select("*").eq("workspace_id", workspace.id).order("created_at", { ascending: false }),
+    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("workspace_id", workspace.id),
+    supabase.from("customers").select("id", { count: "exact", head: true }).eq("workspace_id", workspace.id),
+    supabase.from("workflow_events").select("*").eq("workspace_id", workspace.id).order("created_at", { ascending: false }).limit(5),
   ]);
 
   const paidOrders = (orders.data ?? []).filter((order) => order.status === "paid");
@@ -151,6 +159,10 @@ export async function getCreatorLinkWorkspace() {
     knowledgeSources: assistantKnowledge.data ?? [],
     orders: orders.data ?? [],
     analyticsEvents: analytics.data ?? [],
+    shortLinks: shortLinks.data ?? [],
+    bookingsCount: bookings.count ?? 0,
+    customersCount: customers.count ?? 0,
+    workflowEvents: workflowEvents.data ?? [],
     wallet: {
       revenueCents,
       pendingCents,
@@ -163,7 +175,7 @@ export async function getCreatorLinkWorkspace() {
   };
 }
 
-export async function getPublicLinkPage(slug: string) {
+export async function getPublicLinkPage(slug: string, linkThemeSlug?: string) {
   const supabase = await createSupabaseServerClient();
   const { data: page } = await supabase
     .from("creator_pages")
@@ -174,7 +186,32 @@ export async function getPublicLinkPage(slug: string) {
 
   if (!page) notFound();
 
-  const [socialLinks, customLinks, gallery, contact, products, affiliateLinks, referralProgram, assistant] = await Promise.all([
+  if (linkThemeSlug) {
+    const { data: sl } = await supabase
+      .from("short_links")
+      .select("*")
+      .eq("slug", linkThemeSlug)
+      .eq("workspace_id", page.workspace_id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (sl && sl.metadata) {
+      if (sl.metadata.custom_theme) {
+        page.theme = sl.metadata.custom_theme;
+      }
+      if (sl.metadata.displayName) {
+        page.display_name = sl.metadata.displayName;
+      }
+      if (sl.metadata.headline) {
+        page.headline = sl.metadata.headline;
+      }
+      if (sl.metadata.bio) {
+        page.bio = sl.metadata.bio;
+      }
+    }
+  }
+
+  const [socialLinks, customLinks, gallery, contact, products, affiliateLinks, referralProgram, assistant, bookings] = await Promise.all([
     supabase.from("creator_social_links").select("*").eq("page_id", page.id).eq("is_visible", true).order("sort_order", { ascending: true }),
     supabase.from("custom_links").select("*").eq("page_id", page.id).eq("is_visible", true).order("sort_order", { ascending: true }),
     supabase.from("photo_gallery_items").select("*").eq("page_id", page.id).order("sort_order", { ascending: true }),
@@ -188,6 +225,7 @@ export async function getPublicLinkPage(slug: string) {
     supabase.from("affiliate_links").select("*").eq("page_id", page.id).eq("status", "active").eq("show_on_bio", true),
     supabase.from("referral_programs").select("*").eq("page_id", page.id).eq("status", "active").maybeSingle(),
     supabase.from("creator_ai_assistants").select("*").eq("page_id", page.id).eq("status", "active").maybeSingle(),
+    supabase.from("offers").select("*").eq("workspace_id", page.workspace_id).eq("type", "booking").eq("status", "published").order("created_at", { ascending: false }),
   ]);
 
   return {
@@ -200,5 +238,6 @@ export async function getPublicLinkPage(slug: string) {
     affiliateLinks: affiliateLinks.data ?? [],
     referralProgram: referralProgram.data ?? null,
     assistant: assistant.data ?? null,
+    bookings: bookings.data ?? [],
   };
 }

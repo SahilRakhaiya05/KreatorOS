@@ -4,6 +4,7 @@ import { apiError, apiOk } from "@/server/api/responses";
 import { getSession } from "@/server/auth/getSession";
 import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
 import { isProviderConfigured, resolveModel } from "@/server/ai/providers";
+import { createSupabaseServerClient } from "@/server/supabase/serverClient";
 
 export const runtime = "nodejs";
 
@@ -91,6 +92,50 @@ async function fetchHackerNews(query: string): Promise<WebSource[]> {
   }));
 }
 
+async function fetchDuckDuckGo(query: string): Promise<WebSource[]> {
+  const url = new URL("https://api.duckduckgo.com/");
+  url.searchParams.set("q", query);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("no_redirect", "1");
+  url.searchParams.set("no_html", "1");
+
+  const res = await fetch(url, { next: { revalidate: 1800 } });
+  if (!res.ok) return [];
+  const json = await res.json();
+  const related = Array.isArray(json?.RelatedTopics) ? json.RelatedTopics : [];
+  const relatedRows = related.flatMap((item: any) => (Array.isArray(item?.Topics) ? item.Topics : [item]));
+  const rows = relatedRows
+    .filter((item: any) => typeof item?.FirstURL === "string" && typeof item?.Text === "string")
+    .slice(0, 5)
+    .map((item: any) => ({
+      title: asString(item.Text).split(" - ")[0] || "DuckDuckGo source",
+      url: asString(item.FirstURL),
+      snippet: asString(item.Text),
+      sourceType: "DuckDuckGo",
+    }));
+
+  if (json?.AbstractURL && json?.AbstractText) {
+    rows.unshift({
+      title: asString(json.Heading) || "DuckDuckGo instant answer",
+      url: asString(json.AbstractURL),
+      snippet: asString(json.AbstractText),
+      sourceType: "DuckDuckGo",
+    });
+  }
+
+  return rows;
+}
+
+function dedupeSources(sources: WebSource[]) {
+  const seen = new Set<string>();
+  return sources.filter((source) => {
+    const key = source.url || `${source.sourceType}:${source.title}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function fallbackResearch(query: string, sources: WebSource[], audience?: string, angle?: string) {
   const safeSources = sources.slice(0, 8);
   const baseQueries = [
@@ -133,6 +178,37 @@ function fallbackResearch(query: string, sources: WebSource[], audience?: string
   };
 }
 
+function buildFinalAnswer(research: z.infer<typeof researchOutputSchema>) {
+  return [
+    research.summary,
+    "",
+    "What KOffice found:",
+    ...research.findings.map((finding) => `- ${finding}`),
+    "",
+    "What to do next:",
+    ...Object.entries(research.kanban).flatMap(([column, cards]) => cards.map((card) => `- ${column}: ${card}`)),
+  ].join("\n");
+}
+
+export async function GET() {
+  const { user } = await getSession();
+  if (!user) return apiError("unauthorized", "Sign in to view KOffice runs.", 401);
+
+  const workspace = await getActiveWorkspace(user.id);
+  if (!workspace) return apiError("missing_workspace", "No active workspace found.", 400);
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("creator_koffice_runs")
+    .select("id, query, audience, angle, provider, status, active_step, research, source_queue, agents, kanban, timeline, final_answer, error_message, started_at, completed_at, created_at, updated_at")
+    .eq("workspace_id", workspace.id)
+    .order("created_at", { ascending: false })
+    .limit(12);
+
+  if (error) return apiError("koffice_runs_failed", error.message, 400);
+  return apiOk({ runs: data ?? [] });
+}
+
 export async function POST(req: Request) {
   const { user } = await getSession();
   if (!user) return apiError("unauthorized", "Sign in to run web research.", 401);
@@ -147,12 +223,51 @@ export async function POST(req: Request) {
     return apiError("validation_error", "Research request failed validation.", 422, error);
   }
 
-  const settled = await Promise.allSettled([fetchWikipedia(body.query), fetchHackerNews(body.query)]);
-  const sources = settled.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+  const supabase = await createSupabaseServerClient();
+  const { data: run, error: createError } = await supabase
+    .from("creator_koffice_runs")
+    .insert({
+      workspace_id: workspace.id,
+      owner_id: user.id,
+      query: body.query,
+      audience: body.audience ?? null,
+      angle: body.angle ?? null,
+      status: "running",
+      provider: "public_sources",
+      active_step: 0,
+      started_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (createError) return apiError("koffice_run_create_failed", createError.message, 400);
+
+  const settled = await Promise.allSettled([fetchWikipedia(body.query), fetchHackerNews(body.query), fetchDuckDuckGo(body.query)]);
+  const sources = dedupeSources(settled.flatMap((result) => (result.status === "fulfilled" ? result.value : []))).slice(0, 12);
   const fallback = fallbackResearch(body.query, sources, body.audience, body.angle);
 
   if (!isProviderConfigured("google")) {
-    return apiOk({ research: fallback, provider: "public_sources", available: false });
+    const finalAnswer = buildFinalAnswer(fallback);
+    const { data: updatedRun, error: updateError } = await supabase
+      .from("creator_koffice_runs")
+      .update({
+        status: "complete",
+        active_step: fallback.timeline.length,
+        research: fallback,
+        source_queue: fallback.sourceQueue,
+        agents: fallback.agents.map((agent) => ({ ...agent, status: "done" })),
+        kanban: fallback.kanban,
+        timeline: fallback.timeline,
+        final_answer: finalAnswer,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", run.id)
+      .eq("workspace_id", workspace.id)
+      .select("*")
+      .single();
+
+    if (updateError) return apiError("koffice_run_update_failed", updateError.message, 400);
+    return apiOk({ run: updatedRun, research: fallback, finalAnswer, provider: "public_sources", available: false });
   }
 
   try {
@@ -176,16 +291,63 @@ export async function POST(req: Request) {
       }),
     });
 
+    const research = {
+      ...object,
+      sourceQueue: object.sourceQueue.length ? object.sourceQueue : sources,
+    };
+    const finalAnswer = buildFinalAnswer(research);
+    const { data: updatedRun, error: updateError } = await supabase
+      .from("creator_koffice_runs")
+      .update({
+        status: "complete",
+        active_step: research.timeline.length,
+        provider: "google",
+        research,
+        source_queue: research.sourceQueue,
+        agents: research.agents.map((agent) => ({ ...agent, status: "done" })),
+        kanban: research.kanban,
+        timeline: research.timeline,
+        final_answer: finalAnswer,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", run.id)
+      .eq("workspace_id", workspace.id)
+      .select("*")
+      .single();
+
+    if (updateError) return apiError("koffice_run_update_failed", updateError.message, 400);
+
     return apiOk({
-      research: {
-        ...object,
-        sourceQueue: object.sourceQueue.length ? object.sourceQueue : sources,
-      },
+      run: updatedRun,
+      research,
+      finalAnswer,
       provider: "google",
       available: true,
     });
   } catch (error) {
     const warning = error instanceof Error ? error.message : "Gemini synthesis failed.";
-    return apiOk({ research: fallback, provider: "public_sources", available: false, warning });
+    const finalAnswer = buildFinalAnswer(fallback);
+    const { data: updatedRun, error: updateError } = await supabase
+      .from("creator_koffice_runs")
+      .update({
+        status: "complete",
+        active_step: fallback.timeline.length,
+        provider: "public_sources",
+        research: fallback,
+        source_queue: fallback.sourceQueue,
+        agents: fallback.agents.map((agent) => ({ ...agent, status: "done" })),
+        kanban: fallback.kanban,
+        timeline: fallback.timeline,
+        final_answer: finalAnswer,
+        error_message: warning,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", run.id)
+      .eq("workspace_id", workspace.id)
+      .select("*")
+      .single();
+
+    if (updateError) return apiError("koffice_run_update_failed", updateError.message, 400);
+    return apiOk({ run: updatedRun, research: fallback, finalAnswer, provider: "public_sources", available: false, warning });
   }
 }

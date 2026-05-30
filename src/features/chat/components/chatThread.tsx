@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useRef } from "react";
-import { Bot, Check, Loader2, ShieldCheck, Sparkles, UserRound, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUp, Bot, Check, Loader2, ShieldCheck, Sparkles, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -167,7 +167,7 @@ function AssistantContent({
 
   const question = parseQuestion(content);
   if (question) {
-    return <QuestionCard question={question.question} options={question.options} onAnswer={onAnswer} />;
+    return <QuestionCard question={question.question} recommendation={question.recommendation} options={question.options} onAnswer={onAnswer} />;
   }
 
   const blocks = parseBlocks(content);
@@ -176,6 +176,7 @@ function AssistantContent({
 
 function parseQuestion(content: string) {
   const lines = content.replace(/\r\n/g, "\n").split("\n").map((line) => line.trim()).filter(Boolean);
+  const recommendationLine = lines.find((line) => /^recommendation:/i.test(line));
   const questionLine = lines.find((line) => /^question:/i.test(line));
   const optionsIndex = lines.findIndex((line) => /^options:?$/i.test(line));
   if (!questionLine || optionsIndex === -1) return null;
@@ -187,22 +188,45 @@ function parseQuestion(content: string) {
     .slice(0, 4);
 
   if (!options.length) return null;
-  return { question: questionLine.replace(/^question:\s*/i, "").trim(), options };
+  return {
+    recommendation: recommendationLine?.replace(/^recommendation:\s*/i, "").trim() || options[0],
+    question: questionLine.replace(/^question:\s*/i, "").trim(),
+    options,
+  };
 }
 
 function QuestionCard({
   question,
+  recommendation,
   options,
   onAnswer,
 }: {
   question: string;
+  recommendation?: string;
   options: string[];
   onAnswer: (text: string) => void;
 }) {
+  const [custom, setCustom] = useState("");
+  const recommended = recommendation || options[0];
+
+  function sendCustom() {
+    const value = custom.trim();
+    if (!value) return;
+    onAnswer(value);
+    setCustom("");
+  }
+
   return (
-    <div className="space-y-3">
-      <p className="text-base font-semibold text-foreground">{question}</p>
-      <div className="divide-y divide-border rounded-2xl border border-border bg-card">
+    <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
+      <div className="space-y-2">
+        <p className="text-base font-semibold text-foreground">{question}</p>
+        {recommended ? (
+          <div className="rounded-xl border border-accent/20 bg-accent/10 px-3 py-2 text-sm leading-6 text-foreground">
+            <span className="font-semibold">Suggested:</span> {recommended}
+          </div>
+        ) : null}
+      </div>
+      <div className="divide-y divide-border rounded-2xl border border-border bg-background">
         {options.map((option, index) => (
           <button
             key={option}
@@ -216,6 +240,24 @@ function QuestionCard({
             <span className="font-medium text-foreground/90">{option}</span>
           </button>
         ))}
+        <div className="flex items-end gap-2 p-3">
+          <textarea
+            value={custom}
+            rows={1}
+            onChange={(event) => setCustom(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                sendCustom();
+              }
+            }}
+            placeholder="Something else..."
+            className="max-h-24 min-h-9 flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-5 outline-none placeholder:text-muted-foreground"
+          />
+          <Button size="icon" onClick={sendCustom} disabled={!custom.trim()} aria-label="Send custom answer">
+            <ArrowUp className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );

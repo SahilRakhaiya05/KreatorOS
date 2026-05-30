@@ -70,7 +70,21 @@
   }
 
   function extractUsernameFromText(value) {
+    if (!value) return null;
     const text = normalizeWhitespace(value);
+    
+    // Look for parenthesized @username or username (e.g. "(@sahilrakhaiya05)")
+    const parenMatch = text.match(/\(\s*@?([A-Za-z0-9._]{1,30})\s*\)/);
+    if (parenMatch?.[1] && parenMatch[1].toLowerCase() !== "instagram") {
+      return parenMatch[1];
+    }
+
+    // Look for any "@username" mention
+    const atMatch = text.match(/(?:^|\s)@([A-Za-z0-9._]{1,30})/);
+    if (atMatch?.[1] && atMatch[1].toLowerCase() !== "instagram") {
+      return atMatch[1];
+    }
+
     const patterns = [
       /^@?([A-Za-z0-9._]{1,30})\s+on Instagram/i,
       /Instagram\s+photo\s+by\s+@?([A-Za-z0-9._]{1,30})/i,
@@ -81,7 +95,7 @@
 
     for (const pattern of patterns) {
       const match = text.match(pattern);
-      if (match?.[1]) return match[1];
+      if (match?.[1] && match[1].toLowerCase() !== "instagram") return match[1];
     }
     return null;
   }
@@ -90,26 +104,50 @@
     const story = getStoryInfoFromUrl();
     if (story?.username) return story.username;
 
-    // Prioritize the dynamically updated document title and DOM content
-    const candidates = [
+    // 1. Scan page title or metadata text FIRST, since Instagram includes it there
+    const titleCandidates = [
       document.title,
       getMetaBySelector('meta[property="og:title"]'),
       getMetaBySelector('meta[name="twitter:title"]')
     ];
 
-    for (const candidate of candidates) {
+    for (const candidate of titleCandidates) {
       const username = extractUsernameFromText(candidate);
       if (username) return username;
     }
 
-    const visibleCandidates = Array.from(document.querySelectorAll('header a[href^="/"], article a[href^="/"]'))
-      .map((a) => ({ text: normalizeWhitespace(a.textContent), href: a.getAttribute("href") }))
-      .filter((item) => item.href && /^\/[^/]+\/?$/.test(item.href))
-      .map((item) => item.text || item.href.replaceAll("/", ""))
-      .filter(Boolean)
-      .filter((value) => !["explore", "reels", "direct", "accounts", "p", "reel"].includes(value.toLowerCase()));
+    // 2. Scan DOM links inside article or main or whole page to find profile links
+    const domCandidates = Array.from(document.querySelectorAll('a[href]'))
+      .map((a) => {
+        try {
+          const hrefAttr = a.getAttribute("href");
+          if (!hrefAttr) return null;
+          const url = new URL(hrefAttr, window.location.origin);
+          const parts = url.pathname.split("/").filter(Boolean);
+          if (parts.length === 1) {
+            const username = parts[0];
+            if (/^[A-Za-z0-9._]{1,30}$/.test(username)) {
+              const lower = username.toLowerCase();
+              const systemPaths = [
+                "explore", "reels", "reel", "p", "tv", "stories", "accounts", "emails", 
+                "developer", "about", "blog", "jobs", "help", "api", "privacy", "terms", 
+                "directory", "suggested", "login", "signup"
+              ];
+              if (!systemPaths.includes(lower)) {
+                return username;
+              }
+            }
+          }
+        } catch (e) {}
+        return null;
+      })
+      .filter(Boolean);
 
-    return visibleCandidates[0] || null;
+    if (domCandidates.length > 0) {
+      return domCandidates[0];
+    }
+
+    return null;
   }
 
   function getLikelyCaption() {

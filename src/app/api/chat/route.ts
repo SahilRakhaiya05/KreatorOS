@@ -102,7 +102,7 @@ export async function POST(req: Request) {
               page?.id
                 ? supabase
                     .from("digital_products")
-                    .select("id, title, status, price_cents, slug")
+                    .select("id, title, status, price_cents, slug, show_on_bio, show_on_shop")
                     .eq("page_id", page.id)
                     .order("created_at", { ascending: false })
                     .limit(20)
@@ -187,16 +187,21 @@ export async function POST(req: Request) {
           },
         }),
         propose_offer_creation: tool({
-          description: "Propose creating a new offer (product, booking, membership, course) for the creator's page. This will queue it in the dashboard approval queue.",
+          description: "Propose creating a new offer (product, booking, membership, course) for the creator's page. Approved offers are published to the Smart Link preview and Store by default, then queued in the dashboard approval queue.",
           inputSchema: z.object({
             type: z.enum(["product", "booking", "membership", "course", "service", "lead_magnet"]),
             title: z.string(),
             priceCents: z.number().int().min(0),
             description: z.string().optional(),
             slug: z.string().optional(),
+            currency: z.string().min(3).max(3).optional(),
+            status: z.enum(["draft", "published", "paused", "archived"]).optional(),
+            showOnBio: z.boolean().optional(),
+            showOnShop: z.boolean().optional(),
+            coverImageUrl: z.string().optional(),
             config: z.record(z.string(), z.any()).optional(),
           }),
-          execute: async ({ type, title, priceCents, description, slug, config }) => {
+          execute: async ({ type, title, priceCents, description, slug, currency, status, showOnBio, showOnShop, coverImageUrl, config }) => {
             const supabase = await createSupabaseServerClient();
             
             const { data: page } = await supabase
@@ -225,6 +230,11 @@ export async function POST(req: Request) {
                       priceCents,
                       description,
                       slug: offerSlug,
+                      currency: currency ?? "usd",
+                      status: status ?? "published",
+                      showOnBio: typeof showOnBio === "boolean" ? showOnBio : true,
+                      showOnShop: typeof showOnShop === "boolean" ? showOnShop : true,
+                      coverImageUrl,
                       config: config || {},
                     }
                   ]
@@ -238,7 +248,7 @@ export async function POST(req: Request) {
             return {
               status: "queued_for_approval",
               suggestionId: suggestion.id,
-              message: `The proposed offer "${title}" has been successfully queued for approval (ID: ${suggestion.id}, risk: ${suggestion.risk_level}). The creator must approve it in their agents dashboard before it goes live.`
+              message: `The proposed offer "${title}" is queued for approval (ID: ${suggestion.id}, risk: ${suggestion.risk_level}). After approval it will appear in the Smart Link preview and Store automatically.`
             };
           },
         }),

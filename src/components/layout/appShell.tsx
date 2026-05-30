@@ -13,7 +13,7 @@ import {
   Sparkles,
   UserRound,
 } from "lucide-react";
-import { nav } from "@/shared/mock/data";
+import { nav } from "@/components/layout/navConfig";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/features/auth/server/actions";
 import { Button } from "@/components/ui/button";
@@ -238,7 +238,7 @@ export function AppShell({ role, children }: { role: Role; children: React.React
             </div>
             <div className="flex flex-col gap-1">
               <NavLink
-                href={`/${role}/settings`}
+                href={role === "creator" ? "/creator/link/settings" : `/${role}/settings`}
                 label="Settings"
                 icon={Settings}
                 collapsed={collapsed}
@@ -279,9 +279,11 @@ export function AppShell({ role, children }: { role: Role; children: React.React
                 </Sheet>
 
                 <div className="ml-auto flex items-center gap-2">
-                  <Button asChild variant="default" size="sm" className="hidden sm:inline-flex">
-                    <Link href={livePageHref}>Live page</Link>
-                  </Button>
+                  {role === "creator" && (
+                    <Button asChild variant="default" size="sm" className="hidden sm:inline-flex">
+                      <Link href={livePageHref}>Live page</Link>
+                    </Button>
+                  )}
                   <Button variant="outline" size="icon" className="relative">
                     <Bell className="h-[18px] w-[18px]" />
                     <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-accent" />
@@ -306,7 +308,7 @@ export function AppShell({ role, children }: { role: Role; children: React.React
                         <Link href="/profile/settings"><UserRound className="h-4 w-4" /> Profile</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href={`/${role}/settings`}><Settings className="h-4 w-4" /> Settings</Link>
+                        <Link href={role === "creator" ? "/creator/link/settings" : `/${role}/settings`}><Settings className="h-4 w-4" /> Settings</Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>

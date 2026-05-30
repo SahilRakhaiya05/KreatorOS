@@ -1,18 +1,31 @@
 import { AppShell, PageHeader } from "@/components/layout/appShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { agents } from "@/shared/mock/data";
-import { ShieldCheck, Sparkles } from "lucide-react";
+import {
+  Wand2, Gift, Calendar, Mic, Handshake, Inbox, Rocket, ShieldCheck, Sparkles
+} from "lucide-react";
 import { requireUser } from "@/server/profile/profileService";
 import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
 import { AssistantConfigClient } from "@/features/assistant/components/assistantConfigClient";
+import { BrandAssistantConfigClient } from "@/features/assistant/components/brandAssistantConfigClient";
 import { AgentCreateClient } from "@/features/agents/components/agentCreateClient";
 import { ApprovalQueueDashboard } from "@/features/agents/components/approvalQueueDashboard";
 
-type Status = (typeof agents)[number]["status"] | "Active";
+const staticAgents = [
+  { name: "Business Setup Agent", icon: Wand2, status: "Active", scope: "Creates workspace, page, brand tone, default offers", tools: ["create_profile", "create_page", "write_copy", "create_theme"] },
+  { name: "Offer & Pricing Agent", icon: Gift, status: "Active", scope: "Suggests products, calls, bundles, course, membership tiers", tools: ["create_product", "create_booking", "create_bundle", "pricing_test"] },
+  { name: "Booking Agent", icon: Calendar, status: "Active", scope: "Routing forms, availability, payments, reminders, reschedules", tools: ["check_availability", "create_event", "send_reminder", "reschedule"] },
+  { name: "Research Interview Agent", icon: Mic, status: "Beta", scope: "Askiva-like customer discovery interviews and summaries", tools: ["import_participants", "send_invite", "join_zoom", "summarize_transcript"] },
+  { name: "Brand Deal Agent", icon: Handshake, status: "Active", scope: "Media kit, outreach, proposals, deliverables, reports", tools: ["create_media_kit", "draft_pitch", "generate_contract", "campaign_report"] },
+  { name: "Support Agent", icon: Inbox, status: "Draft", scope: "Answers access questions and drafts support replies", tools: ["lookup_order", "grant_access", "draft_reply", "escalate_refund"] },
+  { name: "Growth Agent", icon: Rocket, status: "Active", scope: "Conversion insights, A/B tests, retargeting workflows", tools: ["analyze_funnel", "create_ab_test", "rewrite_cta", "launch_campaign"] },
+  { name: "Compliance Guard", icon: ShieldCheck, status: "Always on", scope: "Approvals, permission checks, audit logs, provider policy", tools: ["policy_check", "approval_request", "audit_log", "revoke_action"] },
+];
 
-const statusVariant: Record<string, "success" | "accent" | "default" | "secondary"> = {
+type Status = "Active" | "Beta" | "Always on" | "Draft";
+
+const statusVariant: Record<Status, "success" | "accent" | "default" | "secondary"> = {
   Active: "success",
   Beta: "accent",
   "Always on": "default",
@@ -20,7 +33,7 @@ const statusVariant: Record<string, "success" | "accent" | "default" | "secondar
 };
 
 export default async function Page() {
-  const { user, profile } = await requireUser();
+  const { user } = await requireUser();
   const workspace = await getActiveWorkspace(user.id);
   const supabase = await createSupabaseServerClient();
 
@@ -80,16 +93,15 @@ export default async function Page() {
     { label: "Recommendations", value: recommendationCount ?? 0, detail: "Offer suggestions tracked" },
   ];
 
-
   const customAgentsMapped = (dbAgents || []).map((agent) => ({
     name: agent.name,
     icon: Sparkles,
-    status: "Active",
+    status: "Active" as const,
     scope: agent.scope || agent.description || "Custom configured assistant agent.",
     tools: agent.tools || [],
   }));
 
-  const allAgents = [...customAgentsMapped, ...agents];
+  const allAgents = [...customAgentsMapped, ...staticAgents];
 
   return (
     <AppShell role="creator">
@@ -99,7 +111,12 @@ export default async function Page() {
         description="Agents are app-native workers with tools, memory, permissions, and approval rules. They can read the business graph, draft actions, call provider adapters, and execute only within their scope."
         action={<AgentCreateClient />}
       />
-      <AssistantConfigClient workspaceId={workspace?.id ?? ""} pageId={page?.id ?? null} assistant={assistant} />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <AssistantConfigClient workspaceId={workspace?.id ?? ""} pageId={page?.id ?? null} assistant={assistant} />
+        <BrandAssistantConfigClient />
+      </div>
+
       <div className="mb-6 grid gap-3 md:grid-cols-4">
         {assistantMetrics.map((metric) => (
           <Card key={metric.label}>
@@ -111,6 +128,7 @@ export default async function Page() {
           </Card>
         ))}
       </div>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {allAgents.map((agent) => {
           const Icon = agent.icon;
@@ -140,6 +158,7 @@ export default async function Page() {
           );
         })}
       </div>
+
       <Card className="mt-6">
         <CardContent className="p-5">
           <div className="mb-4 flex items-center justify-between gap-3">

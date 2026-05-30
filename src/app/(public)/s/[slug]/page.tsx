@@ -56,8 +56,21 @@ export default async function ShortLinkPage({ params }: { params: Promise<{ slug
         // Safe fallback for analytics issues
       }
 
-      // 4. Redirect browser to destination url
-      redirect(link.destination_url);
+      // 4. Redirect browser to destination or storefront with custom theme
+      if (link.metadata?.is_storefront_override) {
+        let creatorSlug = "creator";
+        const { data: pg } = await supabase
+          .from("creator_pages")
+          .select("username, slug")
+          .eq("workspace_id", link.workspace_id)
+          .maybeSingle();
+        if (pg) {
+          creatorSlug = pg.username || pg.slug || creatorSlug;
+        }
+        redirect(`/u/${creatorSlug}?link_theme=${link.slug}`);
+      } else {
+        redirect(link.destination_url);
+      }
     }
   } catch (err: any) {
     if (err.message === "NEXT_REDIRECT") {

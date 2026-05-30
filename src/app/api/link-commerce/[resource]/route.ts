@@ -8,6 +8,7 @@ import {
   linkPageProfileSchema,
   linkProductSchema,
   linkReferralProgramSchema,
+  linkShortLinkSchema,
   linkSocialLinkSchema,
   linkTrackSchema,
 } from "@/server/api/schemas";
@@ -114,6 +115,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
         totalFollowers: body.totalFollowers ?? 0,
         mode: body.themeMode ?? "dark",
         accent: body.themeAccent ?? "coral",
+        custom: body.customTheme ?? null,
       },
       seo: { title: body.displayName, description: body.bio ?? body.headline ?? "" },
     };
@@ -624,6 +626,56 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
     return apiOk({ knowledge: data }, { status: body.id ? 200 : 201 });
   }
 
+  if (resource === "short-links") {
+    const body = await parseJsonBody(req, linkShortLinkSchema);
+    if (isApiResponse(body)) return body;
+
+    let scope;
+    if (body.pageId) {
+      scope = await resolveAccountScope(supabase, user.id, body.pageId, body.workspaceId);
+    } else {
+      const workspace = await getActiveWorkspace(user.id);
+      if (!workspace) return apiError("forbidden", "No active workspace.", 403);
+      scope = { ownerId: user.id, workspaceId: workspace.id };
+    }
+    if (!scope) return apiError("forbidden", "Access denied.", 403);
+
+    const payload = {
+      workspace_id: scope.workspaceId,
+      page_id: body.pageId || null,
+      slug: body.slug,
+      destination_url: body.destinationUrl,
+      campaign_name: body.campaignName || null,
+      source: body.source || null,
+      medium: body.medium || null,
+      is_active: body.isActive ?? true,
+      metadata: body.metadata || {},
+      updated_at: new Date().toISOString(),
+    };
+
+    if (body.id) {
+      const { data, error } = await supabase
+        .from("short_links")
+        .update(payload)
+        .eq("id", body.id)
+        .select("*")
+        .single();
+      if (error) return apiError("short_link_update_failed", error.message, 400);
+      return apiOk({ shortLink: data });
+    }
+
+    const { data, error } = await supabase
+      .from("short_links")
+      .insert({
+        ...payload,
+        click_count: 0,
+      })
+      .select("*")
+      .single();
+    if (error) return apiError("short_link_create_failed", error.message, 400);
+    return apiOk({ shortLink: data }, { status: 201 });
+  }
+
   return apiError("unknown_resource", "Unknown Link Commerce resource.", 404);
 }
 
@@ -701,6 +753,16 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ resou
 
     const { error } = await supabase.from("assistant_knowledge_sources").delete().eq("id", id);
     if (error) return apiError("knowledge_delete_failed", error.message, 400);
+    return apiOk({ deleted: true });
+  }
+
+  if (resource === "short-links") {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) return apiError("missing_id", "Missing short link ID.", 400);
+
+    const { error } = await supabase.from("short_links").delete().eq("id", id);
+    if (error) return apiError("short_link_delete_failed", error.message, 400);
     return apiOk({ deleted: true });
   }
 

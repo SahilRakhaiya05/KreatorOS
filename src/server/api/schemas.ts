@@ -318,6 +318,7 @@ export const linkPageProfileSchema = z.object({
   status: z.enum(["draft", "published", "paused"]).optional(),
   themeMode: z.string().optional(),
   themeAccent: z.string().optional(),
+  customTheme: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const linkSocialLinkSchema = z.object({
@@ -435,3 +436,17 @@ export const linkAiActionSchema = z.object({
   prompt: z.string().optional(),
   context: z.record(z.string(), z.unknown()).default({}),
 });
+
+export const linkShortLinkSchema = z.object({
+  id: z.string().uuid().optional(),
+  workspaceId: z.string().uuid().optional(),
+  pageId: z.string().uuid().optional(),
+  slug: z.string().min(1).regex(/^[a-zA-Z0-9_-]+$/),
+  destinationUrl: z.string().url(),
+  campaignName: z.string().optional().nullable(),
+  source: z.string().optional().nullable(),
+  medium: z.string().optional().nullable(),
+  isActive: z.boolean().default(true),
+  metadata: z.record(z.string(), z.unknown()).default({}),
+});
+

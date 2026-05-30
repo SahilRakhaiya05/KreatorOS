@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState, useRef, useTransition } from "react";
-import { MessageSquare, Send, ShieldCheck, Loader2, RefreshCw, Handshake, Calendar, DollarSign, ListTodo } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  MessageSquare, Send, ShieldCheck, Loader2, RefreshCw, Handshake, 
+  Calendar, DollarSign, ListTodo, Bot, User, Check, ClipboardCheck, AlertCircle
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -11,6 +14,10 @@ type Message = {
   campaign_id: string;
   sender_type: "creator" | "brand" | "system";
   body: string;
+  metadata?: {
+    chat_mode?: "ai" | "human";
+    is_ai?: boolean;
+  };
   created_at: string;
   profiles?: { full_name: string | null; avatar_url: string | null } | null;
 };
@@ -19,15 +26,19 @@ type BrandDeal = {
   id: string;
   brand_name: string;
   contact_name: string | null;
+  contact_email: string | null;
   status: string;
   rate_cents: number;
+  currency: string;
   deliverables: string[];
   due_date: string | null;
+  metadata?: any;
 };
 
 export function BrandCollabRoomClient() {
   const [deals, setDeals] = useState<BrandDeal[]>([]);
   const [selectedDeal, setSelectedDeal] = useState<BrandDeal | null>(null);
+  const [chatMode, setChatMode] = useState<"ai" | "human">("ai");
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [deliverableUrl, setDeliverableUrl] = useState("");
@@ -35,6 +46,12 @@ export function BrandCollabRoomClient() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [isPending, startTransition] = useTransition();
+  
+  // Manual Prerequisite override states
+  const [showOverride, setShowOverride] = useState<string | null>(null);
+  const [overrideValue, setOverrideValue] = useState("");
+  const [updatingPrereq, setUpdatingPrereq] = useState(false);
+
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   async function fetchDeals() {
@@ -74,12 +91,12 @@ export function BrandCollabRoomClient() {
           rateCents: selectedDeal.rate_cents,
           deliverables: selectedDeal.deliverables,
           dueDate: selectedDeal.due_date,
+          metadata: selectedDeal.metadata || {},
         })
       });
       const json = await res.json();
       if (json.ok) {
         setSelectedDeal(prev => prev ? { ...prev, status: newStatus } : null);
-        // Refresh full deal list
         fetchDeals();
       }
     } catch (err) {
@@ -97,6 +114,7 @@ export function BrandCollabRoomClient() {
           campaignId: selectedDeal.id,
           body: bodyText,
           senderType,
+          chatMode,
         }),
       });
     } catch (err) {
@@ -145,6 +163,55 @@ export function BrandCollabRoomClient() {
     }
   }
 
+  const handleUpdatePrereqValue = async (field: string) => {
+    if (!selectedDeal || updatingPrereq) return;
+    setUpdatingPrereq(true);
+
+    const currentMeta = selectedDeal.metadata || {};
+    const updatedPrereqs = currentMeta.prerequisites || {
+      media_kit: null,
+      rate: null,
+      audience: null,
+      delivery_date: null,
+      status: {
+        media_kit: "pending",
+        rate: "pending",
+        audience: "pending",
+        delivery_date: "pending"
+      }
+    };
+
+    updatedPrereqs[field] = overrideValue.trim() || null;
+    updatedPrereqs.status[field] = overrideValue.trim() ? "submitted" : "pending";
+    currentMeta.prerequisites = updatedPrereqs;
+
+    try {
+      const response = await fetch("/api/creator/brand-deals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedDeal.id,
+          brandName: selectedDeal.brand_name,
+          status: selectedDeal.status,
+          rateCents: selectedDeal.rate_cents,
+          dueDate: selectedDeal.due_date,
+          metadata: currentMeta,
+        }),
+      });
+      const result = await response.json();
+      if (result.ok) {
+        setSelectedDeal(prev => prev ? { ...prev, metadata: currentMeta } : null);
+        fetchDeals();
+        setShowOverride(null);
+        setOverrideValue("");
+      }
+    } catch {
+      alert("Failed to save parameter.");
+    } finally {
+      setUpdatingPrereq(false);
+    }
+  };
+
   useEffect(() => {
     fetchDeals();
   }, []);
@@ -159,7 +226,7 @@ export function BrandCollabRoomClient() {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, chatMode]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,13 +243,13 @@ export function BrandCollabRoomClient() {
         body: JSON.stringify({
           campaignId: selectedDeal.id,
           body: userMessage,
-          senderType: "creator",
+          senderType: "brand", // Sending as the brand manager
+          chatMode: chatMode,
         }),
       });
 
       const json = await res.json();
       if (json.ok) {
-        // Fetch all messages to refresh both creator's and brand AI's response
         fetchMessages(selectedDeal.id);
       } else {
         alert(json.error?.message || "Failed to send message.");
@@ -193,6 +260,33 @@ export function BrandCollabRoomClient() {
       setSending(false);
     }
   };
+
+  // Extract prerequisites from selected deal metadata
+  const prereqs = selectedDeal?.metadata?.prerequisites || {
+    media_kit: null,
+    rate: null,
+    audience: null,
+    delivery_date: null,
+    status: {
+      media_kit: "pending",
+      rate: "pending",
+      audience: "pending",
+      delivery_date: "pending"
+    }
+  };
+
+  const isMediaKitDone = prereqs.status.media_kit === "submitted";
+  const isRateDone = prereqs.status.rate === "submitted";
+  const isAudienceDone = prereqs.status.audience === "submitted";
+  const isTimelineDone = prereqs.status.delivery_date === "submitted";
+
+  const allPrereqsDone = isMediaKitDone && isRateDone && isAudienceDone && isTimelineDone;
+
+  // Filter messages based on chat mode (AI autopilot history vs Human direct chat)
+  const filteredMessages = messages.filter((m) => {
+    const msgMode = m.metadata?.chat_mode || (m.metadata?.is_ai ? "ai" : "human");
+    return msgMode === chatMode;
+  });
 
   if (loadingDeals) {
     return (
@@ -215,7 +309,7 @@ export function BrandCollabRoomClient() {
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[280px_1fr_300px]">
+    <div className="grid gap-6 xl:grid-cols-[260px_1fr_320px]">
       
       {/* Sidebar: Active Deals List */}
       <Card className="flex flex-col border border-border bg-card">
@@ -250,31 +344,48 @@ export function BrandCollabRoomClient() {
       </Card>
 
       {/* Main Chat Thread */}
-      <Card className="flex flex-col overflow-hidden border border-border bg-card min-h-[500px] h-[calc(100vh-14rem)]">
-        <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 py-4 px-5">
+      <Card className="flex flex-col overflow-hidden border border-border bg-card min-h-[520px] h-[calc(100vh-14rem)]">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/40 py-3.5 px-5 gap-3 bg-secondary/5">
           <div>
             <CardTitle className="text-base flex items-center gap-2">
               <MessageSquare className="h-4.5 w-4.5 text-primary" />
               <span>Collab Room: {selectedDeal?.brand_name}</span>
             </CardTitle>
             <p className="text-xs font-semibold text-muted-foreground mt-0.5">
-              Live secure conversation channel with Brand Partner
+              Live collaboration channel with Creator Partner
             </p>
           </div>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => selectedDeal && fetchMessages(selectedDeal.id)}
-            disabled={loadingMessages}
-            className="h-8 w-8 text-muted-foreground"
-          >
-            <RefreshCw className={`h-4 w-4 ${loadingMessages ? "animate-spin" : ""}`} />
-          </Button>
+          
+          {/* Stunning Toggle Switch */}
+          <div className="flex items-center bg-secondary p-1 rounded-xl border border-border shadow-inner shrink-0 w-fit">
+            <button
+              onClick={() => setChatMode("ai")}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black transition-all duration-200 ${
+                chatMode === "ai"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Bot className="h-3 w-3" />
+              <span>AI Autopilot</span>
+            </button>
+            <button
+              onClick={() => setChatMode("human")}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black transition-all duration-200 ${
+                chatMode === "human"
+                  ? "bg-accent text-accent-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <User className="h-3 w-3" />
+              <span>Direct Chat</span>
+            </button>
+          </div>
         </CardHeader>
 
         {/* Dynamic Sponsorship Escrow & Milestone Controller */}
         {selectedDeal && (
-          <div className="border-b border-border/40 bg-secondary/10 px-5 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="border-b border-border/40 bg-secondary/10 px-5 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <Handshake className="h-3.5 w-3.5 text-primary animate-pulse" /> Active Milestone Action Card
@@ -282,23 +393,23 @@ export function BrandCollabRoomClient() {
               
               {/* Milestone Details */}
               {selectedDeal.status === "lead" || selectedDeal.status === "pitched" || selectedDeal.status === "replied" || selectedDeal.status === "negotiating" ? (
-                <p className="text-xs font-semibold text-foreground mt-1.5 leading-relaxed">
-                  Brand proposed package rate: <span className="font-mono font-black text-primary">${(selectedDeal.rate_cents / 100).toFixed(2)} USD</span>. Accept sponsorship deliverables package to lock funds.
+                <p className="text-xs font-semibold text-foreground mt-1 leading-relaxed">
+                  Sponsorship package rate: <span className="font-mono font-black text-primary">${(selectedDeal.rate_cents / 100).toFixed(2)} USD</span>. Accept sponsorship deliverables package to lock funds.
                 </p>
               ) : selectedDeal.status === "approved" ? (
-                <p className="text-xs font-semibold text-foreground mt-1.5 leading-relaxed">
+                <p className="text-xs font-semibold text-foreground mt-1 leading-relaxed">
                   Sponsorship Escrow secured! Enter your published deliverable video/post draft URL below.
                 </p>
               ) : selectedDeal.status === "delivered" ? (
-                <p className="text-xs font-semibold text-foreground mt-1.5 leading-relaxed flex items-center gap-1.5">
+                <p className="text-xs font-semibold text-foreground mt-1 leading-relaxed flex items-center gap-1.5">
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-primary shrink-0" /> Deliverable submitted. Running automated AI brand safety & compliance reviews...
                 </p>
               ) : selectedDeal.status === "paid" ? (
-                <p className="text-xs font-bold text-emerald-500 mt-1.5 leading-relaxed flex items-center gap-1.5">
-                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500 animate-bounce" /> Sponsorship funds securely released and settled in your Creator Wallet!
+                <p className="text-xs font-bold text-emerald-500 mt-1 leading-relaxed flex items-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500 animate-bounce" /> Sponsorship funds securely released and settled in Creator Wallet!
                 </p>
               ) : (
-                <p className="text-xs font-semibold text-muted-foreground mt-1.5 leading-relaxed">
+                <p className="text-xs font-semibold text-muted-foreground mt-1 leading-relaxed">
                   Current campaign stage: <span className="font-bold text-foreground">{selectedDeal.status}</span>.
                 </p>
               )}
@@ -318,7 +429,7 @@ export function BrandCollabRoomClient() {
                   <Button 
                     size="sm" 
                     variant="outline" 
-                    onClick={() => alert("Counter proposed. Let the brand rep know in the chat your ideal rate.")}
+                    onClick={() => alert("Counter proposed. Let the creator know in the chat your ideal rate.")}
                     className="font-bold border-border/80 h-9"
                   >
                     Counter
@@ -357,37 +468,56 @@ export function BrandCollabRoomClient() {
             <div className="flex h-full items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
-          ) : messages.length === 0 ? (
+          ) : filteredMessages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center text-slate-400">
-              <MessageSquare className="h-10 w-10 text-muted-foreground/40 mb-3" />
-              <p className="text-sm font-semibold text-foreground">Welcome to your shared collaboration room</p>
-              <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-                Send a message to kick off negotiations. Your Brand Partner's AI Representative will respond dynamically.
-              </p>
+              {chatMode === "ai" ? (
+                <>
+                  <Bot className="h-10 w-10 text-muted-foreground/40 mb-3 animate-pulse" />
+                  <p className="text-sm font-semibold text-foreground font-black">AI Onboarding History</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">
+                    View the intake details collected by your Brand AI Agent from the Creator.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <User className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                  <p className="text-sm font-semibold text-foreground font-black">Direct Messages Channel</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">
+                    You have complete control. Chat directly with the creator here to finalize parameters or build rapport.
+                  </p>
+                </>
+              )}
             </div>
           ) : (
-            messages.map((m) => {
+            filteredMessages.map((m) => {
               const isCreator = m.sender_type === "creator";
               const isBrand = m.sender_type === "brand";
               
               return (
-                <div key={m.id} className={`flex ${isCreator ? "justify-end" : "justify-start"}`}>
+                <div key={m.id} className={`flex ${isCreator ? "justify-start" : "justify-end"}`}>
                   <div
-                    className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
+                    className={`max-w-[78%] rounded-2xl px-4 py-3 text-xs leading-relaxed shadow-sm ${
                       isCreator
-                        ? "bg-primary text-primary-foreground rounded-tr-none"
+                        ? "bg-card text-foreground border border-border/40 rounded-tl-none border-l-4 border-l-primary"
                         : isBrand
-                        ? "bg-card text-foreground ring-1 ring-border rounded-tl-none border-l-4 border-l-violet-500"
-                        : "bg-amber-500/10 text-amber-900 border border-amber-500/20 text-xs italic text-center mx-auto"
+                        ? (chatMode === "ai" 
+                            ? "bg-primary text-primary-foreground rounded-tr-none" 
+                            : "bg-accent text-accent-foreground rounded-tr-none")
+                        : "bg-amber-500/10 text-amber-955 border border-amber-500/20 text-[10px] italic text-center mx-auto rounded-xl"
                     }`}
                   >
-                    {!isCreator && !isPending && (
-                      <p className="text-[10px] font-black tracking-wider uppercase text-violet-500 mb-1">
-                        {isBrand ? `${selectedDeal?.brand_name} Rep` : "System"}
+                    {isCreator && (
+                      <p className="text-[9px] font-black tracking-wider uppercase text-primary mb-1">
+                        Creator Partner
                       </p>
                     )}
-                    <p className="font-semibold text-xs leading-6">{m.body}</p>
-                    <p className="text-[9px] opacity-70 mt-1.5 text-right font-mono">
+                    {!isCreator && isBrand && (
+                      <p className="text-[9px] font-black tracking-wider uppercase opacity-75 mb-1">
+                        {chatMode === "ai" ? "Brand AI Agent (Me)" : "Brand Rep (Me)"}
+                      </p>
+                    )}
+                    <p className="font-semibold leading-relaxed">{m.body}</p>
+                    <p className="text-[8px] opacity-75 mt-1 text-right font-mono">
                       {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
@@ -404,10 +534,21 @@ export function BrandCollabRoomClient() {
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             disabled={sending}
-            placeholder={`Reply to ${selectedDeal?.brand_name || "brand"}...`}
-            className="flex-1 h-11 px-4 text-sm font-semibold rounded-xl border border-input bg-background outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-4 focus:ring-primary/10"
+            placeholder={
+              chatMode === "ai"
+                ? "Bypassed in AI Autopilot mode..." 
+                : "Type your response to the creator..."
+            }
+            readOnly={chatMode === "ai"}
+            className="flex-1 h-11 px-4 text-xs font-semibold rounded-xl border border-input bg-background outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-4 focus:ring-primary/10"
           />
-          <Button type="submit" disabled={sending || !inputText.trim()} className="h-11 px-5 rounded-xl font-bold">
+          <Button 
+            type="submit" 
+            disabled={sending || !inputText.trim() || chatMode === "ai"} 
+            className={`h-11 px-5 rounded-xl font-bold text-xs ${
+              chatMode === "ai" ? "bg-secondary text-muted-foreground" : "bg-accent text-accent-foreground hover:bg-accent/95"
+            }`}
+          >
             {sending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -419,12 +560,12 @@ export function BrandCollabRoomClient() {
         </form>
       </Card>
 
-      {/* Right Sidebar: Campaign Details & Deliverables */}
+      {/* Right Sidebar: Campaign Scope & Prerequisites Checklist */}
       <Card className="flex flex-col border border-border bg-card">
         <CardHeader className="pb-3 border-b border-border/40">
           <CardTitle className="text-sm font-black text-foreground">Campaign Scope</CardTitle>
         </CardHeader>
-        <CardContent className="flex-1 p-4 space-y-5">
+        <CardContent className="flex-1 p-4 space-y-5 overflow-y-auto">
           <div>
             <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Handshake className="h-3.5 w-3.5 text-primary" /> Sponsor Status
@@ -444,13 +585,180 @@ export function BrandCollabRoomClient() {
             <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
               <DollarSign className="h-3.5 w-3.5 text-emerald-500" /> Agreed Package Rate
             </h4>
-            <p className="text-lg font-black text-foreground mt-1.5 font-mono">
-              ${selectedDeal ? (selectedDeal.rate_cents / 100).toFixed(2) : "0.00"} <span className="text-xs text-muted-foreground font-sans">USD</span>
+            <p className="text-lg font-black text-foreground mt-1 font-mono">
+              ${selectedDeal ? (selectedDeal.rate_cents / 100).toFixed(2) : "0.00"} <span className="text-xs text-muted-foreground font-sans text-xs">USD</span>
             </p>
           </div>
 
+          {/* Synced Prerequisites Checklist */}
+          <div className="space-y-3.5 pt-3.5 border-t border-border/40">
+            <div className="flex items-center justify-between">
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <ClipboardCheck className="h-3.5 w-3.5 text-primary" /> Onboarding Parameters
+              </h4>
+              <Badge variant="outline" className="text-[9px] bg-secondary border-none">
+                {[isMediaKitDone, isRateDone, isAudienceDone, isTimelineDone].filter(Boolean).length}/4
+              </Badge>
+            </div>
+
+            <div className="space-y-2">
+              {/* Media Kit */}
+              <div className="rounded-xl border border-border/40 p-2.5 bg-secondary/15 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 font-bold text-foreground/80">
+                    <div className={`grid h-4 w-4 place-items-center rounded-full ${isMediaKitDone ? "bg-emerald-500/10 text-emerald-500" : "bg-secondary text-muted-foreground"}`}>
+                      {isMediaKitDone ? <Check className="h-2.5 w-2.5 stroke-[3]" /> : <span className="text-[8px]">1</span>}
+                    </div>
+                    Media Kit URL
+                  </span>
+                  <button 
+                    onClick={() => {
+                      setShowOverride("media_kit");
+                      setOverrideValue(prereqs.media_kit || "");
+                    }}
+                    className="text-[9px] font-black text-primary hover:underline uppercase"
+                  >
+                    Override
+                  </button>
+                </div>
+                {prereqs.media_kit ? (
+                  <p className="mt-1.5 text-[10px] font-mono text-muted-foreground truncate bg-card px-2 py-1 rounded border border-border/40">
+                    {prereqs.media_kit}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[9px] italic text-muted-foreground">Pending creator submission</p>
+                )}
+              </div>
+
+              {/* Rate */}
+              <div className="rounded-xl border border-border/40 p-2.5 bg-secondary/15 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 font-bold text-foreground/80">
+                    <div className={`grid h-4 w-4 place-items-center rounded-full ${isRateDone ? "bg-emerald-500/10 text-emerald-500" : "bg-secondary text-muted-foreground"}`}>
+                      {isRateDone ? <Check className="h-2.5 w-2.5 stroke-[3]" /> : <span className="text-[8px]">2</span>}
+                    </div>
+                    Proposed Rate
+                  </span>
+                  <button 
+                    onClick={() => {
+                      setShowOverride("rate");
+                      setOverrideValue(prereqs.rate || "");
+                    }}
+                    className="text-[9px] font-black text-primary hover:underline uppercase"
+                  >
+                    Override
+                  </button>
+                </div>
+                {prereqs.rate ? (
+                  <p className="mt-1.5 text-[10px] font-mono text-muted-foreground truncate bg-card px-2 py-1 rounded border border-border/40">
+                    {prereqs.rate}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[9px] italic text-muted-foreground">Pending creator submission</p>
+                )}
+              </div>
+
+              {/* Audience */}
+              <div className="rounded-xl border border-border/40 p-2.5 bg-secondary/15 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 font-bold text-foreground/80">
+                    <div className={`grid h-4 w-4 place-items-center rounded-full ${isAudienceDone ? "bg-emerald-500/10 text-emerald-500" : "bg-secondary text-muted-foreground"}`}>
+                      {isAudienceDone ? <Check className="h-2.5 w-2.5 stroke-[3]" /> : <span className="text-[8px]">3</span>}
+                    </div>
+                    Audience Niche
+                  </span>
+                  <button 
+                    onClick={() => {
+                      setShowOverride("audience");
+                      setOverrideValue(prereqs.audience || "");
+                    }}
+                    className="text-[9px] font-black text-primary hover:underline uppercase"
+                  >
+                    Override
+                  </button>
+                </div>
+                {prereqs.audience ? (
+                  <p className="mt-1.5 text-[10px] font-semibold text-muted-foreground truncate bg-card px-2 py-1 rounded border border-border/40">
+                    {prereqs.audience}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[9px] italic text-muted-foreground">Pending creator submission</p>
+                )}
+              </div>
+
+              {/* Delivery Date */}
+              <div className="rounded-xl border border-border/40 p-2.5 bg-secondary/15 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 font-bold text-foreground/80">
+                    <div className={`grid h-4 w-4 place-items-center rounded-full ${isTimelineDone ? "bg-emerald-500/10 text-emerald-500" : "bg-secondary text-muted-foreground"}`}>
+                      {isTimelineDone ? <Check className="h-2.5 w-2.5 stroke-[3]" /> : <span className="text-[8px]">4</span>}
+                    </div>
+                    Timeline/Deadline
+                  </span>
+                  <button 
+                    onClick={() => {
+                      setShowOverride("delivery_date");
+                      setOverrideValue(prereqs.delivery_date || "");
+                    }}
+                    className="text-[9px] font-black text-primary hover:underline uppercase"
+                  >
+                    Override
+                  </button>
+                </div>
+                {prereqs.delivery_date ? (
+                  <p className="mt-1.5 text-[10px] font-semibold text-muted-foreground truncate bg-card px-2 py-1 rounded border border-border/40">
+                    {prereqs.delivery_date}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[9px] italic text-muted-foreground">Pending creator submission</p>
+                )}
+              </div>
+            </div>
+
+            {/* Admin Override Form */}
+            {showOverride && (
+              <div className="rounded-xl border border-dashed border-primary/30 p-3.5 bg-primary/5 space-y-2.5 animate-scale-up">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black text-primary uppercase">
+                    Override {showOverride.replace("_", " ")}
+                  </span>
+                  <button 
+                    onClick={() => {
+                      setShowOverride(null);
+                      setOverrideValue("");
+                    }} 
+                    className="text-[9px] text-muted-foreground hover:text-foreground font-semibold"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={overrideValue}
+                    onChange={(e) => setOverrideValue(e.target.value)}
+                    placeholder={
+                      showOverride === "media_kit" ? "https://..." :
+                      showOverride === "rate" ? "$1,500" :
+                      showOverride === "audience" ? "founders, devs" : "e.g., June 25"
+                    }
+                    className="flex-1 rounded-lg border border-border bg-card px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                  <Button 
+                    size="sm" 
+                    onClick={() => handleUpdatePrereqValue(showOverride)}
+                    disabled={updatingPrereq}
+                    className="h-8 rounded-lg font-bold text-[10px] px-2"
+                  >
+                    {updatingPrereq ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div>
-            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
+            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2 pt-3 border-t border-border/40">
               <ListTodo className="h-3.5 w-3.5 text-primary" /> Deliverables Checklist
             </h4>
             <div className="space-y-1.5">

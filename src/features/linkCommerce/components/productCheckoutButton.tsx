@@ -4,13 +4,22 @@ import { useState, useTransition } from "react";
 import { ShoppingBag } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function ProductCheckoutButton({
   workspaceId,
   offerId,
+  buttonClass = "h-12 w-full rounded-2xl bg-rose-400 text-zinc-950 hover:bg-rose-300 font-semibold flex items-center justify-center gap-2",
+  buttonStyle,
+  focusClass = "focus:border-rose-300/50",
+  isLight = false,
 }: {
   workspaceId: string;
   offerId?: string | null;
+  buttonClass?: string;
+  buttonStyle?: React.CSSProperties;
+  focusClass?: string;
+  isLight?: boolean;
 }) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -52,9 +61,21 @@ export function ProductCheckoutButton({
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         placeholder="Email for receipt and access"
-        className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-sm font-semibold text-white outline-none placeholder:text-zinc-600 focus:border-rose-300/50"
+        className={cn(
+          "h-12 w-full rounded-2xl border px-4 text-sm font-semibold outline-none",
+          isLight
+            ? "border-zinc-200 bg-white text-zinc-900 placeholder:text-zinc-400"
+            : "border-white/10 bg-black/25 text-white placeholder:text-zinc-500",
+          focusClass
+        )}
       />
-      <Button type="button" onClick={startCheckout} disabled={isPending} className="h-12 w-full rounded-2xl bg-rose-400 text-zinc-950 hover:bg-rose-300">
+      <Button
+        type="button"
+        onClick={startCheckout}
+        disabled={isPending}
+        className={cn(buttonClass)}
+        style={buttonStyle}
+      >
         <ShoppingBag className="h-4 w-4" /> {isPending ? "Starting..." : "Start checkout"}
       </Button>
       {message ? <p className="text-sm font-semibold text-zinc-400">{message}</p> : null}

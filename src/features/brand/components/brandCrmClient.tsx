@@ -10,6 +10,7 @@ import {
   Loader2, Trash2, Calendar, Link as LinkIcon, DollarSign, 
   Award, ArrowUpRight, CheckCircle2, ChevronRight, BarChart
 } from "lucide-react";
+import { BrandCollabModal } from "./brandCollabModal";
 
 type ShortLink = {
   id: string;
@@ -38,6 +39,7 @@ export function BrandCrmClient() {
   const [saving, setSaving] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<BrandDeal | null>(null);
+  const [selectedCollabDeal, setSelectedCollabDeal] = useState<BrandDeal | null>(null);
 
   // Form Fields
   const [brandName, setBrandName] = useState("");
@@ -304,6 +306,15 @@ export function BrandCrmClient() {
                       <div className="flex items-center gap-1.5 ml-auto">
                         <Button
                           size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedCollabDeal(deal)}
+                          className="h-7 text-[10px] gap-1 px-2 hover:bg-secondary border-accent/25 text-accent"
+                        >
+                          <MessageCircle className="h-3 w-3" />
+                          <span>Collab Room</span>
+                        </Button>
+                        <Button
+                          size="sm"
                           variant="ghost"
                           onClick={() => runAiDraft(deal, "pitch")}
                           className="h-7 text-[10px] gap-1 px-2 hover:bg-secondary"
@@ -520,6 +531,22 @@ export function BrandCrmClient() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Collab Room Modal */}
+      {selectedCollabDeal && (
+        <BrandCollabModal
+          deal={selectedCollabDeal}
+          onClose={() => setSelectedCollabDeal(null)}
+          onUpdateStatus={(dealId, newStatus) => {
+            setDeals((prev) =>
+              prev.map((d) => (d.id === dealId ? { ...d, status: newStatus } : d))
+            );
+            setSelectedCollabDeal((prev) =>
+              prev && prev.id === dealId ? { ...prev, status: newStatus } : prev
+            );
+          }}
+        />
+      )}
     </div>
   );
 }
