@@ -194,6 +194,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
     if (isApiResponse(body)) return body;
     const scope = await resolveAccountScope(supabase, user.id, body.pageId, body.workspaceId);
     if (!scope) return apiError("forbidden", "This page does not belong to your account.", 403);
+
+    if (body.id) {
+      const { data, error } = await supabase
+        .from("custom_links")
+        .update({
+          title: body.title,
+          url: body.url,
+          description: body.description ?? null,
+          image_url: body.imageUrl || null,
+          icon: body.icon ?? "link",
+          is_visible: body.isVisible,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", body.id)
+        .select("*")
+        .single();
+      if (error) return apiError("custom_link_update_failed", error.message, 400);
+      return apiOk({ customLink: data });
+    }
+
     const { data, error } = await supabase
       .from("custom_links")
       .insert({
@@ -219,6 +239,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
     if (isApiResponse(body)) return body;
     const scope = await resolveAccountScope(supabase, user.id, body.pageId, body.workspaceId);
     if (!scope) return apiError("forbidden", "This page does not belong to your account.", 403);
+
+    if (body.id) {
+      const { data, error } = await supabase
+        .from("photo_gallery_items")
+        .update({
+          image_url: body.imageUrl,
+          alt_text: body.altText ?? null,
+          caption: body.caption ?? null,
+        })
+        .eq("id", body.id)
+        .select("*")
+        .single();
+      if (error) return apiError("gallery_update_failed", error.message, 400);
+      return apiOk({ galleryItem: data });
+    }
+
     const { data, error } = await supabase
       .from("photo_gallery_items")
       .insert({
@@ -635,6 +671,26 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ resou
       await supabase.from("offers").delete().eq("id", product.offer_id);
     }
 
+    return apiOk({ deleted: true });
+  }
+
+  if (resource === "custom-links") {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) return apiError("missing_id", "Missing custom link ID.", 400);
+
+    const { error } = await supabase.from("custom_links").delete().eq("id", id);
+    if (error) return apiError("custom_link_delete_failed", error.message, 400);
+    return apiOk({ deleted: true });
+  }
+
+  if (resource === "gallery") {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) return apiError("missing_id", "Missing gallery item ID.", 400);
+
+    const { error } = await supabase.from("photo_gallery_items").delete().eq("id", id);
+    if (error) return apiError("gallery_delete_failed", error.message, 400);
     return apiOk({ deleted: true });
   }
 

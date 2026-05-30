@@ -21,6 +21,7 @@ import {
   Settings,
   Trash2,
   Edit,
+  AlertTriangle,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -328,6 +329,19 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
   const [state, setState] = useState(data);
   const [activeMode, setActiveMode] = useState<Mode>(mode);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
+  const [editingLink, setEditingLink] = useState<any | null>(null);
+  const [editingGalleryItem, setEditingGalleryItem] = useState<any | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  }>({
+    open: false,
+    title: "",
+    description: "",
+    onConfirm: () => {},
+  });
   const [origin, setOrigin] = useState("current-domain");
   const [message, setMessage] = useState("");
   const [avatarUrl, setAvatarUrl] = useState(data.page.avatar_url ?? "");
@@ -503,17 +517,61 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
     saveSocialLink(platform, category, url);
   }
 
-  function addCustomLink(formData: FormData) {
+  function saveCustomLink(formData: FormData) {
+    const linkId = editingLink?.id;
     post(
       "custom-links",
       {
+        id: linkId,
         pageId: state.page.id,
         title: String(formData.get("title") ?? ""),
         url: String(formData.get("url") ?? ""),
         description: String(formData.get("description") ?? ""),
       },
-      (payload) => setState((prev) => ({ ...prev, customLinks: [payload.customLink, ...prev.customLinks] })),
+      (payload) => {
+        setState((prev) => {
+          if (linkId) {
+            return {
+              ...prev,
+              customLinks: prev.customLinks.map((l) => (l.id === linkId ? payload.customLink : l)),
+            };
+          } else {
+            return {
+              ...prev,
+              customLinks: [payload.customLink, ...prev.customLinks],
+            };
+          }
+        });
+        setEditingLink(null);
+      }
     );
+  }
+
+  function executeDeleteCustomLink(id: string) {
+    startTransition(async () => {
+      const res = await fetch(`/api/link-commerce/custom-links?id=${id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (json?.ok) {
+        setState((prev) => ({
+          ...prev,
+          customLinks: prev.customLinks.filter((l) => l.id !== id),
+        }));
+        setMessage("Custom link deleted.");
+      } else {
+        setMessage(json?.error?.message ?? "Could not delete link.");
+      }
+    });
+  }
+
+  function deleteCustomLink(id: string) {
+    setConfirmDialog({
+      open: true,
+      title: "Delete Custom Link?",
+      description: "Are you sure you want to delete this custom link? This action cannot be undone.",
+      onConfirm: () => executeDeleteCustomLink(id),
+    });
   }
 
   function addGalleryImage(imageUrl: string) {
@@ -522,6 +580,54 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
       { pageId: state.page.id, imageUrl, caption: "Gallery image" },
       (payload) => setState((prev) => ({ ...prev, gallery: [payload.galleryItem, ...prev.gallery] })),
     );
+  }
+
+  function saveGalleryItem(formData: FormData) {
+    if (!editingGalleryItem) return;
+    post(
+      "gallery",
+      {
+        id: editingGalleryItem.id,
+        pageId: state.page.id,
+        imageUrl: editingGalleryItem.image_url,
+        caption: String(formData.get("caption") ?? ""),
+        altText: String(formData.get("altText") ?? ""),
+      },
+      (payload) => {
+        setState((prev) => ({
+          ...prev,
+          gallery: prev.gallery.map((item) => (item.id === editingGalleryItem.id ? payload.galleryItem : item)),
+        }));
+        setEditingGalleryItem(null);
+      }
+    );
+  }
+
+  function executeDeleteGalleryItem(id: string) {
+    startTransition(async () => {
+      const res = await fetch(`/api/link-commerce/gallery?id=${id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (json?.ok) {
+        setState((prev) => ({
+          ...prev,
+          gallery: prev.gallery.filter((item) => item.id !== id),
+        }));
+        setMessage("Gallery photo deleted.");
+      } else {
+        setMessage(json?.error?.message ?? "Could not delete gallery photo.");
+      }
+    });
+  }
+
+  function deleteGalleryItem(id: string) {
+    setConfirmDialog({
+      open: true,
+      title: "Delete Gallery Photo?",
+      description: "Are you sure you want to delete this photo from your gallery? This action cannot be undone.",
+      onConfirm: () => executeDeleteGalleryItem(id),
+    });
   }
 
   function saveProduct(formData: FormData) {
@@ -565,8 +671,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
     );
   }
 
-  function deleteProduct(id: string) {
-    if (!window.confirm("Are you sure you want to delete this digital product? This will also remove its associated checkout offer.")) return;
+  function executeDeleteProduct(id: string) {
     startTransition(async () => {
       const res = await fetch(`/api/link-commerce/products?id=${id}`, {
         method: "DELETE",
@@ -581,6 +686,15 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
       } else {
         setMessage(json?.error?.message ?? "Could not delete product.");
       }
+    });
+  }
+
+  function deleteProduct(id: string) {
+    setConfirmDialog({
+      open: true,
+      title: "Delete Digital Product?",
+      description: "Are you sure you want to delete this digital product? This will also remove its associated checkout offer.",
+      onConfirm: () => executeDeleteProduct(id),
     });
   }
 
@@ -1063,32 +1177,178 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
               </div>
 
               <div className="mt-10 grid gap-5 lg:grid-cols-2">
-                <form action={addCustomLink} className={panelClass("bg-secondary/30 shadow-none")}>
-                  <h3 className="text-xl font-black text-foreground">Custom links</h3>
+                <form action={saveCustomLink} className={panelClass("bg-secondary/30 shadow-none")}>
+                  <h3 className="text-xl font-black text-foreground">
+                    {editingLink ? "Edit custom link" : "Custom links"}
+                  </h3>
                   <div className="mt-4 grid gap-3">
-                    <TextField name="title" label="Title" placeholder="Newsletter, latest video, community" />
-                    <TextField name="url" label="URL" placeholder="https://example.com" />
-                    <TextField name="description" label="Description" placeholder="Why visitors should click" />
-                    <Button><Plus className="h-4 w-4" /> Add link</Button>
+                    <TextField
+                      key={editingLink ? `edit-${editingLink.id}-title` : "new-title"}
+                      name="title"
+                      label="Title"
+                      defaultValue={editingLink?.title}
+                      placeholder="Newsletter, latest video, community"
+                    />
+                    <TextField
+                      key={editingLink ? `edit-${editingLink.id}-url` : "new-url"}
+                      name="url"
+                      label="URL"
+                      defaultValue={editingLink?.url}
+                      placeholder="https://example.com"
+                    />
+                    <TextField
+                      key={editingLink ? `edit-${editingLink.id}-desc` : "new-desc"}
+                      name="description"
+                      label="Description"
+                      defaultValue={editingLink?.description}
+                      placeholder="Why visitors should click"
+                    />
+                    <div className="flex gap-2">
+                      <Button className="flex-1">
+                        {editingLink ? <Check className="h-4 w-4 mr-1.5" /> : <Plus className="h-4 w-4 mr-1.5" />}
+                        {editingLink ? "Save changes" : "Add link"}
+                      </Button>
+                      {editingLink && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setEditingLink(null)}
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div className="mt-4 space-y-2">
-                    {state.customLinks.map((link) => <p key={link.id} className="rounded-2xl bg-background px-4 py-3 text-sm font-bold text-foreground">{link.title}</p>)}
-                    {!state.customLinks.length ? <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm font-bold text-muted-foreground">No custom links yet.</p> : null}
+                    {state.customLinks.map((link) => (
+                      <div
+                        key={link.id}
+                        className="group relative flex items-center justify-between rounded-2xl bg-background border border-border px-4 py-3 shadow-sm transition hover:border-primary/30"
+                      >
+                        <div className="min-w-0 flex-1 pr-16">
+                          <p className="text-sm font-black text-foreground truncate">{link.title}</p>
+                          {link.description && (
+                            <p className="text-xs font-semibold text-muted-foreground truncate mt-0.5">
+                              {link.description}
+                            </p>
+                          )}
+                          <p className="text-[10px] font-bold text-primary truncate mt-1">
+                            {link.url}
+                          </p>
+                        </div>
+                        <div className="absolute right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <button
+                            type="button"
+                            onClick={() => setEditingLink(link)}
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-all shadow-sm"
+                            title="Edit link"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteCustomLink(link.id)}
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                            title="Delete link"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {!state.customLinks.length ? (
+                      <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm font-bold text-muted-foreground">
+                        No custom links yet.
+                      </p>
+                    ) : null}
                   </div>
                 </form>
 
                 <div className={panelClass("bg-secondary/30 shadow-none")}>
                   <h3 className="text-xl font-black text-foreground">Photo gallery</h3>
-                  <p className="mt-1 text-sm font-semibold text-muted-foreground">Upload public gallery images for the bio builder and mobile preview.</p>
+                  <p className="mt-1 text-sm font-semibold text-muted-foreground">
+                    Upload public gallery images for the bio builder and mobile preview.
+                  </p>
                   <div className="mt-4">
                     <UploadField label="Upload gallery image" bucket="gallery" onUploaded={addGalleryImage} />
                   </div>
                   <div className="mt-4 grid grid-cols-3 gap-2">
                     {state.gallery.slice(0, 6).map((item) => (
-                      <img key={item.id} src={item.image_url} alt={item.alt_text ?? ""} className="aspect-square rounded-2xl object-cover" />
+                      <div
+                        key={item.id}
+                        className="group relative aspect-square rounded-2xl overflow-hidden border border-border bg-background"
+                      >
+                        <img src={item.image_url} alt={item.alt_text ?? ""} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-2">
+                          <div className="flex justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setEditingGalleryItem(item)}
+                              className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white hover:text-black transition-all duration-200 shadow-sm"
+                              title="Edit details"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteGalleryItem(item.id)}
+                              className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all duration-200 shadow-sm"
+                              title="Delete photo"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                          {item.caption && (
+                            <p className="text-[9px] font-semibold text-white truncate drop-shadow-sm">
+                              {item.caption}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     ))}
-                    {!state.gallery.length ? <p className="col-span-3 rounded-2xl border border-dashed border-border p-6 text-center text-sm font-bold text-muted-foreground">No gallery photos yet.</p> : null}
+                    {!state.gallery.length ? (
+                      <p className="col-span-3 rounded-2xl border border-dashed border-border p-6 text-center text-sm font-bold text-muted-foreground">
+                        No gallery photos yet.
+                      </p>
+                    ) : null}
                   </div>
+
+                  {/* Photo Edit Dialog Modal */}
+                  <Dialog open={!!editingGalleryItem} onOpenChange={(open) => !open && setEditingGalleryItem(null)}>
+                    <DialogContent className="max-w-md bg-card border border-border rounded-2xl shadow-card overflow-hidden p-5">
+                      <DialogHeader>
+                        <DialogTitle className="text-xl font-black text-foreground">Edit Photo Details</DialogTitle>
+                        <p className="text-xs font-semibold text-muted-foreground mt-1">
+                          Update caption or alt text for this gallery image.
+                        </p>
+                      </DialogHeader>
+                      {editingGalleryItem && (
+                        <form action={saveGalleryItem} className="mt-4 space-y-4">
+                          <div className="flex justify-center bg-secondary/20 p-2 rounded-2xl border border-border/40">
+                            <img src={editingGalleryItem.image_url} alt="" className="max-h-40 rounded-xl object-contain" />
+                          </div>
+                          <TextField
+                            name="caption"
+                            label="Caption"
+                            defaultValue={editingGalleryItem.caption}
+                            placeholder="A short description shown on hover/detail"
+                          />
+                          <TextField
+                            name="altText"
+                            label="Alt text"
+                            defaultValue={editingGalleryItem.alt_text}
+                            placeholder="Screen reader description"
+                          />
+                          <div className="flex justify-end gap-2 pt-2">
+                            <Button type="button" variant="outline" onClick={() => setEditingGalleryItem(null)}>
+                              Cancel
+                            </Button>
+                            <Button type="submit">Save changes</Button>
+                          </div>
+                        </form>
+                      )}
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
 
@@ -1662,6 +1922,46 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
             </section>
           ) : null}
         </main>
+
+        {/* Custom Confirmation Dialog */}
+        <Dialog
+          open={confirmDialog.open}
+          onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}
+        >
+          <DialogContent className="max-w-md bg-card border border-border rounded-2xl shadow-card overflow-hidden p-6 gap-0">
+            <div className="flex flex-col items-center text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500 mb-4">
+                <AlertTriangle className="h-7 w-7" />
+              </div>
+              <DialogTitle className="text-xl font-black text-foreground">
+                {confirmDialog.title}
+              </DialogTitle>
+              <p className="mt-2 text-sm font-semibold text-muted-foreground leading-relaxed">
+                {confirmDialog.description}
+              </p>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmDialog((prev) => ({ ...prev, open: false }))}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  confirmDialog.onConfirm();
+                  setConfirmDialog((prev) => ({ ...prev, open: false }));
+                }}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold"
+              >
+                Delete
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <aside className="hidden min-w-0 lg:sticky lg:top-20 lg:block lg:self-start">
           <div>

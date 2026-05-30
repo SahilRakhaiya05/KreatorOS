@@ -23,7 +23,6 @@ export function ChatComposer({
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
-  const activeAgent = AGENTS.find((agent) => agent.id === activeAgentId) ?? AGENTS[0];
   const filteredAgents = AGENTS.filter((agent) =>
     `${agent.name} ${agent.handle} ${agent.tagline}`.toLowerCase().includes(mentionQuery.toLowerCase())
   );
@@ -48,7 +47,7 @@ export function ChatComposer({
 
   return (
     <div className="border-t border-border bg-background/95 p-3 backdrop-blur-xl md:p-4">
-      <div className="relative mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-input bg-card p-2 shadow-sm transition focus-within:border-ring focus-within:shadow-md">
+      <div className="relative mx-auto flex max-w-4xl items-end gap-2 rounded-2xl border border-input bg-card p-2 shadow-sm transition focus-within:border-ring focus-within:shadow-md">
         {mentionOpen ? (
           <div className="absolute bottom-full left-2 right-2 mb-2 overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-xl">
             <div className="border-b border-border px-3 py-2 text-xs font-semibold text-muted-foreground">
@@ -77,9 +76,6 @@ export function ChatComposer({
             </div>
           </div>
         ) : null}
-        <div className="hidden h-10 shrink-0 items-center rounded-xl border border-border bg-secondary/50 px-2 text-xs font-semibold text-muted-foreground sm:flex">
-          {activeAgent.handle}
-        </div>
         <textarea
           ref={ref}
           value={value}
@@ -108,7 +104,7 @@ export function ChatComposer({
               submit();
             }
           }}
-          placeholder="Message the operator, or type @ to call an agent..."
+          placeholder="Ask the operator to read your workspace, update your smart link, draft products, build pages, or type @ to call a specialist..."
           className="max-h-40 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-6 outline-none placeholder:text-muted-foreground"
         />
         {streaming ? (

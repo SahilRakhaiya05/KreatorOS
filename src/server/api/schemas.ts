@@ -143,8 +143,8 @@ export const instagramCaptureSchema = z.object({
     })
     .optional(),
   page: z.object({
-    url: z.string().url(),
-    canonicalUrl: z.string().url().optional(),
+    url: z.string(),
+    canonicalUrl: z.string().optional(),
     title: z.string().nullable().optional(),
     capturedAt: z.string().datetime().optional(),
     language: z.string().nullable().optional(),
@@ -160,9 +160,9 @@ export const instagramCaptureSchema = z.object({
       username: z.string().nullable().optional(),
       storyId: z.string().nullable().optional(),
       caption: z.string().nullable().optional(),
-      thumbnailUrl: z.string().url().nullable().optional().or(z.literal("")),
-      mediaImageUrls: z.array(z.string().url()).default([]),
-      mediaVideoUrls: z.array(z.string().url()).default([]),
+      thumbnailUrl: z.string().nullable().optional(),
+      mediaImageUrls: z.array(z.string()).default([]),
+      mediaVideoUrls: z.array(z.string()).default([]),
       openGraph: z.record(z.string(), z.unknown()).default({}),
       twitter: z.record(z.string(), z.unknown()).default({}),
       jsonLd: z.array(z.unknown()).default([]),
@@ -314,6 +314,7 @@ export const linkSocialLinkSchema = z.object({
 });
 
 export const linkCustomLinkSchema = z.object({
+  id: z.string().uuid().optional(),
   workspaceId: z.string().uuid().optional(),
   pageId: z.string().uuid(),
   title: z.string().min(1),
@@ -325,6 +326,7 @@ export const linkCustomLinkSchema = z.object({
 });
 
 export const linkGallerySchema = z.object({
+  id: z.string().uuid().optional(),
   workspaceId: z.string().uuid().optional(),
   pageId: z.string().uuid(),
   imageUrl: z.string().url(),

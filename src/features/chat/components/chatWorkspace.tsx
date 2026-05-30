@@ -1,28 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { AlertCircle, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { AlertCircle, Bot, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { useChatController } from "../lib/useChatController";
 import type { ProviderCatalogEntry } from "../lib/types";
 import { ConversationSidebar } from "./conversationSidebar";
-import { ProviderPicker } from "./providerPicker";
-import { AgentPanel } from "./agentPanel";
 import { ChatThread } from "./chatThread";
 import { ChatComposer } from "./chatComposer";
 import { getAgent } from "../lib/agents";
 
 export function ChatWorkspace({ catalog }: { catalog: ProviderCatalogEntry[] }) {
   const chat = useChatController(catalog);
-  const [showAgent, setShowAgent] = useState(true);
   const agentId = chat.current?.agentId ?? "operator";
+  const agent = getAgent(agentId);
 
   return (
     <div
       className={cn(
-        "grid h-[calc(100vh-7rem)] min-h-[560px] grid-cols-1 overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:grid-cols-[16rem_minmax(0,1fr)]",
-        showAgent ? "xl:grid-cols-[16rem_minmax(0,1fr)_20rem]" : "xl:grid-cols-[16rem_minmax(0,1fr)]"
+        "grid h-[calc(100vh-7rem)] min-h-[560px] grid-cols-1 overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:grid-cols-[16rem_minmax(0,1fr)]"
       )}
     >
       {/* Conversation sidebar */}
@@ -38,28 +33,19 @@ export function ChatWorkspace({ catalog }: { catalog: ProviderCatalogEntry[] }) 
 
       {/* Main column */}
       <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-background/80 backdrop-blur-sm">
-        <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-2.5 md:px-6 xl:px-8">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{getAgent(agentId).name}</p>
-            <p className="truncate text-xs text-muted-foreground">{chat.current?.title ?? "New chat"}</p>
+        <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3 md:px-6 xl:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+              <Bot className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{agent.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{agent.tagline}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <ProviderPicker
-              catalog={catalog}
-              provider={chat.provider}
-              model={chat.model}
-              onProviderChange={chat.setProvider}
-              onModelChange={chat.setModel}
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hidden xl:inline-flex"
-              onClick={() => setShowAgent((v) => !v)}
-              aria-label="Toggle agent panel"
-            >
-              {showAgent ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-            </Button>
+          <div className="hidden shrink-0 items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground sm:flex">
+            <CheckCircle2 className="h-3.5 w-3.5 text-accent" />
+            Chat history saved
           </div>
         </div>
 
@@ -86,11 +72,6 @@ export function ChatWorkspace({ catalog }: { catalog: ProviderCatalogEntry[] }) 
           activeAgentId={agentId}
           onAgentChange={chat.setAgent}
         />
-      </div>
-
-      {/* Agent panel */}
-      <div className={cn("hidden min-h-0", showAgent && "xl:block")}>
-        <AgentPanel agentId={agentId} onAgentChange={chat.setAgent} onStarter={chat.send} />
       </div>
     </div>
   );

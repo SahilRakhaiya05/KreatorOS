@@ -36,8 +36,10 @@ export function ChatThread({
           <Sparkles className="h-7 w-7" />
         </div>
         <h2 className="mt-5 font-display text-2xl font-semibold tracking-tight">{agent.name}</h2>
-        <p className="mt-2 max-w-md text-sm text-muted-foreground">{agent.tagline}. Describe the outcome you want — it returns a plan you can approve.</p>
-        <div className="mt-6 grid w-full max-w-xl gap-2 sm:grid-cols-2">
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+          {agent.tagline}. Ask it to read workspace context, improve your smart link, draft products, create page blocks, plan bookings, or suggest the next move. It waits for your approval before applying changes.
+        </p>
+        <div className="mt-6 grid w-full max-w-2xl gap-2 sm:grid-cols-2">
           {agent.starters.map((s) => (
             <button
               key={s}

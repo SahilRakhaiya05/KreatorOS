@@ -118,7 +118,24 @@ async function analyzeCapture(payload: InstagramCaptureInput) {
 }
 
 export function normalizeInstagramCapture(payload: InstagramCaptureInput) {
-  const canonicalUrl = payload.page.canonicalUrl || payload.page.url;
+  let canonicalUrl = payload.page.canonicalUrl || payload.page.url;
+
+  if (canonicalUrl.startsWith("/")) {
+    try {
+      const base = new URL(payload.page.url);
+      canonicalUrl = `${base.protocol}//${base.host}${canonicalUrl}`;
+    } catch {
+      canonicalUrl = payload.page.url;
+    }
+  } else if (!canonicalUrl.startsWith("http://") && !canonicalUrl.startsWith("https://")) {
+    try {
+      const base = new URL(payload.page.url);
+      canonicalUrl = new URL(canonicalUrl, base.href).toString();
+    } catch {
+      canonicalUrl = payload.page.url;
+    }
+  }
+
   if (!isInstagramUrl(canonicalUrl)) {
     throw new Error("Only Instagram URLs can be imported.");
   }

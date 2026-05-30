@@ -3,6 +3,7 @@ import { instagramCaptureSchema } from "@/server/api/schemas";
 import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
 import { getSession } from "@/server/auth/getSession";
 import { listInstagramCaptures, saveInstagramCapture } from "@/server/instagram/captureService";
+import { createSupabaseServerClient } from "@/server/supabase/serverClient";
 
 export const runtime = "nodejs";
 
@@ -30,8 +31,33 @@ export async function GET(req: Request) {
   const { user } = await getSession();
   if (!user) return withCors(apiError("unauthorized", "Sign in to view saved Instagram captures.", 401), req);
 
-  const workspace = await getActiveWorkspace(user.id);
-  const result = await listInstagramCaptures({ userId: user.id, workspaceId: workspace?.id });
+  const supabase = await createSupabaseServerClient();
+  let workspace = await getActiveWorkspace(user.id);
+  let workspaceId = workspace?.id ?? null;
+
+  if (!workspaceId) {
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("workspace_id")
+      .eq("email", user.email)
+      .limit(1)
+      .maybeSingle();
+
+    if (customer?.workspace_id) {
+      workspaceId = customer.workspace_id;
+    } else {
+      const { data: firstWs } = await supabase
+        .from("workspaces")
+        .select("id")
+        .limit(1)
+        .maybeSingle();
+      if (firstWs) {
+        workspaceId = firstWs.id;
+      }
+    }
+  }
+
+  const result = await listInstagramCaptures({ userId: user.id, workspaceId });
   if (!result.ok) {
     return withCors(apiError("capture_list_failed", result.error.message, 500), req);
   }
@@ -43,8 +69,33 @@ export async function POST(req: Request) {
   const { user } = await getSession();
   if (!user) return withCors(apiError("unauthorized", "Sign in to save Instagram posts.", 401), req);
 
-  const workspace = await getActiveWorkspace(user.id);
-  if (!workspace) return withCors(apiError("missing_workspace", "No active workspace found.", 400), req);
+  const supabase = await createSupabaseServerClient();
+  let workspace = await getActiveWorkspace(user.id);
+  let workspaceId = workspace?.id ?? null;
+
+  if (!workspaceId) {
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("workspace_id")
+      .eq("email", user.email)
+      .limit(1)
+      .maybeSingle();
+
+    if (customer?.workspace_id) {
+      workspaceId = customer.workspace_id;
+    } else {
+      const { data: firstWs } = await supabase
+        .from("workspaces")
+        .select("id")
+        .limit(1)
+        .maybeSingle();
+      if (firstWs) {
+        workspaceId = firstWs.id;
+      }
+    }
+  }
+
+  if (!workspaceId) return withCors(apiError("missing_workspace", "No active workspace found.", 400), req);
 
   const body = await parseJsonBody(req, instagramCaptureSchema);
   if (isApiResponse(body)) return withCors(body, req);
@@ -52,7 +103,7 @@ export async function POST(req: Request) {
   try {
     const result = await saveInstagramCapture({
       userId: user.id,
-      workspaceId: workspace.id,
+      workspaceId: workspaceId,
       payload: body,
     });
 

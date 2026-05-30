@@ -18,7 +18,7 @@ function newConversation(agentId = DEFAULT_AGENT_ID): Conversation {
 
 function deriveTitle(text: string) {
   const clean = text.trim().replace(/\s+/g, " ");
-  return clean.length > 42 ? `${clean.slice(0, 42)}…` : clean || "New chat";
+  return clean.length > 42 ? `${clean.slice(0, 42)}...` : clean || "New chat";
 }
 
 function normalizeApproval(item: any): ChatApproval {
@@ -60,23 +60,19 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
     } catch {
       /* ignore */
     }
-    setConversations([]);
-    setCurrentId("");
+    const seed = newConversation();
+    setConversations([seed]);
+    setCurrentId(seed.id);
   }, []);
 
   // Persist.
   useEffect(() => {
-    if (conversations.length) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations.slice(0, 30)));
-      } catch {
-        /* ignore */
-      }
-      return;
-    }
-
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      if (conversations.length) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations.slice(0, 30)));
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
     } catch {
       /* ignore */
     }

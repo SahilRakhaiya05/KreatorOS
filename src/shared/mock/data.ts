@@ -132,6 +132,7 @@ export const nav: Record<"creator" | "brand" | "portal", NavGroup[]> = {
         { href: "/portal/bookings", label: "Bookings", icon: Calendar },
         { href: "/portal/products", label: "Products", icon: ShoppingBag },
         { href: "/portal/membership", label: "Membership", icon: LockKeyhole },
+        { href: "/portal/instagram", label: "Instagram Saves", icon: PlayCircle },
       ],
     },
   ],

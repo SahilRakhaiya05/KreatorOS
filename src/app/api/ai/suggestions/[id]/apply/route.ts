@@ -9,6 +9,11 @@ type SuggestionOperation = {
   pageId?: string;
   blockId?: string;
   update?: Record<string, unknown>;
+  blockType?: string;
+  title?: string;
+  subtitle?: string;
+  url?: string;
+  metadata?: Record<string, unknown>;
 };
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -43,8 +48,14 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       const update = {
         ...(typeof operation.update.title === "string" ? { title: operation.update.title } : {}),
         ...(typeof operation.update.subtitle === "string" ? { subtitle: operation.update.subtitle } : {}),
+        ...(typeof operation.update.description === "string" ? { description: operation.update.description } : {}),
         ...(typeof operation.update.url === "string" ? { url: operation.update.url } : {}),
+        ...(typeof operation.update.target_url === "string" ? { target_url: operation.update.target_url } : {}),
+        ...(typeof operation.update.image_url === "string" ? { image_url: operation.update.image_url } : {}),
         ...(typeof operation.update.status === "string" ? { status: operation.update.status } : {}),
+        ...(typeof operation.update.is_visible === "boolean" ? { is_visible: operation.update.is_visible } : {}),
+        ...(typeof operation.update.metadata === "object" && operation.update.metadata ? { metadata: operation.update.metadata } : {}),
+        ...(typeof operation.update.style === "object" && operation.update.style ? { style: operation.update.style } : {}),
       };
       await supabase.from("creator_page_blocks").update(update).eq("id", operation.blockId).eq("page_id", operation.pageId);
       applied.push({ op: operation.op, pageId: operation.pageId, blockId: operation.blockId });
@@ -98,7 +109,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     }
 
     if (operation.op === "create_block") {
-      const { blockType, title, subtitle, url, metadata } = operation as any;
+      const { blockType, title, subtitle, description, url, target_url, status, is_visible, metadata } = operation as any;
       const { count } = await supabase
         .from("creator_page_blocks")
         .select("id", { count: "exact", head: true })
@@ -111,8 +122,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           type: blockType || "link",
           title,
           subtitle: subtitle || "",
+          description: description || "",
           url: url || "",
-          status: "live",
+          target_url: target_url || "",
+          status: status || "live",
+          ...(typeof is_visible === "boolean" ? { is_visible } : {}),
           sort_order: (count || 0) + 1,
           metadata: metadata || {},
         });

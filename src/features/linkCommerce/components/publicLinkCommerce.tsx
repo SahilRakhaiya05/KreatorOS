@@ -277,6 +277,37 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
           ))}
         </div>
 
+        {data.gallery.length ? (
+          <div className="mt-8">
+            <h2 className="text-xl font-black mb-3.5">Gallery</h2>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              {data.gallery.map((item) => (
+                <div
+                  key={item.id}
+                  className={`group relative aspect-square rounded-3xl overflow-hidden border ${
+                    styling.isLight
+                      ? "border-zinc-200/80 bg-white shadow-sm"
+                      : "border-white/10 bg-white/[0.04] backdrop-blur-md"
+                  }`}
+                >
+                  <img
+                    src={item.image_url}
+                    alt={item.alt_text ?? ""}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  {item.caption && (
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3.5">
+                      <p className="text-xs font-semibold text-white truncate drop-shadow-sm w-full text-left">
+                        {item.caption}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {data.products.filter((product) => product.show_on_bio).length ? (
           <div className="mt-8">
             <div className="mb-3 flex items-center justify-between">

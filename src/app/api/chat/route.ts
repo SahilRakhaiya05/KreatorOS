@@ -60,6 +60,53 @@ export async function POST(req: Request) {
       temperature: 0.6,
       stopWhen: stepCountIs(5),
       tools: {
+        read_workspace_context: tool({
+          description: "Read the creator workspace context before planning or proposing changes. Includes creator page, smart-link blocks, offers, analytics, and pending approvals.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            const supabase = await createSupabaseServerClient();
+            const { data: page } = await supabase
+              .from("creator_pages")
+              .select("id, display_name, username, slug, headline, bio, theme_name, layout, status, is_published, setup_progress")
+              .eq("workspace_id", workspace.id)
+              .maybeSingle();
+
+            const [{ data: blocks }, { data: offers }, { count: pendingApprovals }, { count: pageViews }] = await Promise.all([
+              page?.id
+                ? supabase
+                    .from("creator_page_blocks")
+                    .select("id, type, title, subtitle, description, url, target_url, status, is_visible, sort_order, clicks, metadata")
+                    .eq("page_id", page.id)
+                    .order("sort_order", { ascending: true })
+                : Promise.resolve({ data: [] }),
+              supabase
+                .from("offers")
+                .select("id, title, type, price_cents, status, slug, show_on_bio, show_on_shop")
+                .eq("workspace_id", workspace.id)
+                .order("created_at", { ascending: false })
+                .limit(20),
+              supabase
+                .from("ai_suggestions")
+                .select("id", { count: "exact", head: true })
+                .eq("workspace_id", workspace.id)
+                .eq("status", "pending"),
+              supabase
+                .from("analytics_events")
+                .select("id", { count: "exact", head: true })
+                .eq("workspace_id", workspace.id)
+                .eq("event_type", "page.view"),
+            ]);
+
+            return {
+              workspace: { id: workspace.id, type: workspace.type, role: workspace.role },
+              page,
+              smartLinkBlocks: blocks ?? [],
+              offers: offers ?? [],
+              pendingApprovals: pendingApprovals ?? 0,
+              analytics: { pageViews: pageViews ?? 0 },
+            };
+          },
+        }),
         list_workspace_offers: tool({
           description: "List all active and draft offers (coaching bookings, digital products, memberships, courses) in the current workspace.",
           inputSchema: z.object({}),
@@ -168,6 +215,85 @@ export async function POST(req: Request) {
               status: "queued_for_approval",
               suggestionId: suggestion.id,
               message: `The proposed offer "${title}" has been successfully queued for approval (ID: ${suggestion.id}, risk: ${suggestion.risk_level}). The creator must approve it in their agents dashboard before it goes live.`
+            };
+          },
+        }),
+        propose_smart_link_update: tool({
+          description: "Propose updating the creator smart link / public page. Use this to add a new link block, update an existing block, improve copy, route visitors to an offer, or change block visibility. The change is queued for creator approval before it goes live.",
+          inputSchema: z.object({
+            blockId: z.string().optional(),
+            blockType: z.enum(["link", "calendar", "product", "membership", "lead_magnet", "brand_intake", "ai_concierge"]).optional(),
+            title: z.string(),
+            subtitle: z.string().optional(),
+            description: z.string().optional(),
+            url: z.string().optional(),
+            targetUrl: z.string().optional(),
+            status: z.enum(["live", "draft"]).optional(),
+            isVisible: z.boolean().optional(),
+            metadata: z.record(z.string(), z.any()).optional(),
+          }),
+          execute: async ({ blockId, blockType, title, subtitle, description, url, targetUrl, status, isVisible, metadata }) => {
+            const supabase = await createSupabaseServerClient();
+            const { data: page } = await supabase
+              .from("creator_pages")
+              .select("id")
+              .eq("workspace_id", workspace.id)
+              .maybeSingle();
+
+            if (!page?.id) return { error: "No creator page found for this workspace." };
+
+            const op = blockId ? "update_block" : "create_block";
+            const update = {
+              title,
+              ...(subtitle ? { subtitle } : {}),
+              ...(description ? { description } : {}),
+              ...(url ? { url } : {}),
+              ...(targetUrl ? { target_url: targetUrl } : {}),
+              ...(status ? { status } : {}),
+              ...(typeof isVisible === "boolean" ? { is_visible: isVisible } : {}),
+              ...(metadata ? { metadata } : {}),
+            };
+
+            const { data: suggestion, error } = await supabase
+              .from("ai_suggestions")
+              .insert({
+                workspace_id: workspace.id,
+                page_id: page.id,
+                title: blockId ? `Update smart-link block: "${title}"` : `Add smart-link block: "${title}"`,
+                risk_level: "medium",
+                explanation: blockId
+                  ? `Creator asked the operator to update a smart-link block named "${title}".`
+                  : `Creator asked the operator to add a new smart-link block named "${title}".`,
+                patch: {
+                  targetType: "page",
+                  operations: [
+                    blockId
+                      ? { op, pageId: page.id, blockId, update }
+                      : {
+                          op,
+                          pageId: page.id,
+                          blockType: blockType ?? "link",
+                          title,
+                          subtitle,
+                          description,
+                          url,
+                          target_url: targetUrl,
+                          status,
+                          is_visible: isVisible,
+                          metadata,
+                        },
+                  ],
+                },
+                created_by_type: "agent",
+              })
+              .select("id, title, risk_level")
+              .single();
+
+            if (error) return { error: error.message };
+            return {
+              status: "queued_for_approval",
+              suggestionId: suggestion.id,
+              message: `Smart-link change "${title}" is queued for approval (ID: ${suggestion.id}).`,
             };
           },
         }),
