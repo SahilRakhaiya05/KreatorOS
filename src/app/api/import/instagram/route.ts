@@ -2,7 +2,7 @@ import { apiError, apiOk, isApiResponse, parseJsonBody } from "@/server/api/resp
 import { instagramCaptureSchema } from "@/server/api/schemas";
 import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
 import { getSession } from "@/server/auth/getSession";
-import { listInstagramCaptures, saveInstagramCapture } from "@/server/instagram/captureService";
+import { listInstagramCaptures, saveInstagramCapture, reanalyzeInstagramCapture } from "@/server/instagram/captureService";
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
 
 export const runtime = "nodejs";
@@ -121,5 +121,36 @@ export async function POST(req: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Instagram capture could not be saved.";
     return withCors(apiError("invalid_instagram_capture", message, 400), req);
+  }
+}
+
+export async function PATCH(req: Request) {
+  const { user } = await getSession();
+  if (!user) return withCors(apiError("unauthorized", "Sign in to trigger re-analysis.", 401), req);
+
+  try {
+    const body = await req.json();
+    const { id } = body;
+    if (!id || typeof id !== "string") {
+      return withCors(apiError("missing_id", "Capture ID is required for re-analysis.", 400), req);
+    }
+
+    const result = await reanalyzeInstagramCapture(id, user.id);
+    if (!result.ok) {
+      return withCors(apiError("reanalysis_failed", result.error.message || "Re-analysis failed.", 500), req);
+    }
+
+    return withCors(
+      apiOk({
+        id: result.data.id,
+        capture: result.data,
+        analysisProvider: result.provider,
+        analysisAvailable: result.available,
+      }),
+      req,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Internal error occurred.";
+    return withCors(apiError("internal_error", message, 500), req);
   }
 }

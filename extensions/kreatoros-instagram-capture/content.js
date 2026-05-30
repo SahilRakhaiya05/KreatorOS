@@ -48,7 +48,14 @@
   }
 
   function getCanonicalUrl() {
-    return getMetaBySelector('link[rel="canonical"]', "href") || window.location.href;
+    try {
+      const url = new URL(window.location.href);
+      url.search = "";
+      url.hash = "";
+      return url.toString();
+    } catch {
+      return window.location.href;
+    }
   }
 
   function getShortcodeFromUrl() {
@@ -83,10 +90,11 @@
     const story = getStoryInfoFromUrl();
     if (story?.username) return story.username;
 
+    // Prioritize the dynamically updated document title and DOM content
     const candidates = [
+      document.title,
       getMetaBySelector('meta[property="og:title"]'),
-      getMetaBySelector('meta[name="twitter:title"]'),
-      document.title
+      getMetaBySelector('meta[name="twitter:title"]')
     ];
 
     for (const candidate of candidates) {
@@ -99,12 +107,19 @@
       .filter((item) => item.href && /^\/[^/]+\/?$/.test(item.href))
       .map((item) => item.text || item.href.replaceAll("/", ""))
       .filter(Boolean)
-      .filter((value) => !["explore", "reels", "direct", "accounts"].includes(value.toLowerCase()));
+      .filter((value) => !["explore", "reels", "direct", "accounts", "p", "reel"].includes(value.toLowerCase()));
 
     return visibleCandidates[0] || null;
   }
 
   function getLikelyCaption() {
+    // Prioritize active DOM article text
+    const article = document.querySelector("article");
+    if (article) {
+      const articleText = normalizeWhitespace(article.innerText || "");
+      if (articleText.length > 10) return articleText.slice(0, 4000);
+    }
+
     const metaDescription = getMetaBySelector('meta[property="og:description"]') || getMetaBySelector('meta[name="description"]');
     const twitterDescription = getMetaBySelector('meta[name="twitter:description"]');
 
@@ -113,8 +128,7 @@
       if (cleaned.length > 20) return cleaned;
     }
 
-    const articleText = normalizeWhitespace(document.querySelector("article")?.innerText || "");
-    return articleText.length > 20 ? articleText.slice(0, 4000) : null;
+    return null;
   }
 
   function getVisibleTextSample() {
@@ -125,35 +139,41 @@
 
   function getImages() {
     const urls = new Set();
+    
+    // Prioritize images inside the active article DOM elements
+    document.querySelectorAll("article img, main img").forEach((img) => {
+      const src = img.currentSrc || img.src;
+      if (src && /^https?:\/\//i.test(src)) urls.add(src);
+    });
+
+    // Fall back to og metadata
     [
       getMetaBySelector('meta[property="og:image"]'),
       getMetaBySelector('meta[name="twitter:image"]'),
       getMetaBySelector('meta[property="og:image:secure_url"]')
     ].forEach((url) => url && urls.add(url));
 
-    document.querySelectorAll("article img, main img").forEach((img) => {
-      const src = img.currentSrc || img.src;
-      if (src && /^https?:\/\//i.test(src)) urls.add(src);
-    });
-
     return Array.from(urls).slice(0, 12);
   }
 
   function getVideos() {
     const urls = new Set();
-    [
-      getMetaBySelector('meta[property="og:video"]'),
-      getMetaBySelector('meta[property="og:video:url"]'),
-      getMetaBySelector('meta[property="og:video:secure_url"]')
-    ].forEach((url) => url && urls.add(url));
 
-    document.querySelectorAll("video").forEach((video) => {
+    // Prioritize active video elements inside the DOM
+    document.querySelectorAll("article video, main video").forEach((video) => {
       const src = video.currentSrc || video.src;
       if (src && /^https?:\/\//i.test(src)) urls.add(src);
       video.querySelectorAll("source").forEach((source) => {
         if (source.src && /^https?:\/\//i.test(source.src)) urls.add(source.src);
       });
     });
+
+    // Fall back to og metadata
+    [
+      getMetaBySelector('meta[property="og:video"]'),
+      getMetaBySelector('meta[property="og:video:url"]'),
+      getMetaBySelector('meta[property="og:video:secure_url"]')
+    ].forEach((url) => url && urls.add(url));
 
     return Array.from(urls).slice(0, 8);
   }
@@ -225,7 +245,7 @@
         username: getLikelyUsername(),
         storyId: story?.storyId || null,
         caption: getLikelyCaption(),
-        thumbnailUrl: openGraph.image || twitter.image || images[0] || null,
+        thumbnailUrl: images[0] || openGraph.image || twitter.image || null,
         mediaImageUrls: images,
         mediaVideoUrls: getVideos(),
         openGraph,

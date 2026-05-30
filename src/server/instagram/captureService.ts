@@ -149,7 +149,7 @@ export function normalizeInstagramCapture(payload: InstagramCaptureInput) {
     username: payload.instagram.username || null,
     story_id: payload.instagram.storyId || null,
     title:
-      String(payload.instagram.openGraph.title || payload.instagram.twitter.title || payload.page.title || "").trim() ||
+      String(payload.page.title || payload.instagram.openGraph.title || payload.instagram.twitter.title || "").trim() ||
       null,
     caption: payload.instagram.caption || null,
     thumbnail_url: payload.instagram.thumbnailUrl || null,
@@ -213,3 +213,49 @@ export async function listInstagramCaptures(input: { userId: string; workspaceId
   if (error) return { ok: false as const, error };
   return { ok: true as const, data: data ?? [] };
 }
+
+export async function reanalyzeInstagramCapture(id: string, userId: string) {
+  const supabase = await createSupabaseServerClient();
+  
+  // 1. Fetch existing capture row
+  const { data: row, error: fetchErr } = await supabase
+    .from("instagram_captures")
+    .select("*")
+    .eq("id", id)
+    .eq("owner_id", userId)
+    .maybeSingle();
+
+  if (fetchErr || !row) {
+    return { ok: false as const, error: fetchErr || new Error("Capture not found") };
+  }
+
+  // 2. Re-run analysis on raw_payload
+  const payload = row.raw_payload as any;
+  const { analysis, provider, available } = await analyzeCapture(payload);
+
+  // 3. Update the capture row
+  const updatedRow = {
+    status: "analyzed",
+    summary: analysis.summary,
+    hook: analysis.hook,
+    content_format: analysis.contentFormat,
+    sentiment: analysis.sentiment,
+    tags: analysis.tags,
+    topics: analysis.topics,
+    opportunities: analysis.opportunities,
+    analysis: { ...analysis, provider, providerAvailable: available },
+    analyzed_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error: updateErr } = await supabase
+    .from("instagram_captures")
+    .update(updatedRow)
+    .eq("id", id)
+    .select("*")
+    .single<InstagramCaptureRow>();
+
+  if (updateErr) return { ok: false as const, error: updateErr };
+  return { ok: true as const, data, provider, available };
+}
+
