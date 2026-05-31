@@ -29,7 +29,7 @@ export async function GET(req: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  const { data: slots, error } = await supabase
     .from("creator_calendar_slots")
     .select("*")
     .eq("block_id", blockId)
@@ -39,7 +39,40 @@ export async function GET(req: Request) {
     .order("starts_at", { ascending: true });
 
   if (error) return apiError("availability_read_failed", error.message, 400);
-  return apiOk({ slots: data ?? [] });
+  if (!slots || slots.length === 0) return apiOk({ slots: [] });
+
+  // Dynamically filter out slots that are busy on external connected calendars (e.g. Google Calendar)
+  const workspaceId = slots[0].workspace_id;
+  if (workspaceId) {
+    try {
+      const { calendarService } = await import("@/server/calendar/calendarService");
+      const busySlots = await calendarService.getAvailability({
+        workspaceId,
+        startTime: start,
+        endTime: end,
+      });
+
+      if (busySlots && busySlots.length > 0) {
+        const filtered = slots.filter((slot) => {
+          const slotStart = new Date(slot.starts_at).getTime();
+          const slotEnd = new Date(slot.ends_at).getTime();
+
+          // If slot overlaps with any busy slot, exclude it
+          return !busySlots.some((busy) => {
+            const busyStart = new Date(busy.start).getTime();
+            const busyEnd = new Date(busy.end).getTime();
+            return slotStart < busyEnd && slotEnd > busyStart;
+          });
+        });
+
+        return apiOk({ slots: filtered });
+      }
+    } catch (err) {
+      console.error("Error filtering calendar availability via freebusy:", err);
+    }
+  }
+
+  return apiOk({ slots: slots });
 }
 
 export async function POST(req: Request) {

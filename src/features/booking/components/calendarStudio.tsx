@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { type ReactNode, useMemo, useState, useTransition } from "react";
 import {
-  CalendarDays,
+  CalendarCheck,
   Check,
+  ChevronRight,
   Clock3,
   Copy,
   CreditCard,
@@ -11,8 +12,11 @@ import {
   Eye,
   Link2,
   Loader2,
+  Mail,
   Plus,
+  RefreshCw,
   Save,
+  Settings,
   Sparkles,
   Trash2,
   Video,
@@ -20,7 +24,6 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type BookingOffer = {
@@ -49,8 +52,12 @@ type BookingRecord = {
   start_at?: string | null;
   end_at?: string | null;
   status?: string | null;
+  meeting_url?: string | null;
+  provider_event_id?: string | null;
   metadata?: Record<string, unknown> | null;
   created_at?: string | null;
+  customers?: { name?: string | null; email?: string | null } | Array<{ name?: string | null; email?: string | null }> | null;
+  offers?: { title?: string | null } | Array<{ title?: string | null }> | null;
 };
 
 type CalendarStudioData = {
@@ -61,17 +68,32 @@ type CalendarStudioData = {
   bookings?: BookingRecord[];
 };
 
+type CalendarTab = "booking" | "availability" | "bookings" | "automation";
+
+const calendarTabs: { id: CalendarTab; label: string }[] = [
+  { id: "booking", label: "Booking Type" },
+  { id: "availability", label: "Availability" },
+  { id: "bookings", label: "Bookings" },
+  { id: "automation", label: "Automation" },
+];
+
 const weekDays = [
-  { key: "Mon", label: "Mon" },
-  { key: "Tue", label: "Tue" },
-  { key: "Wed", label: "Wed" },
-  { key: "Thu", label: "Thu" },
-  { key: "Fri", label: "Fri" },
-  { key: "Sat", label: "Sat" },
-  { key: "Sun", label: "Sun" },
+  { key: "Mon", label: "Mon", date: "10" },
+  { key: "Tue", label: "Tue", date: "11" },
+  { key: "Wed", label: "Wed", date: "12" },
+  { key: "Thu", label: "Thu", date: "13" },
+  { key: "Fri", label: "Fri", date: "14" },
+  { key: "Sat", label: "Sat", date: "15" },
+  { key: "Sun", label: "Sun", date: "16" },
 ];
 
 const defaultQuestions = ["What should we solve on the call?", "What is your website or main link?", "What outcome would make this useful?"];
+
+const inputClass =
+  "h-10 rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground outline-none transition focus:border-foreground focus:ring-2 focus:ring-foreground/10";
+
+const textAreaClass =
+  "min-h-24 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium leading-5 text-foreground outline-none transition focus:border-foreground focus:ring-2 focus:ring-foreground/10";
 
 function currency(cents = 0, code = "usd") {
   return new Intl.NumberFormat("en", {
@@ -125,7 +147,7 @@ function buildTimes(startTime: string, endTime: string, interval: number) {
   for (let minutes = start; minutes < safeEnd; minutes += interval) {
     times.push(fromMinutes(minutes));
   }
-  return times.slice(0, 8);
+  return times.slice(0, 12);
 }
 
 function slotKey(day: string, time: string) {
@@ -149,13 +171,11 @@ function offerConfigValue<T>(offer: BookingOffer | undefined, key: string, fallb
   return value === undefined || value === null ? fallback : (value as T);
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function bookingCustomer(booking: BookingRecord) {
+  return Array.isArray(booking.customers) ? booking.customers[0] : booking.customers;
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="grid gap-1.5">
       <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
@@ -164,10 +184,12 @@ function Field({
   );
 }
 
-const inputClass =
-  "h-10 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10";
+function Panel({ children, className }: { children: ReactNode; className?: string }) {
+  return <section className={cn("rounded-lg border border-border bg-card shadow-sm", className)}>{children}</section>;
+}
 
 export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
+  const [activeTab, setActiveTab] = useState<CalendarTab>("booking");
   const bookingOffers = useMemo(
     () => (data?.offers ?? []).filter((offer) => offer.type === undefined || (offer as any).type === "booking"),
     [data?.offers]
@@ -182,13 +204,17 @@ export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
     status: "published",
     config: {
       durationMinutes: 30,
-      timezone: "America/New_York",
+      timezone: "Asia/Kolkata",
       activeDays: ["Mon", "Tue", "Wed", "Thu"],
       startTime: "10:00",
       endTime: "16:00",
       bufferMinutes: 10,
       slotIntervalMinutes: 30,
       intakeQuestions: defaultQuestions,
+      meetingProvider: "google_meet",
+      paymentProvider: "stripe",
+      reminderCadence: "one_day",
+      reschedulePolicy: "24h",
     },
   };
 
@@ -202,19 +228,24 @@ export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
   const [durationMinutes, setDurationMinutes] = useState(() => offerConfigValue(selectedOffer, "durationMinutes", 30));
   const [priceCents, setPriceCents] = useState(selectedOffer.price_cents ?? 0);
   const [status, setStatus] = useState<"draft" | "published">(selectedOffer.status === "draft" ? "draft" : "published");
-  const [timezone, setTimezone] = useState(() => offerConfigValue(selectedOffer, "timezone", "America/New_York"));
+  const [timezone, setTimezone] = useState(() => offerConfigValue(selectedOffer, "timezone", "Asia/Kolkata"));
   const [activeDays, setActiveDays] = useState<string[]>(() => offerConfigValue(selectedOffer, "activeDays", ["Mon", "Tue", "Wed", "Thu"]));
   const [startTime, setStartTime] = useState(() => offerConfigValue(selectedOffer, "startTime", "10:00"));
   const [endTime, setEndTime] = useState(() => offerConfigValue(selectedOffer, "endTime", "16:00"));
   const [bufferMinutes, setBufferMinutes] = useState(() => offerConfigValue(selectedOffer, "bufferMinutes", 10));
   const [slotIntervalMinutes, setSlotIntervalMinutes] = useState(() => offerConfigValue(selectedOffer, "slotIntervalMinutes", 30));
   const [questions, setQuestions] = useState<string[]>(() => offerConfigValue(selectedOffer, "intakeQuestions", defaultQuestions));
+  const [meetingProvider, setMeetingProvider] = useState(() => offerConfigValue(selectedOffer, "meetingProvider", "google_meet"));
+  const [paymentProvider, setPaymentProvider] = useState(() => offerConfigValue(selectedOffer, "paymentProvider", "stripe"));
+  const [reminderCadence, setReminderCadence] = useState(() => offerConfigValue(selectedOffer, "reminderCadence", "one_day"));
+  const [reschedulePolicy, setReschedulePolicy] = useState(() => offerConfigValue(selectedOffer, "reschedulePolicy", "24h"));
   const [slotState, setSlotState] = useState<Record<string, "available" | "blocked">>(() => initialSlotState(data?.calendarSlots ?? []));
   const [notice, setNotice] = useState("");
   const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const times = useMemo(() => buildTimes(startTime, endTime, slotIntervalMinutes), [endTime, slotIntervalMinutes, startTime]);
+  const currencyCode = selectedOffer.currency || "usd";
   const publicPath = `/u/${data?.page?.username || data?.page?.slug || ""}`;
   const activeSlotCount = weekDays.reduce(
     (sum, day) =>
@@ -222,9 +253,10 @@ export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
       times.filter((time) => activeDays.includes(day.key) && slotState[slotKey(day.key, time)] !== "blocked").length,
     0
   );
-
   const blockedCount = Object.values(slotState).filter((value) => value === "blocked").length;
-  const upcomingBookings = (data?.bookings ?? []).filter((booking) => !booking.start_at || new Date(booking.start_at) >= new Date()).slice(0, 4);
+  const upcomingBookings = (data?.bookings ?? []).filter((booking) => !booking.start_at || new Date(booking.start_at) >= new Date()).slice(0, 5);
+  const confirmedCount = (data?.bookings ?? []).filter((booking) => booking.status === "confirmed").length;
+  const heldCount = (data?.bookings ?? []).filter((booking) => booking.status === "held").length;
 
   function selectOffer(offer: BookingOffer) {
     setSelectedId(offer.id);
@@ -233,13 +265,17 @@ export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
     setDurationMinutes(offerConfigValue(offer, "durationMinutes", 30));
     setPriceCents(offer.price_cents ?? 0);
     setStatus(offer.status === "draft" ? "draft" : "published");
-    setTimezone(offerConfigValue(offer, "timezone", "America/New_York"));
+    setTimezone(offerConfigValue(offer, "timezone", "Asia/Kolkata"));
     setActiveDays(offerConfigValue(offer, "activeDays", ["Mon", "Tue", "Wed", "Thu"]));
     setStartTime(offerConfigValue(offer, "startTime", "10:00"));
     setEndTime(offerConfigValue(offer, "endTime", "16:00"));
     setBufferMinutes(offerConfigValue(offer, "bufferMinutes", 10));
     setSlotIntervalMinutes(offerConfigValue(offer, "slotIntervalMinutes", 30));
     setQuestions(offerConfigValue(offer, "intakeQuestions", defaultQuestions));
+    setMeetingProvider(offerConfigValue(offer, "meetingProvider", "google_meet"));
+    setPaymentProvider(offerConfigValue(offer, "paymentProvider", "stripe"));
+    setReminderCadence(offerConfigValue(offer, "reminderCadence", "one_day"));
+    setReschedulePolicy(offerConfigValue(offer, "reschedulePolicy", "24h"));
     setNotice("");
   }
 
@@ -294,7 +330,7 @@ export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
           description,
           durationMinutes,
           priceCents,
-          currency: selectedOffer.currency || "usd",
+          currency: currencyCode,
           status,
           timezone,
           activeDays,
@@ -303,6 +339,10 @@ export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
           bufferMinutes,
           slotIntervalMinutes,
           intakeQuestions: questions.filter(Boolean),
+          meetingProvider,
+          paymentProvider,
+          reminderCadence,
+          reschedulePolicy,
           slots: generatedSlots(),
         }),
       });
@@ -316,7 +356,7 @@ export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
       const saved = json.data.offer as BookingOffer;
       setOffers((current) => [saved, ...current.filter((offer) => offer.id !== selectedOffer.id && offer.id !== "new")]);
       setSelectedId(saved.id);
-      setNotice("Calendar saved");
+      setNotice("Saved. Your public page, checkout gate, slots, and confirmations are in sync.");
     });
   }
 
@@ -328,135 +368,265 @@ export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)_340px]">
-      <div className="space-y-5">
-        <Card className="border-border/70 p-4 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-semibold text-foreground">Booking Types</h2>
-              <p className="text-xs text-muted-foreground">Services visitors can schedule.</p>
-            </div>
-            <Button size="icon" className="h-9 w-9" onClick={createNewOffer} aria-label="Create booking type">
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            {offers.map((offer) => {
-              const selected = offer.id === selectedOffer.id;
-              return (
-                <button
-                  key={offer.id}
-                  type="button"
-                  onClick={() => selectOffer(offer)}
-                  className={cn(
-                    "w-full rounded-lg border p-3 text-left transition",
-                    selected ? "border-emerald-500 bg-emerald-50/70 shadow-sm" : "border-border bg-background hover:bg-muted/40"
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="line-clamp-1 text-sm font-semibold text-foreground">{offer.title}</span>
-                    <Badge variant={offer.status === "published" ? "success" : "secondary"} className="shrink-0">
-                      {offer.status === "published" ? "Live" : "Draft"}
-                    </Badge>
-                  </div>
-                  <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-1">
-                      <Clock3 className="h-3.5 w-3.5" />
-                      {offerConfigValue(offer, "durationMinutes", 30)} min
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <CreditCard className="h-3.5 w-3.5" />
-                      {(offer.price_cents ?? 0) > 0 ? currency(offer.price_cents ?? 0, offer.currency ?? "usd") : "Free"}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </Card>
-
-        <Card className="border-border/70 p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-foreground">Booking Details</h2>
-          <div className="mt-4 grid gap-3">
-            <Field label="Name">
-              <input className={inputClass} value={title} onChange={(event) => setTitle(event.target.value)} />
-            </Field>
-            <Field label="Description">
-              <textarea
-                className="min-h-20 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium leading-5 text-foreground outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-              />
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Duration">
-                <select className={inputClass} value={durationMinutes} onChange={(event) => setDurationMinutes(Number(event.target.value))}>
-                  {[15, 20, 30, 45, 60, 90].map((value) => (
-                    <option key={value} value={value}>
-                      {value} min
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Price">
-                <input
-                  className={inputClass}
-                  type="number"
-                  min="0"
-                  value={Math.round(priceCents / 100)}
-                  onChange={(event) => setPriceCents(Math.max(0, Number(event.target.value) * 100))}
-                />
-              </Field>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setStatus("published")}
-                className={cn("rounded-lg border px-3 py-2 text-sm font-semibold", status === "published" ? "border-emerald-500 bg-emerald-50 text-emerald-900" : "border-border")}
-              >
-                Live
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatus("draft")}
-                className={cn("rounded-lg border px-3 py-2 text-sm font-semibold", status === "draft" ? "border-amber-500 bg-amber-50 text-amber-900" : "border-border")}
-              >
-                Draft
-              </button>
-            </div>
-          </div>
-        </Card>
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 border-y border-border bg-card px-4 py-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={status === "published" ? "success" : "warning"}>{status === "published" ? "Live event" : "Draft event"}</Badge>
+          <Badge variant="outline">{activeSlotCount} open slots</Badge>
+          <Badge variant="outline">{confirmedCount} confirmed</Badge>
+          <Badge variant="outline">{heldCount} awaiting checkout</Badge>
+          <Badge variant="outline">{durationMinutes} min</Badge>
+          <Badge variant={priceCents > 0 ? "default" : "success"}>{priceCents > 0 ? currency(priceCents, currencyCode) : "Free"}</Badge>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={copyLink}>
+            {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+            Copy link
+          </Button>
+          <Button variant="outline" asChild>
+            <a href={publicPath || "#"} target="_blank" rel="noreferrer">
+              <Eye className="h-4 w-4" />
+              Preview
+            </a>
+          </Button>
+          <Button onClick={saveCalendar} disabled={isPending || !data?.page?.id}>
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save
+          </Button>
+        </div>
       </div>
 
-      <Card className="overflow-hidden border-border/70 shadow-sm">
-        <div className="border-b border-border bg-muted/20 p-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Weekly Availability</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Set the hours visitors can choose. Block specific slots when your schedule changes.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <select className={inputClass} value={timezone} onChange={(event) => setTimezone(event.target.value)}>
-                <option value="America/New_York">New York</option>
-                <option value="America/Los_Angeles">Los Angeles</option>
-                <option value="Europe/London">London</option>
-                <option value="Asia/Kolkata">India</option>
-                <option value="UTC">UTC</option>
-              </select>
-              <Button onClick={saveCalendar} disabled={isPending || !data?.page?.id}>
-                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Save
+      <div className="border-b border-border bg-card px-4">
+        <nav className="flex gap-6 overflow-x-auto">
+          {calendarTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "h-12 shrink-0 border-b-2 text-sm font-semibold transition",
+                activeTab === tab.id ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <div
+        className={cn(
+          "grid gap-4 px-4 pb-6",
+          activeTab === "booking" && "xl:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)_360px]",
+          activeTab === "availability" && "xl:grid-cols-1",
+          activeTab === "bookings" && "xl:grid-cols-[360px_minmax(0,1fr)]",
+          activeTab === "automation" && "xl:grid-cols-[minmax(0,1fr)_360px]"
+        )}
+      >
+        {activeTab === "booking" || activeTab === "bookings" ? (
+          <aside className="space-y-4">
+            {activeTab === "booking" ? (
+              <Panel>
+            <div className="flex items-center justify-between border-b border-border p-3">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Event Types</h2>
+                <p className="text-xs text-muted-foreground">Sell calls, audits, and sessions.</p>
+              </div>
+              <Button size="icon" className="h-8 w-8" onClick={createNewOffer} aria-label="Create booking type">
+                <Plus className="h-4 w-4" />
               </Button>
             </div>
-          </div>
-        </div>
+            <div className="grid gap-1 p-2">
+              {offers.map((offer) => {
+                const selected = offer.id === selectedOffer.id;
+                return (
+                  <button
+                    key={offer.id}
+                    type="button"
+                    onClick={() => selectOffer(offer)}
+                    className={cn(
+                      "group grid gap-2 rounded-md border px-3 py-3 text-left transition",
+                      selected ? "border-foreground bg-foreground text-background" : "border-transparent bg-card hover:border-border hover:bg-secondary/60"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="line-clamp-2 text-sm font-semibold">{offer.title}</span>
+                      <ChevronRight className={cn("mt-0.5 h-4 w-4", selected ? "text-background/70" : "text-muted-foreground")} />
+                    </div>
+                    <div className={cn("flex flex-wrap items-center gap-2 text-xs", selected ? "text-background/70" : "text-muted-foreground")}>
+                      <span className="inline-flex items-center gap-1">
+                        <Clock3 className="h-3.5 w-3.5" />
+                        {offerConfigValue(offer, "durationMinutes", 30)}m
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <CreditCard className="h-3.5 w-3.5" />
+                        {(offer.price_cents ?? 0) > 0 ? currency(offer.price_cents ?? 0, offer.currency ?? "usd") : "Free"}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+              </Panel>
+            ) : null}
 
-        <div className="grid gap-4 p-4">
-          <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr]">
-            <div>
-              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Available days</span>
-              <div className="mt-2 grid grid-cols-7 gap-2">
+            {activeTab === "bookings" ? (
+              <Panel className="p-3">
+            <div className="flex items-center gap-2">
+              <CalendarCheck className="h-4 w-4 text-emerald-600" />
+              <h2 className="text-sm font-semibold text-foreground">Upcoming</h2>
+              <Badge variant="secondary" className="ml-auto">{upcomingBookings.length}</Badge>
+            </div>
+            <div className="mt-3 space-y-2">
+              {upcomingBookings.length ? (
+                upcomingBookings.map((booking) => {
+                  const customer = bookingCustomer(booking);
+                  return (
+                    <div key={booking.id} className="rounded-md border border-border bg-background p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-semibold text-foreground">{customer?.name || customer?.email || "Booked guest"}</p>
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            {booking.start_at ? new Date(booking.start_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "Scheduled session"}
+                          </p>
+                        </div>
+                        <Badge variant={booking.status === "confirmed" ? "success" : booking.status === "held" ? "warning" : "secondary"} className="shrink-0">
+                          {booking.status || "pending"}
+                        </Badge>
+                      </div>
+                      {booking.meeting_url ? (
+                        <a href={booking.meeting_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900">
+                          <Video className="h-3.5 w-3.5" />
+                          Open meeting link
+                        </a>
+                      ) : (
+                        <p className="mt-2 text-[11px] font-medium text-muted-foreground">
+                          {booking.status === "held" ? "Meeting link appears after checkout." : "Meeting link will appear after confirmation."}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No customer sessions yet. Visitors book from your Smart Link.</div>
+              )}
+            </div>
+              </Panel>
+            ) : null}
+          </aside>
+        ) : null}
+
+        <main className="space-y-4">
+          {activeTab === "booking" ? (
+            <Panel>
+            <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.2fr)_320px]">
+              <div className="grid gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-semibold text-foreground">Event Setup</h2>
+                    <p className="text-sm text-muted-foreground">Details shown on the public booking page.</p>
+                  </div>
+                  <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border">
+                    {(["published", "draft"] as const).map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => setStatus(item)}
+                        className={cn(
+                          "h-9 px-4 text-sm font-semibold capitalize transition",
+                          status === item ? "bg-foreground text-background" : "bg-card text-muted-foreground hover:bg-secondary"
+                        )}
+                      >
+                        {item === "published" ? "Live" : "Draft"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <Field label="Event name">
+                  <input className={inputClass} value={title} onChange={(event) => setTitle(event.target.value)} />
+                </Field>
+                <Field label="Description">
+                  <textarea className={textAreaClass} value={description} onChange={(event) => setDescription(event.target.value)} />
+                </Field>
+              </div>
+
+              <div className="grid gap-3 rounded-md border border-border bg-secondary/30 p-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Duration">
+                    <select className={inputClass} value={durationMinutes} onChange={(event) => setDurationMinutes(Number(event.target.value))}>
+                      {[15, 20, 30, 45, 60, 90].map((value) => (
+                        <option key={value} value={value}>
+                          {value} min
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Price">
+                    <input
+                      className={inputClass}
+                      type="number"
+                      min="0"
+                      value={Math.round(priceCents / 100)}
+                      onChange={(event) => setPriceCents(Math.max(0, Number(event.target.value) * 100))}
+                    />
+                  </Field>
+                </div>
+                <Field label="Meeting">
+                  <select className={inputClass} value={meetingProvider} onChange={(event) => setMeetingProvider(event.target.value)}>
+                    <option value="google_meet">Google Meet</option>
+                    <option value="zoom">Zoom</option>
+                    <option value="manual">Manual link</option>
+                  </select>
+                </Field>
+                <Field label="Checkout">
+                  <select className={inputClass} value={paymentProvider} onChange={(event) => setPaymentProvider(event.target.value)}>
+                    <option value="stripe">Stripe checkout</option>
+                    <option value="manual">Manual invoice</option>
+                  </select>
+                </Field>
+              </div>
+            </div>
+            </Panel>
+          ) : null}
+
+          {activeTab === "availability" ? (
+            <Panel>
+            <div className="border-b border-border p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">Weekly Availability</h2>
+                  <p className="text-sm text-muted-foreground">Click any open slot to block it. Saved slots publish three rolling weeks.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <Field label="Timezone">
+                    <select className={inputClass} value={timezone} onChange={(event) => setTimezone(event.target.value)}>
+                      <option value="Asia/Kolkata">Asia/Kolkata</option>
+                      <option value="America/New_York">New York</option>
+                      <option value="America/Los_Angeles">Los Angeles</option>
+                      <option value="Europe/London">London</option>
+                      <option value="UTC">UTC</option>
+                    </select>
+                  </Field>
+                  <Field label="Start">
+                    <input className={inputClass} type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
+                  </Field>
+                  <Field label="End">
+                    <input className={inputClass} type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} />
+                  </Field>
+                  <Field label="Buffer">
+                    <select className={inputClass} value={bufferMinutes} onChange={(event) => setBufferMinutes(Number(event.target.value))}>
+                      {[0, 5, 10, 15, 30].map((value) => (
+                        <option key={value} value={value}>
+                          {value}m
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-7 gap-2">
                 {weekDays.map((day) => {
                   const selected = activeDays.includes(day.key);
                   return (
@@ -465,8 +635,8 @@ export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
                       type="button"
                       onClick={() => setActiveDays((current) => (selected ? current.filter((item) => item !== day.key) : [...current, day.key]))}
                       className={cn(
-                        "h-10 rounded-lg border text-sm font-semibold transition",
-                        selected ? "border-foreground bg-foreground text-background" : "border-border bg-background text-muted-foreground hover:bg-muted"
+                        "h-10 rounded-md border text-sm font-semibold transition",
+                        selected ? "border-foreground bg-foreground text-background" : "border-border bg-card text-muted-foreground hover:bg-secondary"
                       )}
                     >
                       {day.label}
@@ -476,210 +646,240 @@ export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              <Field label="Start">
-                <input className={inputClass} type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
-              </Field>
-              <Field label="End">
-                <input className={inputClass} type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} />
-              </Field>
-              <Field label="Buffer">
-                <select className={inputClass} value={bufferMinutes} onChange={(event) => setBufferMinutes(Number(event.target.value))}>
-                  {[0, 5, 10, 15, 30].map((value) => (
-                    <option key={value} value={value}>
-                      {value}m
-                    </option>
+            <div className="overflow-x-auto preview-scroll">
+              <div className="min-w-[780px]">
+                <div className="grid grid-cols-7 border-b border-border bg-secondary/50">
+                  {weekDays.map((day) => (
+                    <div key={day.key} className="px-3 py-3 text-center">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{day.label}</p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">{day.date}</p>
+                    </div>
                   ))}
+                </div>
+                <div className="grid grid-cols-7">
+                  {weekDays.map((day) => (
+                    <div key={day.key} className="border-r border-border last:border-r-0">
+                      {times.map((time) => {
+                        const disabled = !activeDays.includes(day.key);
+                        const blocked = slotState[slotKey(day.key, time)] === "blocked";
+                        return (
+                          <button
+                            key={time}
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => toggleSlot(day.key, time)}
+                            className={cn(
+                              "flex h-16 w-full flex-col items-start justify-between border-b border-border px-3 py-2 text-left transition last:border-b-0",
+                              disabled && "cursor-not-allowed bg-secondary/40 text-muted-foreground/50",
+                              !disabled && !blocked && "bg-card hover:bg-emerald-50",
+                              blocked && !disabled && "bg-stone-100 text-muted-foreground"
+                            )}
+                          >
+                            <span className="text-xs font-semibold">{timeLabel(time)}</span>
+                            <span
+                              className={cn(
+                                "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                                disabled ? "bg-muted text-muted-foreground" : blocked ? "bg-stone-200 text-stone-600" : "bg-emerald-100 text-emerald-700"
+                              )}
+                            >
+                              {disabled ? "Off" : blocked ? "Blocked" : "Open"}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            </Panel>
+          ) : null}
+
+          {activeTab === "bookings" ? (
+            <Panel className="p-4">
+              <h2 className="text-base font-semibold text-foreground">Session Health</h2>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <div className="flex items-center justify-between rounded-md border border-border bg-background p-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Confirmed</p>
+                    <p className="text-xs text-muted-foreground">Events and meeting links created.</p>
+                  </div>
+                  <span className="text-lg font-semibold text-foreground">{confirmedCount}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-md border border-border bg-background p-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Checkout</p>
+                    <p className="text-xs text-muted-foreground">Held until payment confirms.</p>
+                  </div>
+                  <span className="text-lg font-semibold text-foreground">{heldCount}</span>
+                </div>
+              </div>
+            </Panel>
+          ) : null}
+
+          {activeTab === "automation" ? (
+            <Panel className="p-4">
+              <h2 className="text-base font-semibold text-foreground">Automation</h2>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {[
+                  [Video, "Meeting link", meetingProvider === "manual" ? "Manual link in confirmation." : "Generated after booking."],
+                  [CreditCard, "Payment gate", priceCents > 0 ? "Checkout before confirmation." : "No payment required."],
+                  [Mail, "Reminders", reminderCadence === "none" ? "Paused." : reminderCadence === "one_hour" ? "One hour before." : "One day before."],
+                  [RefreshCw, "Reschedule", reschedulePolicy === "manual" ? "Manual approval." : reschedulePolicy === "open" ? "Open reschedule." : "Locked inside 24h."],
+                  [Sparkles, "AI follow-up", "Draft recap after the call."],
+                ].map(([Icon, titleText, body]) => {
+                  const TypedIcon = Icon as typeof Video;
+                  return (
+                    <div key={titleText as string} className="flex gap-3 rounded-md border border-border bg-background p-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary text-foreground">
+                        <TypedIcon className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{titleText as string}</p>
+                        <p className="text-xs leading-5 text-muted-foreground">{body as string}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Panel>
+          ) : null}
+
+          {notice ? (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">{notice}</div>
+          ) : null}
+        </main>
+
+        {activeTab === "booking" || activeTab === "automation" ? (
+          <aside className="space-y-4 xl:col-start-auto">
+            {activeTab === "booking" ? (
+              <Panel className="overflow-hidden">
+            <div className="border-b border-border bg-secondary/40 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">Public Booking Surface</h2>
+                  <p className="text-xs text-muted-foreground">Clients book from your Smart Link. This screen is for you.</p>
+                </div>
+                <Badge variant="outline">{timezone}</Badge>
+              </div>
+            </div>
+            <div className="p-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Visible offer</p>
+                <h3 className="mt-2 text-xl font-semibold leading-tight text-foreground">{title || "Booking type"}</h3>
+                <p className="mt-2 text-sm leading-5 text-muted-foreground">{description || "Visitors can pick a time from your live schedule."}</p>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="rounded-md border border-border bg-background p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Open</p>
+                  <p className="mt-1 text-2xl font-semibold text-foreground">{activeSlotCount}</p>
+                </div>
+                <div className="rounded-md border border-border bg-background p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Blocked</p>
+                  <p className="mt-1 text-2xl font-semibold text-foreground">{blockedCount}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-md border border-border bg-background p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold text-foreground">User booking flow</span>
+                  <Badge variant={priceCents > 0 ? "default" : "success"}>{priceCents > 0 ? currency(priceCents, currencyCode) : "Free"}</Badge>
+                </div>
+                <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                  <p className="flex items-center gap-2">
+                    <Check className="h-3.5 w-3.5 text-emerald-600" />
+                    Users choose only published open slots.
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <Check className="h-3.5 w-3.5 text-emerald-600" />
+                    Name, email, phone, and prep note are collected first.
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <Check className="h-3.5 w-3.5 text-emerald-600" />
+                    {priceCents > 0 ? "Checkout runs before the booking is confirmed." : "Free sessions confirm immediately."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button variant="outline" asChild>
+                  <a href={publicPath || "#"} target="_blank" rel="noreferrer">
+                    <Eye className="h-4 w-4" />
+                    Open Smart Link
+                  </a>
+                </Button>
+                <Button variant="outline" asChild>
+                  <a href="/creator/settings">
+                    <Settings className="h-4 w-4" />
+                    Providers
+                  </a>
+                </Button>
+              </div>
+            </div>
+              </Panel>
+            ) : null}
+
+            {activeTab === "automation" ? (
+              <>
+                <Panel className="p-4">
+            <h2 className="text-base font-semibold text-foreground">Rules</h2>
+            <div className="mt-3 grid gap-3">
+              <Field label="Reminder">
+                <select className={inputClass} value={reminderCadence} onChange={(event) => setReminderCadence(event.target.value)}>
+                  <option value="one_day">One day before</option>
+                  <option value="one_hour">One hour before</option>
+                  <option value="none">None</option>
+                </select>
+              </Field>
+              <Field label="Reschedule">
+                <select className={inputClass} value={reschedulePolicy} onChange={(event) => setReschedulePolicy(event.target.value)}>
+                  <option value="24h">Block inside 24h</option>
+                  <option value="open">Open reschedule</option>
+                  <option value="manual">Manual approval</option>
                 </select>
               </Field>
             </div>
-          </div>
+                </Panel>
 
-          <div className="overflow-x-auto rounded-lg border border-border">
-            <div className="min-w-[720px]">
-              <div className="grid grid-cols-7 border-b border-border bg-muted/30">
-                {weekDays.map((day) => (
-                  <div key={day.key} className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                    {day.label}
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-7">
-                {weekDays.map((day) => (
-                  <div key={day.key} className="border-r border-border last:border-r-0">
-                    {times.map((time) => {
-                      const disabled = !activeDays.includes(day.key);
-                      const blocked = slotState[slotKey(day.key, time)] === "blocked";
-                      return (
-                        <button
-                          key={time}
-                          type="button"
-                          disabled={disabled}
-                          onClick={() => toggleSlot(day.key, time)}
-                          className={cn(
-                            "flex h-16 w-full flex-col items-start justify-between border-b border-border px-3 py-2 text-left transition last:border-b-0",
-                            disabled && "cursor-not-allowed bg-muted/30 text-muted-foreground/50",
-                            !disabled && !blocked && "bg-background hover:bg-emerald-50",
-                            blocked && !disabled && "bg-stone-100 text-muted-foreground"
-                          )}
-                        >
-                          <span className="text-xs font-semibold">{timeLabel(time)}</span>
-                          <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", blocked ? "bg-stone-200 text-stone-600" : "bg-emerald-100 text-emerald-700")}>
-                            {disabled ? "Off" : blocked ? "Blocked" : "Open"}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            {[
-              ["Open slots", activeSlotCount],
-              ["Blocked", blockedCount],
-              ["Next publish", generatedSlots().filter((slot) => slot.status === "available").length],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-lg border border-border bg-background p-3">
-                <p className="text-xs font-medium text-muted-foreground">{label}</p>
-                <p className="mt-1 text-2xl font-semibold text-foreground">{value}</p>
-              </div>
-            ))}
-          </div>
-
-          {notice ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">{notice}</p> : null}
-        </div>
-      </Card>
-
-      <div className="space-y-5">
-        <Card className="border-border/70 p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-semibold text-foreground">Booking Page</h2>
-              <p className="text-xs text-muted-foreground">How visitors see this session.</p>
-            </div>
-            <Button variant="outline" size="icon" className="h-9 w-9" onClick={copyLink} aria-label="Copy public page link">
-              {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
-            </Button>
-          </div>
-
-          <div className="mt-4 rounded-xl border border-border bg-gradient-to-b from-white to-stone-50 p-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-              <CalendarDays className="h-4 w-4 text-emerald-600" />
-              {data?.page?.display_name || "Creator"}
-            </div>
-            <h3 className="mt-3 text-xl font-semibold leading-tight text-foreground">{title || "Booking type"}</h3>
-            <p className="mt-2 text-sm leading-5 text-muted-foreground">{description || "Visitors can pick a time from your live schedule."}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Badge variant="secondary">{durationMinutes} min</Badge>
-              <Badge variant={priceCents > 0 ? "default" : "success"}>{priceCents > 0 ? currency(priceCents) : "Free"}</Badge>
-              <Badge variant="secondary">{timezone.replace("_", " ")}</Badge>
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {times.slice(0, 4).map((time) => (
-                <span key={time} className="rounded-lg border border-border bg-background px-3 py-2 text-center text-xs font-semibold text-foreground">
-                  {timeLabel(time)}
-                </span>
+                <Panel className="p-4">
+            <h2 className="text-base font-semibold text-foreground">Intake</h2>
+            <div className="mt-3 space-y-2">
+              {questions.map((question, index) => (
+                <div key={index} className="flex gap-2">
+                  <input
+                    className={cn(inputClass, "min-w-0 flex-1")}
+                    value={question}
+                    onChange={(event) => setQuestions((current) => current.map((item, itemIndex) => (itemIndex === index ? event.target.value : item)))}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 shrink-0"
+                    onClick={() => setQuestions((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                    aria-label="Remove question"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               ))}
+              <Button type="button" variant="outline" className="w-full" onClick={() => setQuestions((current) => [...current, ""])}>
+                <Plus className="h-4 w-4" />
+                Add question
+              </Button>
             </div>
-          </div>
+                </Panel>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <Button variant="outline" asChild>
-              <a href={publicPath || "#"} target="_blank" rel="noreferrer">
-                <Eye className="h-4 w-4" />
-                Preview
-              </a>
-            </Button>
-            <Button variant="outline" asChild>
-              <a href="/creator/settings">
-                <Link2 className="h-4 w-4" />
-                Settings
-              </a>
-            </Button>
-          </div>
-        </Card>
-
-        <Card className="border-border/70 p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-foreground">Automation</h2>
-          <div className="mt-3 space-y-2">
-            {[
-              [Video, "Meeting link", "Created when a booking is confirmed."],
-              [CreditCard, "Payment gate", priceCents > 0 ? "Checkout runs before confirmation." : "No payment required."],
-              [Sparkles, "AI follow-up", "Recap and next-step draft after the call."],
-            ].map(([Icon, titleText, body]) => {
-              const TypedIcon = Icon as typeof Video;
-              return (
-                <div key={titleText as string} className="flex gap-3 rounded-lg border border-border bg-background p-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-700">
-                    <TypedIcon className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{titleText as string}</p>
-                    <p className="text-xs leading-5 text-muted-foreground">{body as string}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        <Card className="border-border/70 p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-foreground">Intake</h2>
-          <div className="mt-3 space-y-2">
-            {questions.map((question, index) => (
-              <div key={index} className="flex gap-2">
-                <input
-                  className={cn(inputClass, "min-w-0 flex-1")}
-                  value={question}
-                  onChange={(event) => setQuestions((current) => current.map((item, itemIndex) => (itemIndex === index ? event.target.value : item)))}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 shrink-0"
-                  onClick={() => setQuestions((current) => current.filter((_, itemIndex) => itemIndex !== index))}
-                  aria-label="Remove question"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            <Button type="button" variant="outline" className="w-full" onClick={() => setQuestions((current) => [...current, ""])}>
-              <Plus className="h-4 w-4" />
-              Add question
-            </Button>
-          </div>
-        </Card>
-
-        <Card className="border-border/70 p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-foreground">Upcoming</h2>
-            <Badge variant="secondary">{upcomingBookings.length}</Badge>
-          </div>
-          <div className="mt-3 space-y-2">
-            {upcomingBookings.length ? (
-              upcomingBookings.map((booking) => (
-                <div key={booking.id} className="rounded-lg border border-border bg-background p-3">
-                  <p className="text-sm font-semibold text-foreground">
-                    {booking.start_at ? new Date(booking.start_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "Scheduled session"}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">{booking.status || "pending"}</p>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">No upcoming sessions yet.</div>
-            )}
-          </div>
-        </Card>
-
-        <a href="/creator/settings" className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
-          Calendar integrations live in Settings
-          <ExternalLink className="h-4 w-4" />
-        </a>
+                <a href="/creator/settings" className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
+            Provider connections
+            <Link2 className="h-4 w-4" />
+            <ExternalLink className="h-4 w-4" />
+                </a>
+              </>
+            ) : null}
+          </aside>
+        ) : null}
       </div>
     </div>
   );

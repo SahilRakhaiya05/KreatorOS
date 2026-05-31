@@ -436,10 +436,28 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
   const [dialogCustomIsLight, setDialogCustomIsLight] = useState(false);
   const [dialogCustomCss, setDialogCustomCss] = useState("");
 
+  // Campaign Content Overrides states
+  const [dialogHasContentOverride, setDialogHasContentOverride] = useState(false);
+  const [dialogSelectedLinkIds, setDialogSelectedLinkIds] = useState<string[]>([]);
+  const [dialogCustomCreatedLinks, setDialogCustomCreatedLinks] = useState<any[]>([]);
+  const [dialogSelectedProductIds, setDialogSelectedProductIds] = useState<string[]>([]);
+  const [dialogCustomCreatedProducts, setDialogCustomCreatedProducts] = useState<any[]>([]);
+
+  // Temporary inputs for campaign-only custom links/products
+  const [newCampaignLinkTitle, setNewCampaignLinkTitle] = useState("");
+  const [newCampaignLinkUrl, setNewCampaignLinkUrl] = useState("");
+  const [newCampaignLinkDesc, setNewCampaignLinkDesc] = useState("");
+
+  const [newCampaignProdTitle, setNewCampaignProdTitle] = useState("");
+  const [newCampaignProdDesc, setNewCampaignProdDesc] = useState("");
+  const [newCampaignProdPrice, setNewCampaignProdPrice] = useState("");
+  const [newCampaignProdCurrency, setNewCampaignProdCurrency] = useState("usd");
+
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("Social");
   const [socialUrl, setSocialUrl] = useState<string>("");
   const [isSocialDialogOpen, setIsSocialDialogOpen] = useState(false);
+  const [isProfileSettingsDialogOpen, setIsProfileSettingsDialogOpen] = useState(false);
   
   const [affiliateTab, setAffiliateTab] = useState<"links" | "referrals" | "ledger">("links");
 
@@ -454,6 +472,10 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
   const [stripeLoading, setStripeLoading] = useState(false);
   const [connectorLoading, setConnectorLoading] = useState<string | null>(null);
   const [settingsSubTab, setSettingsSubTab] = useState("storefront");
+  
+  const googleCalendarConnected = providersList.some(
+    (p: any) => p.provider === "google_calendar" && (p.status === "connected" || p.status === "sandbox")
+  );
   
   const checklist = setupItems(data); // Using data directly for items config stability
   const completed = checklist.filter((item) => item.done).length;
@@ -641,7 +663,10 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
           customCss,
         }
       },
-      (payload) => setState((prev) => ({ ...prev, page: payload.page })),
+      (payload) => {
+        setState((prev) => ({ ...prev, page: payload.page }));
+        setIsProfileSettingsDialogOpen(false);
+      },
     );
   }
 
@@ -893,6 +918,15 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
       headline: String(formData.get("brandHeadline") || ""),
       bio: String(formData.get("brandBio") || ""),
       custom_theme: customTheme,
+      has_content_override: dialogHasContentOverride,
+      campaignCustomLinks: {
+        selectedIds: dialogSelectedLinkIds,
+        customCreated: dialogCustomCreatedLinks,
+      },
+      campaignProducts: {
+        selectedIds: dialogSelectedProductIds,
+        customCreated: dialogCustomCreatedProducts,
+      },
     };
 
     post(
@@ -1086,7 +1120,37 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
           customCss,
         }
       }
-    }
+    },
+    customLinks: (isShortLinkDialogOpen && dialogIsStorefrontOverride && dialogHasContentOverride)
+      ? [
+          ...state.customLinks.filter((l) => dialogSelectedLinkIds.includes(l.id)),
+          ...dialogCustomCreatedLinks.map((l: any, idx: number) => ({
+            id: `campaign-link-${idx}`,
+            page_id: state.page.id,
+            title: l.title,
+            url: l.url,
+            description: l.description || null,
+            is_visible: true,
+          }))
+        ]
+      : state.customLinks,
+    products: (isShortLinkDialogOpen && dialogIsStorefrontOverride && dialogHasContentOverride)
+      ? [
+          ...state.products.filter((p) => dialogSelectedProductIds.includes(p.id)),
+          ...dialogCustomCreatedProducts.map((p: any, idx: number) => ({
+            id: `campaign-prod-${idx}`,
+            page_id: state.page.id,
+            title: p.title,
+            slug: `campaign-prod-${idx}`,
+            description: p.description || null,
+            price_cents: Number(p.priceCents || p.price_cents || 0),
+            currency: p.currency || "usd",
+            status: "published",
+            show_on_bio: true,
+            show_on_shop: true,
+          }))
+        ]
+      : state.products,
   };
 
   return (
@@ -1104,148 +1168,237 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                       Profile, bio builder, products, affiliate flows, referrals, AI assistant, analytics, and public shop in one commerce surface.
                     </p>
                   </div>
-                  <Dialog open={isSocialDialogOpen} onOpenChange={(open) => {
-                    setIsSocialDialogOpen(open);
-                    if (!open) {
-                      setSelectedPlatform(null);
-                      setSocialUrl("");
-                    }
-                  }}>
+                  <Dialog open={isProfileSettingsDialogOpen} onOpenChange={setIsProfileSettingsDialogOpen}>
                     <DialogTrigger asChild>
                       <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-full border border-border bg-secondary/35 text-foreground hover:bg-secondary hover:text-primary transition-all duration-300">
                         <Settings className="h-5 w-5" />
-                        <span className="sr-only">Social Settings</span>
+                        <span className="sr-only">Profile Settings</span>
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-3xl bg-card border border-border rounded-2xl shadow-card overflow-hidden flex flex-col max-h-[85vh] p-0 gap-0">
                       <DialogHeader className="p-5 pb-4 border-b border-border/50 bg-secondary/10">
                         <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2">
                           <Settings className="h-5 w-5 text-primary" />
-                          Manage Social Channels
+                          Complete your creator storefront
                         </DialogTitle>
                         <p className="text-xs font-semibold text-muted-foreground mt-1">
-                          Connect your social profiles. Active channels display matching vector brand icons on your live storefront.
+                          Update your storefront layout, profile image, custom accent colors, and branding details.
                         </p>
                       </DialogHeader>
 
                       <div className="flex-1 overflow-y-auto p-5 space-y-6">
-
-                        {/* URL input connector (shows when platform selected) */}
-                        {selectedPlatform && (
-                          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 animate-in fade-in slide-in-from-top-3 duration-200">
-                            <div className="flex items-center gap-2.5 mb-3">
-                              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-background text-primary shadow-sm">
-                                <SocialIcon platform={selectedPlatform} className="h-4.5 w-4.5" />
-                              </span>
-                              <div>
-                                <h4 className="text-sm font-black text-foreground">Connect {selectedPlatform}</h4>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Group: {selectedCategory}</p>
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={socialUrl}
-                                onChange={(e) => setSocialUrl(e.target.value)}
-                                placeholder={`Enter your ${selectedPlatform} profile URL...`}
-                                className="h-10 flex-1 rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
-                                autoFocus
-                              />
-                              <Button
-                                type="button"
-                                onClick={() => {
-                                  if (socialUrl.trim()) {
-                                    saveSocialLink(selectedPlatform, selectedCategory, socialUrl.trim());
-                                    setSelectedPlatform(null);
-                                    setSocialUrl("");
-                                  }
-                                }}
-                                className="h-10"
-                              >
-                                <Check className="h-4 w-4 mr-1" /> Save
-                              </Button>
-                              {state.socialLinks.some((l) => l.platform === selectedPlatform) && (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={() => {
-                                    const link = state.socialLinks.find((l) => l.platform === selectedPlatform);
-                                    if (link) {
-                                      deleteSocial(link.id);
-                                      setSelectedPlatform(null);
-                                      setSocialUrl("");
-                                    }
-                                  }}
-                                  className="h-10 text-red-500 border-red-500/20 hover:bg-red-500/10 hover:text-red-600"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                onClick={() => {
-                                  setSelectedPlatform(null);
-                                  setSocialUrl("");
-                                }}
-                                className="h-10"
-                              >
-                                Cancel
-                              </Button>
-                            </div>
+                        <form action={(fd) => saveProfile(fd)} className="grid gap-5">
+                          <div className="grid gap-4 lg:grid-cols-2">
+                            <UploadField label="Upload profile photo" bucket="public-assets" onUploaded={setAvatarUrl} />
+                            <UploadField label="Upload background image" bucket="page-assets" onUploaded={setBackgroundUrl} />
                           </div>
-                        )}
+                          <div className="grid gap-4 lg:grid-cols-2">
+                            <TextField name="displayName" label="Display name" defaultValue={state.page.display_name} placeholder="Your creator name" />
+                            <TextField name="username" label="Username" defaultValue={state.page.username ?? state.page.slug} placeholder="your-username" />
+                            <TextField name="headline" label="Headline" defaultValue={state.page.headline} placeholder="I help creators..." />
+                            <TextField name="totalFollowers" label="Total followers" defaultValue={state.page.theme?.totalFollowers ?? 0} type="number" />
+                          </div>
+                          <TextArea name="bio" label="Bio" defaultValue={state.page.bio} placeholder="A short conversion-focused bio..." />
+                          <label className="space-y-2 block">
+                            <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground block">Occupation type</span>
+                            <select name="occupationType" defaultValue={state.page.theme?.occupationType ?? "creator"} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none sm:h-12 sm:rounded-2xl sm:px-4">
+                              {["personal", "creator", "brand", "business", "agency", "community"].map((item) => <option key={item}>{item}</option>)}
+                            </select>
+                          </label>
 
-                        {/* Directory selector */}
-                        <div>
-                          <h4 className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground mb-4">Platform Directory</h4>
-                          <div className="space-y-5">
-                            {socialGroups.map((group) => (
-                              <div key={group.group} className="space-y-2">
-                                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-muted-foreground/80">{group.group}</p>
-                                <div className="grid grid-cols-3 gap-5 sm:gap-6 sm:grid-cols-4 md:grid-cols-6">
-                                  {group.items.map((platform) => {
-                                    const isConnected = state.socialLinks.some((l) => l.platform === platform);
-                                    const isSelected = selectedPlatform === platform;
-                                    const brandHover = getBrandHoverClass(platform);
-                                    const brandActive = getBrandActiveBorderClass(platform);
-                                    const currentLink = state.socialLinks.find((l) => l.platform === platform);
+                          {/* Theme & Appearance Section */}
+                          <div className="rounded-3xl border border-border bg-secondary/15 p-5 space-y-5">
+                            <div>
+                              <h3 className="text-lg font-black text-foreground">Theme & Appearance</h3>
+                              <p className="text-xs font-semibold text-muted-foreground">Select a baseline style theme and accent colors for your public page.</p>
+                            </div>
 
-                                    return (
-                                      <button
-                                        key={platform}
-                                        type="button"
-                                        onClick={() => {
-                                          setSelectedPlatform(platform);
-                                          setSelectedCategory(group.group);
-                                          setSocialUrl(currentLink?.url || "");
-                                        }}
-                                        className={cn(
-                                          "group relative flex flex-col items-center justify-center rounded-2xl border p-4 text-center transition-all duration-300 bg-secondary/10",
-                                          isSelected ? "scale-105 z-10 " + brandActive : isConnected ? "scale-105 z-10 " + brandActive : "border-border/40 hover:bg-secondary/20 hover:scale-105",
-                                          brandHover
-                                        )}
-                                      >
-                                        {isConnected && (
-                                          <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                                        )}
-                                        <div className={cn(
-                                          "flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary/35 transition-transform duration-300 group-hover:scale-110",
-                                          isConnected || isSelected ? "bg-background shadow-md" : "text-muted-foreground group-hover:text-foreground"
-                                        )}>
-                                          <SocialIcon platform={platform} className="h-10 w-10 object-contain" />
-                                        </div>
-                                        <span className="mt-3 text-[11px] font-black tracking-tight text-muted-foreground group-hover:text-foreground truncate max-w-full">
-                                          {platform}
-                                        </span>
-                                      </button>
-                                    );
-                                  })}
+                            <div className="grid gap-4">
+                              <div>
+                                <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground block mb-2">Theme Style Preset</span>
+                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
+                                  {[
+                                    { name: "Sleek Dark", val: "dark", desc: "Studio dark slate", previewBg: "bg-black" },
+                                    { name: "Pure White", val: "light", desc: "Elegant clean light", previewBg: "bg-slate-100 border border-zinc-200" },
+                                    { name: "Glassmorphic", val: "glass", desc: "Frosted aesthetic", previewBg: "bg-slate-900 bg-gradient-to-tr from-slate-950 via-zinc-900 to-slate-950" },
+                                    { name: "Sunset Breeze", val: "sunset", desc: "Warm cozy vibe", previewBg: "bg-gradient-to-b from-amber-100 to-rose-200" },
+                                    { name: "Cyber Neon", val: "cyber", desc: "High contrast neon", previewBg: "bg-[#060810]" },
+                                    { name: "Custom Theme", val: "custom", desc: "Design your own", previewBg: "bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500" }
+                                  ].map((t) => (
+                                    <button
+                                      key={t.val}
+                                      type="button"
+                                      onClick={() => setThemeMode(t.val)}
+                                      className={cn(
+                                        "flex flex-col items-center justify-between rounded-2xl border p-3 text-center transition-all duration-200 hover:-translate-y-0.5",
+                                        themeMode === t.val
+                                          ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
+                                          : "border-border/60 bg-background/50 hover:bg-background/80"
+                                      )}
+                                    >
+                                      <div className={cn("h-10 w-full rounded-xl border border-border/20 mb-2 shadow-inner", t.previewBg)} />
+                                      <span className="text-xs font-black text-foreground block truncate w-full">{t.name}</span>
+                                      <span className="text-[9px] font-semibold text-muted-foreground mt-0.5 block truncate w-full">{t.desc}</span>
+                                    </button>
+                                  ))}
                                 </div>
                               </div>
-                            ))}
+
+                              {themeMode === "custom" && (
+                                <div className="mt-4 rounded-2xl border border-border bg-secondary/5 p-4 space-y-4 animate-in fade-in duration-200 text-left">
+                                  <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Custom UI Theme Designer</h4>
+                                  
+                                  <div className="grid gap-4 sm:grid-cols-2">
+                                    <label className="space-y-1 block">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Background Style</span>
+                                      <select value={customBgType} onChange={(e) => setCustomBgType(e.target.value)} className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold">
+                                        <option value="color">Solid Background Color</option>
+                                        <option value="gradient">Gradient Background</option>
+                                      </select>
+                                    </label>
+
+                                    {customBgType === "color" ? (
+                                      <label className="space-y-1 block">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Background Color</span>
+                                        <div className="flex gap-2">
+                                          <input type="color" value={customBgColor} onChange={(e) => setCustomBgColor(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
+                                          <input type="text" value={customBgColor} onChange={(e) => setCustomBgColor(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-3 text-xs font-semibold" />
+                                        </div>
+                                      </label>
+                                    ) : (
+                                      <label className="space-y-1 block">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Background Gradient CSS</span>
+                                        <input type="text" value={customBgGradient} onChange={(e) => setCustomBgGradient(e.target.value)} className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold" placeholder="linear-gradient(...)" />
+                                      </label>
+                                    )}
+                                  </div>
+
+                                  <div className="grid gap-4 sm:grid-cols-3">
+                                    <label className="space-y-1 block">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Card Background</span>
+                                      <div className="flex gap-1.5">
+                                        <input type="color" value={customCardBg.startsWith("rgba") ? "#1e293b" : customCardBg} onChange={(e) => setCustomCardBg(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
+                                        <input type="text" value={customCardBg} onChange={(e) => setCustomCardBg(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono" />
+                                      </div>
+                                    </label>
+
+                                    <label className="space-y-1 block">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Card Border</span>
+                                      <div className="flex gap-1.5">
+                                        <input type="color" value={customCardBorder.startsWith("rgba") ? "#ffffff" : customCardBorder} onChange={(e) => setCustomCardBorder(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
+                                        <input type="text" value={customCardBorder} onChange={(e) => setCustomCardBorder(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono" />
+                                      </div>
+                                    </label>
+
+                                    <label className="space-y-1 block">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Card Text Color</span>
+                                      <div className="flex gap-1.5">
+                                        <input type="color" value={customCardText} onChange={(e) => setCustomCardText(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
+                                        <input type="text" value={customCardText} onChange={(e) => setCustomCardText(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono" />
+                                      </div>
+                                    </label>
+                                  </div>
+
+                                  <div className="grid gap-4 sm:grid-cols-3">
+                                    <label className="space-y-1 block">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Button Fill Color</span>
+                                      <div className="flex gap-1.5">
+                                        <input type="color" value={customButtonBg} onChange={(e) => setCustomButtonBg(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
+                                        <input type="text" value={customButtonBg} onChange={(e) => setCustomButtonBg(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono" />
+                                      </div>
+                                    </label>
+
+                                    <label className="space-y-1 block">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Button Text Color</span>
+                                      <div className="flex gap-1.5">
+                                        <input type="color" value={customButtonText} onChange={(e) => setCustomButtonText(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
+                                        <input type="text" value={customButtonText} onChange={(e) => setCustomButtonText(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono" />
+                                      </div>
+                                    </label>
+
+                                    <label className="space-y-1 block">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Button Corners</span>
+                                      <select value={customButtonRadius} onChange={(e) => setCustomButtonRadius(e.target.value)} className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold">
+                                        <option value="rounded-none">Sharp Corners (0px)</option>
+                                        <option value="rounded-md">Soft Corners (6px)</option>
+                                        <option value="rounded-xl">Rounded Medium (12px)</option>
+                                        <option value="rounded-2xl">Rounded Large (16px)</option>
+                                        <option value="rounded-3xl">Pill Rounded (24px)</option>
+                                        <option value="rounded-full">Fully Rounded (Circle)</option>
+                                      </select>
+                                    </label>
+                                  </div>
+
+                                  <div className="grid gap-4 sm:grid-cols-2">
+                                    <label className="space-y-1 block">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Font Style</span>
+                                      <select value={customFontFamily} onChange={(e) => setCustomFontFamily(e.target.value)} className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold">
+                                        <option value="font-sans">Modern Sans-Serif</option>
+                                        <option value="font-mono">Clean Monospace</option>
+                                        <option value="font-serif">Elegant Serif</option>
+                                      </select>
+                                    </label>
+
+                                    <div className="flex items-center gap-2 pt-4">
+                                      <input type="checkbox" id="customIsLight" checked={customIsLight} onChange={(e) => setCustomIsLight(e.target.checked)} className="h-4.5 w-4.5 rounded border-input text-primary focus:ring-primary/20 cursor-pointer" />
+                                      <label htmlFor="customIsLight" className="text-xs font-semibold text-foreground select-none cursor-pointer">
+                                        Use Light Mode (Dark text on light background)
+                                      </label>
+                                    </div>
+
+                                    <label className="space-y-1 block sm:col-span-2">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Custom CSS Stylesheet Override</span>
+                                      <textarea
+                                        value={customCss}
+                                        onChange={(e) => setCustomCss(e.target.value)}
+                                        rows={4}
+                                        className="w-full rounded-xl border border-input bg-background p-3 text-xs font-mono text-foreground outline-none resize-y"
+                                        placeholder="/* Write raw CSS overrides, e.g. */&#10;.smart-link-card { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }&#10;body { animation: pulse 5s infinite; }"
+                                      />
+                                    </label>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="mt-4">
+                                <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground block mb-2">Accent Color</span>
+                                <div className="flex flex-wrap gap-3">
+                                  {[
+                                    { name: "Coral Glow", val: "coral", color: "bg-orange-400" },
+                                    { name: "Sweet Rose", val: "rose", color: "bg-rose-400" },
+                                    { name: "Emerald Mint", val: "emerald", color: "bg-emerald-400" },
+                                    { name: "Royal Indigo", val: "indigo", color: "bg-indigo-400" },
+                                    { name: "Amber Honey", val: "amber", color: "bg-amber-500" }
+                                  ].map((a) => (
+                                    <button
+                                      key={a.val}
+                                      type="button"
+                                      onClick={() => setThemeAccent(a.val)}
+                                      className={cn(
+                                        "flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-bold transition-all duration-200",
+                                        themeAccent === a.val
+                                          ? "border-primary bg-primary/5 shadow-sm ring-2 ring-primary/20"
+                                          : "border-border/60 bg-background/50 hover:bg-background/80"
+                                      )}
+                                    >
+                                      <span className={cn("h-3 w-3 rounded-full shadow-sm", a.color)} />
+                                      <span className="text-foreground">{a.name}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                        </div>
+
+                          <div className="flex justify-end gap-2 pt-2 pb-4">
+                            <Button type="button" variant="outline" onClick={() => setIsProfileSettingsDialogOpen(false)}>
+                              Cancel
+                            </Button>
+                            <Button type="submit" disabled={isPending}>
+                              <Check className="h-4 w-4 mr-1.5" /> Save changes
+                            </Button>
+                          </div>
+                        </form>
                       </div>
                     </DialogContent>
                   </Dialog>
@@ -1284,217 +1437,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
 
           {showProfile ? (
             <section className={panelClass("overflow-hidden")}>
-              <p className="text-xs font-bold uppercase tracking-[0.26em] text-muted-foreground">Profile and links</p>
-              <h2 className="mt-2 text-xl font-black text-foreground sm:text-2xl">Complete your creator storefront</h2>
-              <form action={(fd) => saveProfile(fd)} className="mt-6 grid gap-5">
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <UploadField label="Upload profile photo" bucket="public-assets" onUploaded={setAvatarUrl} />
-                  <UploadField label="Upload background image" bucket="page-assets" onUploaded={setBackgroundUrl} />
-                </div>
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <TextField name="displayName" label="Display name" defaultValue={state.page.display_name} placeholder="Your creator name" />
-                  <TextField name="username" label="Username" defaultValue={state.page.username ?? state.page.slug} placeholder="your-username" />
-                  <TextField name="headline" label="Headline" defaultValue={state.page.headline} placeholder="I help creators..." />
-                  <TextField name="totalFollowers" label="Total followers" defaultValue={state.page.theme?.totalFollowers ?? 0} type="number" />
-                </div>
-                <TextArea name="bio" label="Bio" defaultValue={state.page.bio} placeholder="A short conversion-focused bio..." />
-                <label className="space-y-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Occupation type</span>
-                  <select name="occupationType" defaultValue={state.page.theme?.occupationType ?? "creator"} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none sm:h-12 sm:rounded-2xl sm:px-4">
-                    {["personal", "creator", "brand", "business", "agency", "community"].map((item) => <option key={item}>{item}</option>)}
-                  </select>
-                </label>
-
-                {/* Theme & Appearance Section */}
-                <div className="rounded-3xl border border-border bg-secondary/15 p-5 space-y-5">
-                  <div>
-                    <h3 className="text-lg font-black text-foreground">Theme & Appearance</h3>
-                    <p className="text-xs font-semibold text-muted-foreground">Select a baseline style theme and accent colors for your public page.</p>
-                  </div>
-
-                  <div className="grid gap-4">
-                    <div>
-                      <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground block mb-2">Theme Style Preset</span>
-                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
-                        {[
-                          { name: "Sleek Dark", val: "dark", desc: "Studio dark slate", previewBg: "bg-black" },
-                          { name: "Pure White", val: "light", desc: "Elegant clean light", previewBg: "bg-slate-100 border border-zinc-200" },
-                          { name: "Glassmorphic", val: "glass", desc: "Frosted aesthetic", previewBg: "bg-slate-900 bg-gradient-to-tr from-slate-950 via-zinc-900 to-slate-950" },
-                          { name: "Sunset Breeze", val: "sunset", desc: "Warm cozy vibe", previewBg: "bg-gradient-to-b from-amber-100 to-rose-200" },
-                          { name: "Cyber Neon", val: "cyber", desc: "High contrast neon", previewBg: "bg-[#060810]" },
-                          { name: "Custom Theme", val: "custom", desc: "Design your own", previewBg: "bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500" }
-                        ].map((t) => (
-                          <button
-                            key={t.val}
-                            type="button"
-                            onClick={() => setThemeMode(t.val)}
-                            className={cn(
-                              "flex flex-col items-center justify-between rounded-2xl border p-3 text-center transition-all duration-200 hover:-translate-y-0.5",
-                              themeMode === t.val
-                                ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
-                                : "border-border/60 bg-background/50 hover:bg-background/80"
-                            )}
-                          >
-                            <div className={cn("h-10 w-full rounded-xl border border-border/20 mb-2 shadow-inner", t.previewBg)} />
-                            <span className="text-xs font-black text-foreground block truncate w-full">{t.name}</span>
-                            <span className="text-[9px] font-semibold text-muted-foreground mt-0.5 block truncate w-full">{t.desc}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {themeMode === "custom" && (
-                      <div className="mt-4 rounded-2xl border border-border bg-secondary/5 p-4 space-y-4 animate-in fade-in duration-200 text-left">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Custom UI Theme Designer</h4>
-                        
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <label className="space-y-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Background Style</span>
-                            <select value={customBgType} onChange={(e) => setCustomBgType(e.target.value)} className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold">
-                              <option value="color">Solid Background Color</option>
-                              <option value="gradient">Gradient Background</option>
-                            </select>
-                          </label>
-
-                          {customBgType === "color" ? (
-                            <label className="space-y-1">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Background Color</span>
-                              <div className="flex gap-2">
-                                <input type="color" value={customBgColor} onChange={(e) => setCustomBgColor(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
-                                <input type="text" value={customBgColor} onChange={(e) => setCustomBgColor(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-3 text-xs font-semibold" />
-                              </div>
-                            </label>
-                          ) : (
-                            <label className="space-y-1">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Background Gradient CSS</span>
-                              <input type="text" value={customBgGradient} onChange={(e) => setCustomBgGradient(e.target.value)} className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold" placeholder="linear-gradient(...)" />
-                            </label>
-                          )}
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-3">
-                          <label className="space-y-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Card Background</span>
-                            <div className="flex gap-1.5">
-                              <input type="color" value={customCardBg.startsWith("rgba") ? "#1e293b" : customCardBg} onChange={(e) => setCustomCardBg(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
-                              <input type="text" value={customCardBg} onChange={(e) => setCustomCardBg(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono" />
-                            </div>
-                          </label>
-
-                          <label className="space-y-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Card Border</span>
-                            <div className="flex gap-1.5">
-                              <input type="color" value={customCardBorder.startsWith("rgba") ? "#ffffff" : customCardBorder} onChange={(e) => setCustomCardBorder(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
-                              <input type="text" value={customCardBorder} onChange={(e) => setCustomCardBorder(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono" />
-                            </div>
-                          </label>
-
-                          <label className="space-y-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Card Text Color</span>
-                            <div className="flex gap-1.5">
-                              <input type="color" value={customCardText} onChange={(e) => setCustomCardText(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
-                              <input type="text" value={customCardText} onChange={(e) => setCustomCardText(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono" />
-                            </div>
-                          </label>
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-3">
-                          <label className="space-y-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Button Fill Color</span>
-                            <div className="flex gap-1.5">
-                              <input type="color" value={customButtonBg} onChange={(e) => setCustomButtonBg(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
-                              <input type="text" value={customButtonBg} onChange={(e) => setCustomButtonBg(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono" />
-                            </div>
-                          </label>
-
-                          <label className="space-y-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Button Text Color</span>
-                            <div className="flex gap-1.5">
-                              <input type="color" value={customButtonText} onChange={(e) => setCustomButtonText(e.target.value)} className="h-10 w-10 shrink-0 rounded-xl border border-input cursor-pointer bg-transparent" />
-                              <input type="text" value={customButtonText} onChange={(e) => setCustomButtonText(e.target.value)} className="h-10 flex-1 rounded-xl border border-input bg-background px-2 text-[10px] font-mono" />
-                            </div>
-                          </label>
-
-                          <label className="space-y-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Button Corners</span>
-                            <select value={customButtonRadius} onChange={(e) => setCustomButtonRadius(e.target.value)} className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold">
-                              <option value="rounded-none">Sharp Corners (0px)</option>
-                              <option value="rounded-md">Soft Corners (6px)</option>
-                              <option value="rounded-xl">Rounded Medium (12px)</option>
-                              <option value="rounded-2xl">Rounded Large (16px)</option>
-                              <option value="rounded-3xl">Pill Rounded (24px)</option>
-                              <option value="rounded-full">Fully Rounded (Circle)</option>
-                            </select>
-                          </label>
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <label className="space-y-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Font Style</span>
-                            <select value={customFontFamily} onChange={(e) => setCustomFontFamily(e.target.value)} className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold">
-                              <option value="font-sans">Modern Sans-Serif</option>
-                              <option value="font-mono">Clean Monospace</option>
-                              <option value="font-serif">Elegant Serif</option>
-                            </select>
-                          </label>
-
-                          <div className="flex items-center gap-2 pt-4">
-                            <input type="checkbox" id="customIsLight" checked={customIsLight} onChange={(e) => setCustomIsLight(e.target.checked)} className="h-4.5 w-4.5 rounded border-input text-primary focus:ring-primary/20 cursor-pointer" />
-                            <label htmlFor="customIsLight" className="text-xs font-semibold text-foreground select-none cursor-pointer">
-                              Use Light Mode (Dark text on light background)
-                            </label>
-                          </div>
-
-                          <label className="space-y-1 block sm:col-span-2">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Custom CSS Stylesheet Override</span>
-                            <textarea
-                              value={customCss}
-                              onChange={(e) => setCustomCss(e.target.value)}
-                              rows={4}
-                              className="w-full rounded-xl border border-input bg-background p-3 text-xs font-mono text-foreground outline-none resize-y"
-                              placeholder="/* Write raw CSS overrides, e.g. */&#10;.smart-link-card { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }&#10;body { animation: pulse 5s infinite; }"
-                            />
-                          </label>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="mt-4">
-                      <span className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground block mb-2">Accent Color</span>
-                      <div className="flex flex-wrap gap-3">
-                        {[
-                          { name: "Coral Glow", val: "coral", color: "bg-orange-400" },
-                          { name: "Sweet Rose", val: "rose", color: "bg-rose-400" },
-                          { name: "Emerald Mint", val: "emerald", color: "bg-emerald-400" },
-                          { name: "Royal Indigo", val: "indigo", color: "bg-indigo-400" },
-                          { name: "Amber Honey", val: "amber", color: "bg-amber-500" }
-                        ].map((a) => (
-                          <button
-                            key={a.val}
-                            type="button"
-                            onClick={() => setThemeAccent(a.val)}
-                            className={cn(
-                              "flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-bold transition-all duration-200",
-                              themeAccent === a.val
-                                ? "border-primary bg-primary/5 shadow-sm ring-2 ring-primary/20"
-                                : "border-border/60 bg-background/50 hover:bg-background/80"
-                            )}
-                          >
-                            <span className={cn("h-3 w-3 rounded-full shadow-sm", a.color)} />
-                            <span className="text-foreground">{a.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <Button disabled={isPending}>
-                  <Check className="h-4 w-4" /> Save profile
-                </Button>
-              </form>
-
-              <div className="mt-10">
+              <div className="mt-0">
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <div>
                     <h3 className="text-xl font-black text-foreground">Social media links</h3>
@@ -1754,6 +1697,147 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                           </div>
                         </form>
                       )}
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Manage Social Channels Dialog Modal */}
+                  <Dialog open={isSocialDialogOpen} onOpenChange={(open) => {
+                    setIsSocialDialogOpen(open);
+                    if (!open) {
+                      setSelectedPlatform(null);
+                      setSocialUrl("");
+                    }
+                  }}>
+                    <DialogContent className="max-w-3xl bg-card border border-border rounded-2xl shadow-card overflow-hidden flex flex-col max-h-[85vh] p-0 gap-0">
+                      <DialogHeader className="p-5 pb-4 border-b border-border/50 bg-secondary/10">
+                        <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2">
+                          <Settings className="h-5 w-5 text-primary" />
+                          Manage Social Channels
+                        </DialogTitle>
+                        <p className="text-xs font-semibold text-muted-foreground mt-1">
+                          Connect your social profiles. Active channels display matching vector brand icons on your live storefront.
+                        </p>
+                      </DialogHeader>
+
+                      <div className="flex-1 overflow-y-auto p-5 space-y-6">
+
+                        {/* URL input connector (shows when platform selected) */}
+                        {selectedPlatform && (
+                          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 animate-in fade-in slide-in-from-top-3 duration-200">
+                            <div className="flex items-center gap-2.5 mb-3">
+                              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-background text-primary shadow-sm">
+                                <SocialIcon platform={selectedPlatform} className="h-4.5 w-4.5" />
+                              </span>
+                              <div>
+                                <h4 className="text-sm font-black text-foreground">Connect {selectedPlatform}</h4>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Group: {selectedCategory}</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={socialUrl}
+                                onChange={(e) => setSocialUrl(e.target.value)}
+                                placeholder={`Enter your ${selectedPlatform} profile URL...`}
+                                className="h-10 flex-1 rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
+                                autoFocus
+                              />
+                              <Button
+                                type="button"
+                                onClick={() => {
+                                  if (socialUrl.trim()) {
+                                    saveSocialLink(selectedPlatform, selectedCategory, socialUrl.trim());
+                                    setSelectedPlatform(null);
+                                    setSocialUrl("");
+                                  }
+                                }}
+                                className="h-10"
+                              >
+                                <Check className="h-4 w-4 mr-1" /> Save
+                              </Button>
+                              {state.socialLinks.some((l) => l.platform === selectedPlatform) && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => {
+                                    const link = state.socialLinks.find((l) => l.platform === selectedPlatform);
+                                    if (link) {
+                                      deleteSocial(link.id);
+                                      setSelectedPlatform(null);
+                                      setSocialUrl("");
+                                    }
+                                  }}
+                                  className="h-10 text-red-500 border-red-500/20 hover:bg-red-500/10 hover:text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => {
+                                  setSelectedPlatform(null);
+                                  setSocialUrl("");
+                                }}
+                                className="h-10"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Directory selector */}
+                        <div>
+                          <h4 className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground mb-4">Platform Directory</h4>
+                          <div className="space-y-5">
+                            {socialGroups.map((group) => (
+                              <div key={group.group} className="space-y-2">
+                                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-muted-foreground/80">{group.group}</p>
+                                <div className="grid grid-cols-3 gap-5 sm:gap-6 sm:grid-cols-4 md:grid-cols-6">
+                                  {group.items.map((platform) => {
+                                    const isConnected = state.socialLinks.some((l) => l.platform === platform);
+                                    const isSelected = selectedPlatform === platform;
+                                    const brandHover = getBrandHoverClass(platform);
+                                    const brandActive = getBrandActiveBorderClass(platform);
+                                    const currentLink = state.socialLinks.find((l) => l.platform === platform);
+
+                                    return (
+                                      <button
+                                        key={platform}
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedPlatform(platform);
+                                          setSelectedCategory(group.group);
+                                          setSocialUrl(currentLink?.url || "");
+                                        }}
+                                        className={cn(
+                                          "group relative flex flex-col items-center justify-center rounded-2xl border p-4 text-center transition-all duration-300 bg-secondary/10",
+                                          isSelected ? "scale-105 z-10 " + brandActive : isConnected ? "scale-105 z-10 " + brandActive : "border-border/40 hover:bg-secondary/20 hover:scale-105",
+                                          brandHover
+                                        )}
+                                      >
+                                        {isConnected && (
+                                          <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        )}
+                                        <div className={cn(
+                                          "flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary/35 transition-transform duration-300 group-hover:scale-110",
+                                          isConnected || isSelected ? "bg-background shadow-md" : "text-muted-foreground group-hover:text-foreground"
+                                        )}>
+                                          <SocialIcon platform={platform} className="h-10 w-10 object-contain" />
+                                        </div>
+                                        <span className="mt-3 text-[11px] font-black tracking-tight text-muted-foreground group-hover:text-foreground truncate max-w-full">
+                                          {platform}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </DialogContent>
                   </Dialog>
                 </div>
@@ -2757,6 +2841,14 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                     setDialogCustomFontFamily(customFontFamily);
                     setDialogCustomIsLight(customIsLight);
                     setDialogCustomCss(customCss);
+                    
+                    // Initialize Campaign Content Overrides
+                    setDialogHasContentOverride(false);
+                    setDialogSelectedLinkIds(state.customLinks.map((l) => l.id));
+                    setDialogCustomCreatedLinks([]);
+                    setDialogSelectedProductIds(state.products.map((p) => p.id));
+                    setDialogCustomCreatedProducts([]);
+
                     setIsShortLinkDialogOpen(true);
                   }}
                   className="rounded-2xl"
@@ -2889,6 +2981,15 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                                 setDialogCustomFontFamily(link.metadata?.custom_theme?.custom?.fontFamily || customFontFamily);
                                 setDialogCustomIsLight(!!link.metadata?.custom_theme?.custom?.isLight);
                                 setDialogCustomCss(link.metadata?.custom_theme?.custom?.customCss || "");
+                                
+                                // Load Campaign Content Overrides
+                                const hasOverride = !!link.metadata?.has_content_override;
+                                setDialogHasContentOverride(hasOverride);
+                                setDialogSelectedLinkIds(link.metadata?.campaignCustomLinks?.selectedIds || state.customLinks.map((l) => l.id));
+                                setDialogCustomCreatedLinks(link.metadata?.campaignCustomLinks?.customCreated || []);
+                                setDialogSelectedProductIds(link.metadata?.campaignProducts?.selectedIds || state.products.map((p) => p.id));
+                                setDialogCustomCreatedProducts(link.metadata?.campaignProducts?.customCreated || []);
+
                                 setIsShortLinkDialogOpen(true);
                               }}
                               className="h-9 w-9 rounded-xl border border-border"
@@ -2938,6 +3039,14 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                         setDialogCustomFontFamily(customFontFamily);
                         setDialogCustomIsLight(customIsLight);
                         setDialogCustomCss(customCss);
+
+                        // Initialize Campaign Content Overrides
+                        setDialogHasContentOverride(false);
+                        setDialogSelectedLinkIds(state.customLinks.map((l) => l.id));
+                        setDialogCustomCreatedLinks([]);
+                        setDialogSelectedProductIds(state.products.map((p) => p.id));
+                        setDialogCustomCreatedProducts([]);
+
                         setIsShortLinkDialogOpen(true);
                       }}
                       className="mt-4 rounded-xl"
@@ -3125,13 +3234,24 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                             <Calendar className="h-5 w-5" />
                           </div>
                           <div>
-                            <p className="text-xs font-black text-foreground">Google Calendar</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-black text-foreground">Google Calendar</p>
+                              {googleCalendarConnected && (
+                                <Badge variant="success" className="text-[9px] py-0 px-1.5 h-4">Connected</Badge>
+                              )}
+                            </div>
                             <p className="text-[10px] text-muted-foreground mt-0.5">Sync availability and automatically log booked sessions.</p>
                           </div>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => triggerConnector("google-calendar")} disabled={connectorLoading === "google-calendar"} className="shrink-0 text-xs font-bold">
+                        <Button 
+                          variant={googleCalendarConnected ? "secondary" : "outline"} 
+                          size="sm" 
+                          onClick={() => triggerConnector("google-calendar")} 
+                          disabled={connectorLoading === "google-calendar"} 
+                          className="shrink-0 text-xs font-bold"
+                        >
                           {connectorLoading === "google-calendar" && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-                          Connect
+                          {googleCalendarConnected ? "Reconnect" : "Connect"}
                         </Button>
                       </div>
 
@@ -3141,13 +3261,24 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                             <Video className="h-5 w-5" />
                           </div>
                           <div>
-                            <p className="text-xs font-black text-foreground">Google Meet</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-black text-foreground">Google Meet</p>
+                              {googleCalendarConnected && (
+                                <Badge variant="success" className="text-[9px] py-0 px-1.5 h-4">Connected</Badge>
+                              )}
+                            </div>
                             <p className="text-[10px] text-muted-foreground mt-0.5">Auto-generate video conference links on bookings.</p>
                           </div>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => triggerConnector("google-meet")} disabled={connectorLoading === "google-meet"} className="shrink-0 text-xs font-bold">
+                        <Button 
+                          variant={googleCalendarConnected ? "secondary" : "outline"} 
+                          size="sm" 
+                          onClick={() => triggerConnector("google-meet")} 
+                          disabled={connectorLoading === "google-meet"} 
+                          className="shrink-0 text-xs font-bold"
+                        >
                           {connectorLoading === "google-meet" && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-                          Connect
+                          {googleCalendarConnected ? "Reconnect" : "Connect"}
                         </Button>
                       </div>
                     </div>
@@ -3593,9 +3724,341 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                             </div>
                           </div>
                         )}
+                      {/* Campaign Content Overrides */}
+                      <div className="space-y-4 border-t border-border/40 pt-4 animate-in fade-in slide-in-from-top-3 duration-300">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Campaign Content Customization</h3>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">Customize which links and products appear, or add campaign-only items.</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="checkbox" 
+                              id="dialogHasContentOverride" 
+                              checked={dialogHasContentOverride} 
+                              onChange={(e) => setDialogHasContentOverride(e.target.checked)} 
+                              className="h-4.5 w-4.5 rounded border-input text-primary focus:ring-primary/20 cursor-pointer" 
+                            />
+                            <label htmlFor="dialogHasContentOverride" className="text-xs font-bold text-foreground select-none cursor-pointer">
+                              Customize Content
+                            </label>
+                          </div>
+                        </div>
+
+                        {dialogHasContentOverride && (
+                          <div className="space-y-6 rounded-2xl border border-primary/20 bg-primary/5 p-5 animate-in fade-in duration-200">
+                            {/* LINKS OVERRIDE SECTION */}
+                            <div className="space-y-4">
+                              <div className="border-b border-border/30 pb-2">
+                                <h4 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                  <span>🔗 Campaign Links Selection</span>
+                                </h4>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Select existing storefront links to display, or add new campaign-only links below.</p>
+                              </div>
+
+                              {/* Existing storefront links list */}
+                              <div className="space-y-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Select Existing Storefront Links</span>
+                                {state.customLinks && state.customLinks.length > 0 ? (
+                                  <div className="grid gap-2.5 sm:grid-cols-2 max-h-48 overflow-y-auto pr-1">
+                                    {state.customLinks.map((link) => {
+                                      const isSelected = dialogSelectedLinkIds.includes(link.id);
+                                      return (
+                                        <label 
+                                          key={link.id}
+                                          className={cn(
+                                            "flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition select-none",
+                                            isSelected 
+                                              ? "border-primary bg-background/80 shadow-sm" 
+                                              : "border-border bg-background/40 opacity-70 hover:opacity-100 hover:bg-background/60"
+                                          )}
+                                        >
+                                          <input 
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={() => {
+                                              if (isSelected) {
+                                                setDialogSelectedLinkIds(dialogSelectedLinkIds.filter(id => id !== link.id));
+                                              } else {
+                                                setDialogSelectedLinkIds([...dialogSelectedLinkIds, link.id]);
+                                              }
+                                            }}
+                                            className="mt-0.5 h-4 w-4 rounded border-input text-primary cursor-pointer focus:ring-0"
+                                          />
+                                          <div className="min-w-0 flex-1">
+                                            <p className="text-xs font-black text-foreground truncate leading-none">{link.title}</p>
+                                            <p className="text-[9px] font-semibold text-primary truncate mt-0.5">{link.url}</p>
+                                          </div>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <p className="text-[10px] text-muted-foreground italic font-semibold">No custom storefront links exist yet.</p>
+                                )}
+                              </div>
+
+                              {/* Campaign-only Custom Links Added */}
+                              {dialogCustomCreatedLinks.length > 0 && (
+                                <div className="space-y-2 pt-1">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Campaign-Only Links Added</span>
+                                  <div className="space-y-2">
+                                    {dialogCustomCreatedLinks.map((link, idx) => (
+                                      <div key={idx} className="flex items-center justify-between rounded-xl border border-primary/20 bg-background/80 p-3 shadow-sm">
+                                        <div className="min-w-0 flex-1 pr-4">
+                                          <p className="text-xs font-black text-foreground truncate">{link.title}</p>
+                                          {link.description && <p className="text-[10px] font-semibold text-muted-foreground truncate">{link.description}</p>}
+                                          <p className="text-[9px] font-bold text-primary truncate mt-0.5">{link.url}</p>
+                                        </div>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => {
+                                            setDialogCustomCreatedLinks(dialogCustomCreatedLinks.filter((_, i) => i !== idx));
+                                          }}
+                                          className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-500/10 rounded-lg shrink-0"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Add campaign-only Custom Link form */}
+                              <div className="rounded-xl border border-dashed border-border/60 bg-background/20 p-3.5 space-y-3">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-foreground block">✨ Add Campaign-Only Custom Link</span>
+                                
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <label className="space-y-1 block">
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Link Title *</span>
+                                    <input 
+                                      type="text"
+                                      placeholder="e.g. Get 20% Off Deal"
+                                      value={newCampaignLinkTitle}
+                                      onChange={(e) => setNewCampaignLinkTitle(e.target.value)}
+                                      className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs font-semibold outline-none transition focus:border-primary/50"
+                                    />
+                                  </label>
+                                  <label className="space-y-1 block">
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Link URL *</span>
+                                    <input 
+                                      type="url"
+                                      placeholder="https://exclusive-partner.com"
+                                      value={newCampaignLinkUrl}
+                                      onChange={(e) => setNewCampaignLinkUrl(e.target.value)}
+                                      className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs font-semibold outline-none transition focus:border-primary/50"
+                                    />
+                                  </label>
+                                </div>
+
+                                <label className="space-y-1 block">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Short Description (Optional)</span>
+                                  <input 
+                                    type="text"
+                                    placeholder="Brief sub-text for this link..."
+                                    value={newCampaignLinkDesc}
+                                    onChange={(e) => setNewCampaignLinkDesc(e.target.value)}
+                                    className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs font-semibold outline-none transition focus:border-primary/50"
+                                  />
+                                </label>
+
+                                <div className="flex justify-end pt-1">
+                                  <Button
+                                    type="button"
+                                    onClick={() => {
+                                      if (!newCampaignLinkTitle.trim() || !newCampaignLinkUrl.trim()) return;
+                                      setDialogCustomCreatedLinks([
+                                        ...dialogCustomCreatedLinks,
+                                        {
+                                          title: newCampaignLinkTitle.trim(),
+                                          url: newCampaignLinkUrl.trim(),
+                                          description: newCampaignLinkDesc.trim() || null,
+                                        }
+                                      ]);
+                                      setNewCampaignLinkTitle("");
+                                      setNewCampaignLinkUrl("");
+                                      setNewCampaignLinkDesc("");
+                                    }}
+                                    className="h-8 rounded-lg text-xs font-bold"
+                                    variant="outline"
+                                  >
+                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Campaign Link
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* PRODUCTS OVERRIDE SECTION */}
+                            <div className="space-y-4 pt-2 border-t border-border/30">
+                              <div className="pb-2">
+                                <h4 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                  <span>🛍️ Campaign Storefront Products</span>
+                                </h4>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Select existing products to show, or list campaign-only items for this channel.</p>
+                              </div>
+
+                              {/* Existing storefront products list */}
+                              <div className="space-y-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Select Existing Products</span>
+                                {state.products && state.products.length > 0 ? (
+                                  <div className="grid gap-2.5 sm:grid-cols-2 max-h-48 overflow-y-auto pr-1">
+                                    {state.products.map((prod) => {
+                                      const isSelected = dialogSelectedProductIds.includes(prod.id);
+                                      const priceFormatted = new Intl.NumberFormat("en-US", {
+                                        style: "currency",
+                                        currency: prod.currency || "USD",
+                                      }).format(Number(prod.price_cents ?? 0) / 100);
+
+                                      return (
+                                        <label 
+                                          key={prod.id}
+                                          className={cn(
+                                            "flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition select-none",
+                                            isSelected 
+                                              ? "border-primary bg-background/80 shadow-sm" 
+                                              : "border-border bg-background/40 opacity-70 hover:opacity-100 hover:bg-background/60"
+                                          )}
+                                        >
+                                          <input 
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={() => {
+                                              if (isSelected) {
+                                                setDialogSelectedProductIds(dialogSelectedProductIds.filter(id => id !== prod.id));
+                                              } else {
+                                                setDialogSelectedProductIds([...dialogSelectedProductIds, prod.id]);
+                                              }
+                                            }}
+                                            className="mt-0.5 h-4 w-4 rounded border-input text-primary cursor-pointer focus:ring-0"
+                                          />
+                                          <div className="min-w-0 flex-1">
+                                            <p className="text-xs font-black text-foreground truncate leading-none">{prod.title}</p>
+                                            <p className="text-[9px] font-bold text-primary truncate mt-1">{priceFormatted}</p>
+                                          </div>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <p className="text-[10px] text-muted-foreground italic font-semibold">No digital products exist yet.</p>
+                                )}
+                              </div>
+
+                              {/* Campaign-only Products Added */}
+                              {dialogCustomCreatedProducts.length > 0 && (
+                                <div className="space-y-2 pt-1">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Campaign-Only Products Added</span>
+                                  <div className="space-y-2">
+                                    {dialogCustomCreatedProducts.map((prod, idx) => {
+                                      const cents = Number(prod.priceCents || prod.price_cents || 0);
+                                      const priceFormatted = new Intl.NumberFormat("en-US", {
+                                        style: "currency",
+                                        currency: prod.currency || "USD",
+                                      }).format(cents / 100);
+
+                                      return (
+                                        <div key={idx} className="flex items-center justify-between rounded-xl border border-primary/20 bg-background/80 p-3 shadow-sm">
+                                          <div className="min-w-0 flex-1 pr-4">
+                                            <p className="text-xs font-black text-foreground truncate">{prod.title}</p>
+                                            {prod.description && <p className="text-[10px] font-semibold text-muted-foreground truncate">{prod.description}</p>}
+                                            <p className="text-[9px] font-bold text-primary mt-0.5">{priceFormatted} ({prod.currency?.toUpperCase()})</p>
+                                          </div>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => {
+                                              setDialogCustomCreatedProducts(dialogCustomCreatedProducts.filter((_, i) => i !== idx));
+                                            }}
+                                            className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-500/10 rounded-lg shrink-0"
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Add campaign-only Product form */}
+                              <div className="rounded-xl border border-dashed border-border/60 bg-background/20 p-3.5 space-y-3">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-foreground block">✨ Add Campaign-Only Product Offer</span>
+                                
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                  <label className="space-y-1 block sm:col-span-2">
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Product Title *</span>
+                                    <input 
+                                      type="text"
+                                      placeholder="e.g. VIP Campaign Ebook Bundle"
+                                      value={newCampaignProdTitle}
+                                      onChange={(e) => setNewCampaignProdTitle(e.target.value)}
+                                      className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs font-semibold outline-none transition focus:border-primary/50"
+                                    />
+                                  </label>
+                                  <label className="space-y-1 block">
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Price (USD) *</span>
+                                    <input 
+                                      type="number"
+                                      step="0.01"
+                                      placeholder="19.99"
+                                      value={newCampaignProdPrice}
+                                      onChange={(e) => setNewCampaignProdPrice(e.target.value)}
+                                      className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs font-semibold outline-none transition focus:border-primary/50"
+                                    />
+                                  </label>
+                                </div>
+
+                                <label className="space-y-1 block">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Short Offer Subtext (Optional)</span>
+                                  <input 
+                                    type="text"
+                                    placeholder="Brief callout details, e.g. includes live checklist"
+                                    value={newCampaignProdDesc}
+                                    onChange={(e) => setNewCampaignProdDesc(e.target.value)}
+                                    className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs font-semibold outline-none transition focus:border-primary/50"
+                                  />
+                                </label>
+
+                                <div className="flex justify-end pt-1">
+                                  <Button
+                                    type="button"
+                                    onClick={() => {
+                                      if (!newCampaignProdTitle.trim() || !newCampaignProdPrice.trim()) return;
+                                      const priceCents = Math.round(Number(newCampaignProdPrice) * 100);
+                                      if (isNaN(priceCents) || priceCents < 0) return;
+
+                                      setDialogCustomCreatedProducts([
+                                        ...dialogCustomCreatedProducts,
+                                        {
+                                          title: newCampaignProdTitle.trim(),
+                                          priceCents,
+                                          price_cents: priceCents,
+                                          currency: newCampaignProdCurrency,
+                                          description: newCampaignProdDesc.trim() || null,
+                                        }
+                                      ]);
+                                      setNewCampaignProdTitle("");
+                                      setNewCampaignProdPrice("");
+                                      setNewCampaignProdDesc("");
+                                    }}
+                                    className="h-8 rounded-lg text-xs font-bold"
+                                    variant="outline"
+                                  >
+                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Campaign Product
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  )}
+                  </div>
+                )}
 
                   {/* UTM Campaign Details */}
                   <div className="space-y-4 border-t border-border/40 pt-4">

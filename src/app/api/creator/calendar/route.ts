@@ -30,6 +30,10 @@ const calendarSaveSchema = z.object({
   bufferMinutes: z.number().int().min(0).max(120).default(10),
   slotIntervalMinutes: z.number().int().min(15).max(180).default(30),
   intakeQuestions: z.array(z.string().min(1).max(160)).default([]),
+  meetingProvider: z.enum(["google_meet", "zoom", "manual"]).default("google_meet"),
+  paymentProvider: z.enum(["stripe", "manual"]).default("stripe"),
+  reminderCadence: z.enum(["none", "one_hour", "one_day"]).default("one_day"),
+  reschedulePolicy: z.enum(["open", "24h", "manual"]).default("24h"),
   slots: z.array(calendarSlotSchema).max(250).default([]),
 });
 
@@ -71,6 +75,10 @@ export async function POST(req: Request) {
     bufferMinutes: body.bufferMinutes,
     slotIntervalMinutes: body.slotIntervalMinutes,
     intakeQuestions: body.intakeQuestions,
+    meetingProvider: body.meetingProvider,
+    paymentProvider: body.paymentProvider,
+    reminderCadence: body.reminderCadence,
+    reschedulePolicy: body.reschedulePolicy,
     requiresPayment: body.priceCents > 0,
     bookingMode: "schedule_slots",
   };

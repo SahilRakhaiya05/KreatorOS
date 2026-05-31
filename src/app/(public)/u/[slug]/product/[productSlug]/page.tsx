@@ -10,9 +10,18 @@ function money(cents = 0, currency = "usd") {
   return new Intl.NumberFormat("en", { style: "currency", currency: currency.toUpperCase(), maximumFractionDigits: 0 }).format(cents / 100);
 }
 
-export default async function Page({ params }: { params: Promise<{ slug: string; productSlug: string }> }) {
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string; productSlug: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const { slug, productSlug } = await params;
-  const data = await getPublicLinkPage(slug);
+  const { link_theme } = await searchParams;
+  const linkThemeSlug = typeof link_theme === "string" ? link_theme : undefined;
+
+  const data = await getPublicLinkPage(slug, linkThemeSlug);
   const product = data.products.find((item) => item.slug === productSlug && item.status === "published");
 
   if (!product) {
@@ -20,7 +29,9 @@ export default async function Page({ params }: { params: Promise<{ slug: string;
       <main className="grid min-h-screen place-items-center bg-zinc-950 p-6 text-white">
         <div className="max-w-sm text-center">
           <h1 className="text-3xl font-black">Product unavailable</h1>
-          <Button asChild className="mt-5"><Link href={`/u/${slug}/shop`}>Back to shop</Link></Button>
+          <Button asChild className="mt-5">
+            <Link href={`/u/${slug}/shop${linkThemeSlug ? `?link_theme=${linkThemeSlug}` : ""}`}>Back to shop</Link>
+          </Button>
         </div>
       </main>
     );
@@ -47,9 +58,21 @@ export default async function Page({ params }: { params: Promise<{ slug: string;
       {data.page.theme?.custom?.customCss && (
         <style dangerouslySetInnerHTML={{ __html: data.page.theme.custom.customCss }} />
       )}
+      
+      {linkThemeSlug && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
+          <Link 
+            href={`/u/${slug}`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-black/60 backdrop-blur-md border border-white/10 text-white shadow-lg hover:bg-black/80 hover:scale-105 transition-all"
+          >
+            <span>🏠 View Main Storefront</span>
+          </Link>
+        </div>
+      )}
+
       <div className="mx-auto grid max-w-5xl gap-8 px-4 py-10 md:grid-cols-[1fr_380px]">
         <section>
-          <Link href={`/u/${slug}/shop`} className={`text-sm font-black ${styling.accentTextClass}`} style={styling.cardStyle?.color ? { color: styling.cardStyle.color } : undefined}>
+          <Link href={`/u/${slug}/shop${linkThemeSlug ? `?link_theme=${linkThemeSlug}` : ""}`} className={`text-sm font-black ${styling.accentTextClass}`} style={styling.cardStyle?.color ? { color: styling.cardStyle.color } : undefined}>
             Back to shop
           </Link>
           <div className={`mt-6 grid aspect-[16/10] place-items-center overflow-hidden rounded-[2rem] border ${styling.isLight ? 'border-zinc-200 bg-white shadow-sm' : 'border-white/10 bg-white/[0.06]'}`}>

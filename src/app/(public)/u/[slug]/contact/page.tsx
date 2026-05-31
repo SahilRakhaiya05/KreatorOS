@@ -5,9 +5,18 @@ import { Button } from "@/components/ui/button";
 import { getPublicLinkPage } from "@/server/linkCommerce/service";
 import { getThemeClasses } from "@/features/linkCommerce/components/publicLinkCommerce";
 
-export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const { slug } = await params;
-  const data = await getPublicLinkPage(slug);
+  const { link_theme } = await searchParams;
+  const linkThemeSlug = typeof link_theme === "string" ? link_theme : undefined;
+
+  const data = await getPublicLinkPage(slug, linkThemeSlug);
   const contact = data.contact;
 
   const mode = data.page.theme?.mode || "dark";
@@ -19,8 +28,20 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
       {data.page.theme?.custom?.customCss && (
         <style dangerouslySetInnerHTML={{ __html: data.page.theme.custom.customCss }} />
       )}
+      
+      {linkThemeSlug && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
+          <Link 
+            href={`/u/${slug}`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-black/60 backdrop-blur-md border border-white/10 text-white shadow-lg hover:bg-black/80 hover:scale-105 transition-all"
+          >
+            <span>🏠 View Main Storefront</span>
+          </Link>
+        </div>
+      )}
+
       <div className={`mx-auto max-w-xl rounded-[2rem] border p-6 ${styling.isLight ? 'border-zinc-200/80 bg-white shadow-md text-zinc-900' : 'border-white/10 bg-white/[0.06] text-white'}`} style={styling.cardStyle}>
-        <Link href={`/u/${slug}`} className={`text-sm font-black ${styling.accentTextClass}`} style={styling.cardStyle?.color ? { color: styling.cardStyle.color } : undefined}>
+        <Link href={`/u/${slug}${linkThemeSlug ? `?link_theme=${linkThemeSlug}` : ""}`} className={`text-sm font-black ${styling.accentTextClass}`} style={styling.cardStyle?.color ? { color: styling.cardStyle.color } : undefined}>
           Back to profile
         </Link>
         <h1 className="mt-6 text-4xl font-black">Contact {data.page.display_name}</h1>
@@ -38,7 +59,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
           {!contact ? <p className={`rounded-2xl border border-dashed p-6 text-center ${styling.isLight ? 'border-zinc-300 text-zinc-500' : 'border-white/10 text-zinc-400'}`}>Contact details are not published yet.</p> : null}
         </div>
         <Button asChild className={`mt-8 w-full ${styling.buttonClass}`} style={styling.buttonStyle}>
-          <Link href={`/u/${slug}`}>Return to Smart Link</Link>
+          <Link href={`/u/${slug}${linkThemeSlug ? `?link_theme=${linkThemeSlug}` : ""}`}>Return to Smart Link</Link>
         </Button>
       </div>
     </main>

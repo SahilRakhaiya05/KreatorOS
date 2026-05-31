@@ -186,6 +186,7 @@ export async function getPublicLinkPage(slug: string, linkThemeSlug?: string) {
 
   if (!page) notFound();
 
+  let shortLinkOverride: any = null;
   if (linkThemeSlug) {
     const { data: sl } = await supabase
       .from("short_links")
@@ -196,6 +197,7 @@ export async function getPublicLinkPage(slug: string, linkThemeSlug?: string) {
       .maybeSingle();
 
     if (sl && sl.metadata) {
+      shortLinkOverride = sl;
       if (sl.metadata.custom_theme) {
         page.theme = sl.metadata.custom_theme;
       }
@@ -211,7 +213,7 @@ export async function getPublicLinkPage(slug: string, linkThemeSlug?: string) {
     }
   }
 
-  const [socialLinks, customLinks, gallery, contact, products, affiliateLinks, referralProgram, assistant, bookings] = await Promise.all([
+  const [socialLinks, customLinks, gallery, contact, products, affiliateLinks, referralProgram, assistant, bookings, calendarSlots] = await Promise.all([
     supabase.from("creator_social_links").select("*").eq("page_id", page.id).eq("is_visible", true).order("sort_order", { ascending: true }),
     supabase.from("custom_links").select("*").eq("page_id", page.id).eq("is_visible", true).order("sort_order", { ascending: true }),
     supabase.from("photo_gallery_items").select("*").eq("page_id", page.id).order("sort_order", { ascending: true }),
@@ -226,18 +228,73 @@ export async function getPublicLinkPage(slug: string, linkThemeSlug?: string) {
     supabase.from("referral_programs").select("*").eq("page_id", page.id).eq("status", "active").maybeSingle(),
     supabase.from("creator_ai_assistants").select("*").eq("page_id", page.id).eq("status", "active").maybeSingle(),
     supabase.from("offers").select("*").eq("workspace_id", page.workspace_id).eq("type", "booking").eq("status", "published").order("created_at", { ascending: false }),
+    supabase
+      .from("creator_calendar_slots")
+      .select("*")
+      .eq("page_id", page.id)
+      .eq("status", "available")
+      .gte("starts_at", new Date().toISOString())
+      .order("starts_at", { ascending: true })
+      .limit(120),
   ]);
+
+  let finalCustomLinks = customLinks.data ?? [];
+  let finalProducts = products.data ?? [];
+
+  if (shortLinkOverride?.metadata?.has_content_override) {
+    const campaignLinks = shortLinkOverride.metadata.campaignCustomLinks || {};
+    const campaignProds = shortLinkOverride.metadata.campaignProducts || {};
+    
+    // Filter standard custom links if selectedIds exists
+    if (campaignLinks.selectedIds) {
+      finalCustomLinks = finalCustomLinks.filter((l: any) => campaignLinks.selectedIds.includes(l.id));
+    }
+    // Append campaign-only custom links
+    if (campaignLinks.customCreated && Array.isArray(campaignLinks.customCreated)) {
+      const customCreatedMapped = campaignLinks.customCreated.map((l: any, idx: number) => ({
+        id: `campaign-link-${idx}`,
+        page_id: page.id,
+        title: l.title,
+        url: l.url,
+        description: l.description || null,
+        is_visible: true,
+      }));
+      finalCustomLinks = [...finalCustomLinks, ...customCreatedMapped];
+    }
+
+    // Filter standard products if selectedIds exists
+    if (campaignProds.selectedIds) {
+      finalProducts = finalProducts.filter((p: any) => campaignProds.selectedIds.includes(p.id));
+    }
+    // Append campaign-only products
+    if (campaignProds.customCreated && Array.isArray(campaignProds.customCreated)) {
+      const customCreatedProdsMapped = campaignProds.customCreated.map((p: any, idx: number) => ({
+        id: `campaign-prod-${idx}`,
+        page_id: page.id,
+        title: p.title,
+        slug: `campaign-prod-${idx}`,
+        description: p.description || null,
+        price_cents: Number(p.priceCents || p.price_cents || 0),
+        currency: p.currency || "usd",
+        status: "published",
+        show_on_bio: true,
+        show_on_shop: true,
+      }));
+      finalProducts = [...finalProducts, ...customCreatedProdsMapped];
+    }
+  }
 
   return {
     page,
     socialLinks: socialLinks.data ?? [],
-    customLinks: customLinks.data ?? [],
+    customLinks: finalCustomLinks,
     gallery: gallery.data ?? [],
     contact: contact.data ?? null,
-    products: products.data ?? [],
+    products: finalProducts,
     affiliateLinks: affiliateLinks.data ?? [],
     referralProgram: referralProgram.data ?? null,
     assistant: assistant.data ?? null,
     bookings: bookings.data ?? [],
+    calendarSlots: calendarSlots.data ?? [],
   };
 }

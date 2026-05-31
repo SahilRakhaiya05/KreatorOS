@@ -17,7 +17,7 @@ export default async function Page() {
       .limit(240),
     supabase
       .from("bookings")
-      .select("id, offer_id, customer_id, start_at, end_at, status, metadata, created_at")
+      .select("id, offer_id, customer_id, start_at, end_at, status, metadata, meeting_url, provider_event_id, created_at, customers(name, email), offers(title)")
       .eq("workspace_id", data.workspace.id)
       .order("start_at", { ascending: true })
       .limit(20),

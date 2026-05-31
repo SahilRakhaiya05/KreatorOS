@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowUpRight, Bot, ExternalLink, Mail, ShoppingBag, Sparkles, Calendar, Clock, Video, CheckCircle2, CreditCard, X, Smartphone, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -22,7 +23,24 @@ type PublicData = {
   referralProgram: Record<string, any> | null;
   assistant: Record<string, any> | null;
   bookings: Array<Record<string, any>>;
+  calendarSlots?: Array<Record<string, any>>;
 };
+
+function publicDateKey(value: string) {
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function publicDateLabel(value: string) {
+  return new Date(value).toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
+}
+
+function publicDateShortLabel(value: string) {
+  return new Date(value).toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function publicTimeLabel(value: string) {
+  return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
 
 function money(cents = 0, currency = "usd") {
   return new Intl.NumberFormat("en", { style: "currency", currency: currency.toUpperCase(), maximumFractionDigits: 0 }).format(cents / 100);
@@ -352,6 +370,9 @@ export function getThemeClasses(mode = "dark", accent = "coral", customTheme?: a
 export function PublicSmartLinkPage({ data }: { data: PublicData }) {
   const visitorId = useVisitorId();
   const page = data.page;
+  const searchParams = useSearchParams();
+  const linkTheme = searchParams.get("link_theme");
+  const queryStr = linkTheme ? `?link_theme=${linkTheme}` : "";
 
   useEffect(() => {
     track(data, visitorId, "page.viewed", "creator_page", page.id);
@@ -359,8 +380,9 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
 
   // Booking system state hooks
   const [activeBookingModal, setActiveBookingModal] = useState<any | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>("Tuesday, Jun 2");
+  const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
+  const [selectedSlotStartAt, setSelectedSlotStartAt] = useState<string>("");
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -376,11 +398,50 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
   const mode = page.theme?.mode || "dark";
   const accent = page.theme?.accent || "coral";
   const styling = getThemeClasses(mode, accent, page.theme?.custom);
+  const bookingDateGroups = useMemo(() => {
+    const groups = new Map<string, { key: string; label: string; shortLabel: string; slots: Array<Record<string, any>> }>();
+    for (const slot of data.calendarSlots ?? []) {
+      if (slot.status && slot.status !== "available") continue;
+      if (!slot.starts_at || new Date(slot.starts_at) < new Date()) continue;
+      const key = publicDateKey(slot.starts_at);
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          label: publicDateLabel(slot.starts_at),
+          shortLabel: publicDateShortLabel(slot.starts_at),
+          slots: [],
+        });
+      }
+      groups.get(key)?.slots.push(slot);
+    }
+    return [...groups.values()].slice(0, 7);
+  }, [data.calendarSlots]);
+  const selectedDateGroup = bookingDateGroups.find((group) => group.key === selectedDate) ?? bookingDateGroups[0];
+  const selectedBookingDateLabel = selectedDateGroup?.label ?? "Selected date";
+
+  useEffect(() => {
+    if (!activeBookingModal) return;
+    const firstDate = bookingDateGroups[0];
+    setSelectedDate(firstDate?.key ?? "");
+    setSelectedTime("");
+    setSelectedSlotStartAt("");
+  }, [activeBookingModal, bookingDateGroups]);
 
   return (
     <main className={`relative min-h-screen overflow-hidden ${styling.bgClass}`} style={styling.bgStyle}>
       {page.theme?.custom?.customCss && (
         <style dangerouslySetInnerHTML={{ __html: page.theme.custom.customCss }} />
+      )}
+      
+      {linkTheme && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in fade-in duration-300">
+          <Link 
+            href={`/u/${page.username || page.slug}`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-black/60 backdrop-blur-md border border-white/10 text-white shadow-lg hover:bg-black/80 hover:scale-105 transition-all"
+          >
+            <span>🏠 View Main Storefront</span>
+          </Link>
+        </div>
       )}
       {page.background_image_url ? (
         <div 
@@ -480,13 +541,13 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
           <div className="mt-8">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-xl font-black">Featured products</h2>
-              <Link href={`/u/${page.username || page.slug}/shop`} className={`text-xs font-black ${styling.accentTextClass}`} style={styling.cardStyle?.color ? { color: styling.cardStyle.color } : undefined}>Shop all</Link>
+              <Link href={`/u/${page.username || page.slug}/shop${queryStr}`} className={`text-xs font-black ${styling.accentTextClass}`} style={styling.cardStyle?.color ? { color: styling.cardStyle.color } : undefined}>Shop all</Link>
             </div>
             <div className="space-y-3">
               {data.products.filter((product) => product.show_on_bio).slice(0, 4).map((product) => (
                 <Link
                   key={product.id}
-                  href={`/u/${page.username || page.slug}/product/${product.slug}`}
+                  href={`/u/${page.username || page.slug}/product/${product.slug}${queryStr}`}
                   onClick={() => track(data, visitorId, "product.clicked", "digital_product", product.id)}
                   className={styling.productCardClass}
                   style={styling.cardStyle}
@@ -603,7 +664,7 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
 
         <div className="mt-8 grid gap-3">
           <Button asChild className={styling.buttonClass} style={styling.buttonStyle}>
-            <Link href={`/u/${page.username || page.slug}/contact`}>
+            <Link href={`/u/${page.username || page.slug}/contact${queryStr}`}>
               <Mail className="h-4 w-4" /> Contact or brand inquiry
             </Link>
           </Button>
@@ -647,7 +708,7 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
                   </div>
                   <div className="flex justify-between items-center text-zinc-400">
                     <span>Scheduled Slot:</span>
-                    <span className="font-bold text-white font-mono">{selectedDate} @ {selectedTime}</span>
+                    <span className="font-bold text-white font-mono">{selectedBookingDateLabel} @ {selectedTime}</span>
                   </div>
                   <div className="flex justify-between items-center text-zinc-400">
                     <span>Video Meeting coordinates:</span>
@@ -681,7 +742,7 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
                               .replace("{customer_name}", guestName)
                               .replace("{event_title}", activeBookingModal.title)
                               .replace("{meeting_url}", "https://meet.google.com/hzo-wsjc-pqy")
-                              .replace("{start_time}", `${selectedDate} ${selectedTime}`)
+                              .replace("{start_time}", `${selectedBookingDateLabel} ${selectedTime}`)
                           : `Hey ${guestName}, look forward to our Strategy Call! Coordinates: https://meet.google.com/hzo-wsjc-pqy.`
                         }
                       </p>
@@ -702,8 +763,8 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
                               .replace("{customer_name}", guestName)
                               .replace("{event_title}", activeBookingModal.title)
                               .replace("{meeting_url}", "https://meet.google.com/hzo-wsjc-pqy")
-                              .replace("{start_time}", `${selectedDate} ${selectedTime}`)
-                          : `Hi ${guestName}! Confirmation for ${activeBookingModal.title} on ${selectedDate} @ ${selectedTime}.`
+                              .replace("{start_time}", `${selectedBookingDateLabel} ${selectedTime}`)
+                          : `Hi ${guestName}! Confirmation for ${activeBookingModal.title} on ${selectedBookingDateLabel} @ ${selectedTime}.`
                         }
                       </p>
                     </div>
@@ -729,45 +790,67 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
                   {/* Select Date */}
                   <div>
                     <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">1. Select Call Date</span>
-                    <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                      {["Monday, Jun 1", "Tuesday, Jun 2", "Wednesday, Jun 3", "Thursday, Jun 4", "Friday, Jun 5"].map((d) => (
-                        <button
-                          key={d}
-                          type="button"
-                          onClick={() => setSelectedDate(d)}
-                          className={cn(
-                            "h-9 px-3.5 rounded-xl shrink-0 text-xs font-bold border transition-all",
-                            selectedDate === d
-                              ? "bg-primary border-primary text-white"
-                              : "bg-white/[0.04] border-white/10 text-zinc-400 hover:bg-white/[0.08]"
-                          )}
-                        >
-                          {d.split(", ")[1]}
-                        </button>
-                      ))}
-                    </div>
+                    {bookingDateGroups.length ? (
+                      <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                        {bookingDateGroups.map((group) => (
+                          <button
+                            key={group.key}
+                            type="button"
+                            onClick={() => {
+                              setSelectedDate(group.key);
+                              setSelectedTime("");
+                              setSelectedSlotStartAt("");
+                            }}
+                            className={cn(
+                              "h-9 px-3.5 rounded-xl shrink-0 text-xs font-bold border transition-all",
+                              selectedDate === group.key
+                                ? "bg-primary border-primary text-white"
+                                : "bg-white/[0.04] border-white/10 text-zinc-400 hover:bg-white/[0.08]"
+                            )}
+                          >
+                            {group.shortLabel}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-xs font-semibold text-zinc-400">
+                        No public booking times are available right now.
+                      </div>
+                    )}
                   </div>
 
                   {/* Select Time */}
                   <div>
                     <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">2. Select Availability Slot</span>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {["09:00 AM", "10:30 AM", "01:00 PM", "03:30 PM", "05:00 PM"].map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => setSelectedTime(t)}
-                          className={cn(
-                            "h-9 px-3 rounded-xl text-xs font-bold border transition-all",
-                            selectedTime === t
-                              ? "bg-primary border-primary text-white"
-                              : "bg-white/[0.04] border-white/10 text-zinc-400 hover:bg-white/[0.08]"
-                          )}
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    </div>
+                    {selectedDateGroup?.slots.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {selectedDateGroup.slots.map((slot) => {
+                          const label = publicTimeLabel(slot.starts_at);
+                          return (
+                            <button
+                              key={slot.id ?? slot.starts_at}
+                              type="button"
+                              onClick={() => {
+                                setSelectedTime(label);
+                                setSelectedSlotStartAt(slot.starts_at);
+                              }}
+                              className={cn(
+                                "h-9 px-3 rounded-xl text-xs font-bold border transition-all",
+                                selectedSlotStartAt === slot.starts_at
+                                  ? "bg-primary border-primary text-white"
+                                  : "bg-white/[0.04] border-white/10 text-zinc-400 hover:bg-white/[0.08]"
+                              )}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="mt-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-xs font-semibold text-zinc-400">
+                        No open slots on this date.
+                      </div>
+                    )}
                   </div>
 
                   {/* Customer details */}
@@ -863,7 +946,7 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
                 {/* Interactive Booking Trigger Button */}
                 <Button
                   onClick={async () => {
-                    if (!selectedTime) {
+                    if (!selectedSlotStartAt) {
                       alert("Please select a time slot first!");
                       return;
                     }
@@ -874,10 +957,8 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
                     
                     setPaymentProcessing(true);
                     try {
-                      // 1. Calculate StartsAt ISO String
-                      const datePart = selectedDate.split(", ")[1]; // e.g. "Jun 2"
-                      const rawDateString = `${datePart}, 2026 ${selectedTime}`; // e.g. "Jun 2, 2026 10:30 AM"
-                      const startsAt = new Date(rawDateString).toISOString();
+                      // 1. Use a real published availability slot from the creator calendar.
+                      const startsAt = selectedSlotStartAt;
 
                       // 2. POST to Hold Slot
                       const holdRes = await fetch("/api/bookings", {
@@ -950,7 +1031,7 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
                       setPaymentProcessing(false);
                     }
                   }}
-                  disabled={paymentProcessing}
+                  disabled={paymentProcessing || !selectedSlotStartAt || bookingDateGroups.length === 0}
                   className={cn("mt-2", styling.buttonClass)}
                   style={styling.buttonStyle}
                 >
@@ -978,6 +1059,9 @@ export function PublicShopPage({ data }: { data: PublicData }) {
   const visitorId = useVisitorId();
   const page = data.page;
   const products = data.products.filter((product) => product.show_on_shop);
+  const searchParams = useSearchParams();
+  const linkTheme = searchParams.get("link_theme");
+  const queryStr = linkTheme ? `?link_theme=${linkTheme}` : "";
 
   useEffect(() => {
     track(data, visitorId, "shop.viewed", "creator_page", page.id);
@@ -992,8 +1076,20 @@ export function PublicShopPage({ data }: { data: PublicData }) {
       {page.theme?.custom?.customCss && (
         <style dangerouslySetInnerHTML={{ __html: page.theme.custom.customCss }} />
       )}
+      
+      {linkTheme && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
+          <Link 
+            href={`/u/${page.username || page.slug}`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-black/60 backdrop-blur-md border border-white/10 text-white shadow-lg hover:bg-black/80 hover:scale-105 transition-all"
+          >
+            <span>🏠 View Main Storefront</span>
+          </Link>
+        </div>
+      )}
+
       <div className="mx-auto max-w-5xl px-4 py-10">
-        <Link href={`/u/${page.username || page.slug}`} className={`text-sm font-black ${styling.accentTextClass}`} style={styling.cardStyle?.color ? { color: styling.cardStyle.color } : undefined}>
+        <Link href={`/u/${page.username || page.slug}${queryStr}`} className={`text-sm font-black ${styling.accentTextClass}`} style={styling.cardStyle?.color ? { color: styling.cardStyle.color } : undefined}>
           Back to profile
         </Link>
         <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -1005,7 +1101,7 @@ export function PublicShopPage({ data }: { data: PublicData }) {
         </div>
         <div className="mt-8 grid gap-4 md:grid-cols-3">
           {products.map((product) => (
-            <Link key={product.id} href={`/u/${page.username || page.slug}/product/${product.slug}`} className={styling.cardClass + " flex flex-col gap-3"} style={styling.cardStyle}>
+            <Link key={product.id} href={`/u/${page.username || page.slug}/product/${product.slug}${queryStr}`} className={styling.cardClass + " flex flex-col gap-3"} style={styling.cardStyle}>
               <div className="grid aspect-[4/3] w-full place-items-center overflow-hidden rounded-2xl bg-white/10 border border-white/5">
                 {product.cover_image_url ? <img src={product.cover_image_url} alt="" className="h-full w-full object-cover" /> : <ShoppingBag className="h-8 w-8 text-zinc-500" />}
               </div>

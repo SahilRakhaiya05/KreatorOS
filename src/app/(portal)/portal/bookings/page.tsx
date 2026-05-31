@@ -22,8 +22,41 @@ export default async function PortalBookings() {
     .order("starts_at", { ascending: true })
     .limit(10);
 
-  const finalSlots = slots && slots.length > 0
-    ? slots.map(s => ({
+  let finalSlotsList = slots ?? [];
+  if (finalSlotsList.length > 0) {
+    const workspaceIdForSlots = finalSlotsList[0].workspace_id;
+    if (workspaceIdForSlots) {
+      try {
+        const { calendarService } = await import("@/server/calendar/calendarService");
+        const startWindow = finalSlotsList[0].starts_at;
+        const endWindow = finalSlotsList[finalSlotsList.length - 1].ends_at;
+
+        const busySlots = await calendarService.getAvailability({
+          workspaceId: workspaceIdForSlots,
+          startTime: startWindow,
+          endTime: endWindow,
+        });
+
+        if (busySlots && busySlots.length > 0) {
+          finalSlotsList = finalSlotsList.filter((slot) => {
+            const slotStart = new Date(slot.starts_at).getTime();
+            const slotEnd = new Date(slot.ends_at).getTime();
+
+            return !busySlots.some((busy) => {
+              const busyStart = new Date(busy.start).getTime();
+              const busyEnd = new Date(busy.end).getTime();
+              return slotStart < busyEnd && slotEnd > busyStart;
+            });
+          });
+        }
+      } catch (err) {
+        console.error("Error filtering portal availability slots:", err);
+      }
+    }
+  }
+
+  const finalSlots = finalSlotsList.length > 0
+    ? finalSlotsList.map(s => ({
         id: s.id,
         starts_at: s.starts_at,
         ends_at: s.ends_at,

@@ -144,7 +144,7 @@ create table brand_campaigns (
 
 create table collab_messages (
   id uuid primary key default gen_random_uuid(),
-  campaign_id uuid not null references brand_campaigns(id) on delete cascade,
+  campaign_id uuid not null references brand_deals(id) on delete cascade,
   sender_user_id uuid references profiles(id) on delete set null,
   sender_type text not null,
   body text not null,

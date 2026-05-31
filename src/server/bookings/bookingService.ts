@@ -39,8 +39,26 @@ export const bookingService = {
     const isFree = Number(offer.price_cents ?? 0) === 0;
     const initialStatus = isFree ? "confirmed" : "held";
 
-    // 2. Find and hold calendar slot if one exists in DB
-    const { data: slot } = await supabase
+    // 2. Find and hold the exact public slot. Schedule-slot offers should never create
+    // bookings for times that are already booked, held, blocked, or unpublished.
+    const { data: matchingSlot } = await supabase
+      .from("creator_calendar_slots")
+      .select("*")
+      .eq("page_id", offer.page_id || "")
+      .eq("starts_at", input.startsAt)
+      .maybeSingle();
+
+    if (matchingSlot && matchingSlot.status !== "available") {
+      return { ok: false as const, error: "This time is no longer available." };
+    }
+
+    if (!matchingSlot && (offer.config as any)?.bookingMode === "schedule_slots") {
+      return { ok: false as const, error: "This time is not available on the creator calendar." };
+    }
+
+    const { data: slot } = matchingSlot
+      ? { data: matchingSlot }
+      : await supabase
       .from("creator_calendar_slots")
       .select("*")
       .eq("page_id", offer.page_id || "")

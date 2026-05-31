@@ -96,7 +96,7 @@ export const nav: Record<"creator" | "brand" | "portal", NavGroup[]> = {
     {
       group: "Grow",
       items: [
-        { href: "/creator/brand-crm", label: "Brand CRM & Chats", icon: Handshake },
+        { href: "/creator/brand-crm", label: "Brand CRM", icon: Handshake },
         { href: "/creator/research-lab", label: "Research Lab", icon: Mic },
         { href: "/creator/instagram", label: "Instagram Saves", icon: PlayCircle },
         { href: "/creator/link/analytics", label: "Analytics", icon: BarChart3 },
