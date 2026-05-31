@@ -1,8 +1,8 @@
 {
   "name": "kreatoros",
-  "version": "4.0.0",
+  "version": "1.0.0",
   "private": true,
-  "description": "An AI creator business operator with Askiva-inspired automation, Calendly/Cal.com-style booking, and node-based agent workflows.",
+  "description": "",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
