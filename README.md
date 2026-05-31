@@ -1,5 +1,7 @@
 # KreatorOS
 
+<img width="1535" height="636" alt="image" src="https://github.com/user-attachments/assets/b0a0b965-7a8e-40b0-810b-fd741e18cbd1" />
+
 **KreatorOS is an AI business operating system for creators, brands, and client/member portals.**
 
 It brings the core parts of a modern creator business into one workspace: public storefronts, paid products, bookings, client delivery, brand campaigns, collaboration rooms, saved Instagram research, analytics, and approval-first AI operations. The goal is not to be another bio-link page or isolated booking tool. KreatorOS is designed as the operational layer that connects audience demand, client work, brand revenue, content research, and creator workflows.
