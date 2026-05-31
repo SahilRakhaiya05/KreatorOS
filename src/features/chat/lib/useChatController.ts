@@ -53,6 +53,7 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
   const [provider, setProvider] = useState<ProviderId>(firstAvailable.id);
   const [model, setModel] = useState<string>(firstAvailable.models[0]?.id ?? "");
   const [activeAgentId, setActiveAgentId] = useState<string>(DEFAULT_AGENT_ID);
+  const [accessMode, setAccessMode] = useState<"approval" | "full">("approval");
   const [status, setStatus] = useState<"idle" | "streaming">("idle");
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -62,6 +63,15 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
   // Hydrate from localStorage immediately, then replace with durable server history when available.
   useEffect(() => {
     let localConversations: Conversation[] = [];
+    try {
+      const savedMode = localStorage.getItem("kreatoros.chat.accessMode");
+      if (savedMode === "full") {
+        setAccessMode("full");
+      }
+    } catch {
+      /* ignore */
+    }
+
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -109,6 +119,15 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
       /* ignore */
     }
   }, [conversations]);
+
+  // Persist accessMode
+  useEffect(() => {
+    try {
+      localStorage.setItem("kreatoros.chat.accessMode", accessMode);
+    } catch {
+      /* ignore */
+    }
+  }, [accessMode]);
 
   useEffect(() => {
     if (!conversations.length) return;
@@ -209,6 +228,64 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
     abortRef.current?.abort();
     setStatus("idle");
   }, []);
+
+  const approveSuggestion = useCallback(
+    async (suggestionId: string) => {
+      try {
+        const approveRes = await fetch(`/api/ai/suggestions/${suggestionId}/approve`, { method: "POST" });
+        const approveJson = await approveRes.json();
+        if (!approveJson?.ok) throw new Error(approveJson?.error?.message ?? "Approval failed.");
+
+        const applyRes = await fetch(`/api/ai/suggestions/${suggestionId}/apply`, { method: "POST" });
+        const applyJson = await applyRes.json();
+        if (!applyJson?.ok) throw new Error(applyJson?.error?.message ?? "Apply failed.");
+
+        setConversations((prev) =>
+          prev.map((conversation) => ({
+            ...conversation,
+            messages: conversation.messages.map((message) => ({
+              ...message,
+              approvals: message.approvals?.map((approval) =>
+                approval.id === suggestionId ? { ...approval, status: "applied" } : approval
+              ),
+            })),
+          }))
+        );
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "Approval failed.");
+      }
+    },
+    []
+  );
+
+  const rejectSuggestion = useCallback(
+    async (suggestionId: string) => {
+      try {
+        const res = await fetch(`/api/ai/suggestions/${suggestionId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "rejected" }),
+        });
+        const json = await res.json();
+        if (!json?.ok) throw new Error(json?.error?.message ?? "Reject failed.");
+
+        setConversations((prev) =>
+          prev.map((conversation) => ({
+            ...conversation,
+            messages: conversation.messages.map((message) => ({
+              ...message,
+              approvals: message.approvals?.map((approval) =>
+                approval.id === suggestionId ? { ...approval, status: "rejected" } : approval
+              ),
+            })),
+          }))
+        );
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "Reject failed.");
+      }
+    },
+    []
+  );
 
   const send = useCallback(
     async (text: string) => {
@@ -321,18 +398,39 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
           .catch(() => [] as ChatApproval[]);
 
         if (pendingApprovals.length) {
-          setConversations((prev) =>
-            prev.map((c) =>
-              c.id === convId
-                ? {
-                    ...c,
-                    messages: c.messages.map((m) =>
-                      m.id === assistantMsg.id ? { ...m, approvals: pendingApprovals } : m
-                    ),
-                  }
-                : c
-            )
-          );
+          if (accessMode === "full") {
+            setConversations((prev) =>
+              prev.map((c) =>
+                c.id === convId
+                  ? {
+                      ...c,
+                      messages: c.messages.map((m) =>
+                        m.id === assistantMsg.id
+                          ? { ...m, approvals: pendingApprovals.map((p: ChatApproval) => ({ ...p, status: "applying" })) }
+                          : m
+                      ),
+                    }
+                  : c
+              )
+            );
+
+            for (const approval of pendingApprovals) {
+              await approveSuggestion(approval.id);
+            }
+          } else {
+            setConversations((prev) =>
+              prev.map((c) =>
+                c.id === convId
+                  ? {
+                      ...c,
+                      messages: c.messages.map((m) =>
+                        m.id === assistantMsg.id ? { ...m, approvals: pendingApprovals } : m
+                      ),
+                    }
+                  : c
+              )
+            );
+          }
         }
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
@@ -357,65 +455,7 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
         abortRef.current = null;
       }
     },
-    [current, conversations, provider, model, status, activeAgentId]
-  );
-
-  const approveSuggestion = useCallback(
-    async (suggestionId: string) => {
-      try {
-        const approveRes = await fetch(`/api/ai/suggestions/${suggestionId}/approve`, { method: "POST" });
-        const approveJson = await approveRes.json();
-        if (!approveJson?.ok) throw new Error(approveJson?.error?.message ?? "Approval failed.");
-
-        const applyRes = await fetch(`/api/ai/suggestions/${suggestionId}/apply`, { method: "POST" });
-        const applyJson = await applyRes.json();
-        if (!applyJson?.ok) throw new Error(applyJson?.error?.message ?? "Apply failed.");
-
-        setConversations((prev) =>
-          prev.map((conversation) => ({
-            ...conversation,
-            messages: conversation.messages.map((message) => ({
-              ...message,
-              approvals: message.approvals?.map((approval) =>
-                approval.id === suggestionId ? { ...approval, status: "applied" } : approval
-              ),
-            })),
-          }))
-        );
-      } catch (error) {
-        setError(error instanceof Error ? error.message : "Approval failed.");
-      }
-    },
-    []
-  );
-
-  const rejectSuggestion = useCallback(
-    async (suggestionId: string) => {
-      try {
-        const res = await fetch(`/api/ai/suggestions/${suggestionId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "rejected" }),
-        });
-        const json = await res.json();
-        if (!json?.ok) throw new Error(json?.error?.message ?? "Reject failed.");
-
-        setConversations((prev) =>
-          prev.map((conversation) => ({
-            ...conversation,
-            messages: conversation.messages.map((message) => ({
-              ...message,
-              approvals: message.approvals?.map((approval) =>
-                approval.id === suggestionId ? { ...approval, status: "rejected" } : approval
-              ),
-            })),
-          }))
-        );
-      } catch (error) {
-        setError(error instanceof Error ? error.message : "Reject failed.");
-      }
-    },
-    []
+    [current, conversations, provider, model, status, activeAgentId, accessMode, approveSuggestion]
   );
 
   return {
@@ -437,5 +477,7 @@ export function useChatController(catalog: ProviderCatalogEntry[]) {
     stop,
     approveSuggestion,
     rejectSuggestion,
+    accessMode,
+    setAccessMode,
   };
 }

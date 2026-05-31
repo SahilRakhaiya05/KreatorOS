@@ -6,13 +6,13 @@ import {
 } from "lucide-react";
 
 export const creator = {
-  name: "Demo Creator",
-  handle: "@demo",
+  name: "Marcus Chen",
+  handle: "@marcus_tech",
   slug: "demo",
   page: "/u/demo",
-  niche: "AI productivity mentor",
-  audience: "founders, students, solo creators",
-  promise: "I help creators turn attention into paid products, calls, memberships, and brand deals with AI systems.",
+  niche: "AI Productivity & Systems Architect",
+  audience: "tech founders, solo creators, systems engineers",
+  promise: "Scale your business operations using custom-built AI-driven automation workflows and integrations.",
   revenue: "$18,420",
   mrr: "$3,280",
 };
@@ -198,9 +198,9 @@ export const researchStudies = [
 ];
 
 export const brandDeals = [
-  { brand: "NotionFlow", creator: "Demo Creator", stage: "Proposal sent", value: "$1,200", due: "Jun 4", risk: "Waiting on usage rights approval" },
-  { brand: "ClipSpark AI", creator: "Demo Creator", stage: "Negotiating", value: "$2,500", due: "Jun 10", risk: "Need revised deliverables" },
-  { brand: "StudyPal", creator: "Demo Creator", stage: "Pitched", value: "$800", due: "Jun 14", risk: "Follow-up due tomorrow" },
+  { brand: "NotionFlow", creator: "Marcus Chen", stage: "Proposal sent", value: "$1,200", due: "Jun 4", risk: "Waiting on usage rights approval" },
+  { brand: "ClipSpark AI", creator: "Marcus Chen", stage: "Negotiating", value: "$2,500", due: "Jun 10", risk: "Need revised deliverables" },
+  { brand: "StudyPal", creator: "Marcus Chen", stage: "Pitched", value: "$800", due: "Jun 14", risk: "Follow-up due tomorrow" },
 ];
 
 export const pageBlocks = [

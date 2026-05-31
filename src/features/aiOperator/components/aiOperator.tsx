@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Bot, CheckCircle2, Sparkles, Wand2, Workflow, ShieldCheck, Database, PlayCircle } from "lucide-react";
 import { Badge, Card, cn } from "@/components/ui";
+import { analyticsEvents, captureClientEvent } from "@/client/posthog/events";
 
 const starters = [
   "Create my full creator business page",
@@ -32,6 +33,10 @@ export function AIOperator({ compact = false }: { compact?: boolean }) {
   function send(text?: string) {
     const value = (text ?? input).trim();
     if (!value) return;
+    
+    // Capture AI Operator execution event in PostHog
+    captureClientEvent(analyticsEvents.operatorRunStarted, { prompt: value });
+
     setMessages(prev => [...prev, { role: "user", text: value }, { role: "agent", text: `I prepared a safe execution plan for: ${value}. I created drafts, checked policies, and added actions to the approval queue.` }]);
     setInput("");
   }

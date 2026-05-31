@@ -9,7 +9,7 @@ export default function BrandCollabRoom() {
       <PageHeader
         eyebrow="Collaboration room"
         title="Creator-Brand Workspace Portal"
-        description="A unified, secure room for contract proposals, deliverables, live chat, escrow holds, and campaign reports."
+        description="Secure room for contract proposals, deliverables, live chat, and escrow settlements."
       />
       <BrandCollabRoomClient />
     </AppShell>

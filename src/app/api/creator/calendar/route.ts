@@ -205,3 +205,72 @@ export async function POST(req: Request) {
 
   return apiOk({ offer, blockId, slotCount: body.slots.length });
 }
+
+export async function DELETE(req: Request) {
+  const { user } = await getSession();
+  if (!user) return apiError("unauthorized", "Sign in to manage calendar.", 401);
+
+  const workspace = await getActiveWorkspace(user.id);
+  if (!workspace) return apiError("missing_workspace", "No active workspace found.", 400);
+
+  const url = new URL(req.url);
+  const offerId = url.searchParams.get("offerId");
+  const pageId = url.searchParams.get("pageId");
+
+  if (!offerId || !pageId) {
+    return apiError("missing_parameters", "offerId and pageId are required.", 400);
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: page, error: pageError } = await supabase
+    .from("creator_pages")
+    .select("id, workspace_id")
+    .eq("id", pageId)
+    .eq("workspace_id", workspace.id)
+    .maybeSingle();
+
+  if (pageError) return apiError("page_lookup_failed", pageError.message, 400);
+  if (!page) return apiError("page_not_found", "Calendar page was not found.", 404);
+
+  // 1. Find the page block associated with this offer
+  const { data: block } = await supabase
+    .from("creator_page_blocks")
+    .select("id")
+    .eq("page_id", pageId)
+    .eq("ref_type", "offer")
+    .eq("ref_id", offerId)
+    .maybeSingle();
+
+  if (block) {
+    // 2. Delete associated slots
+    await supabase
+      .from("creator_calendar_slots")
+      .delete()
+      .eq("block_id", block.id);
+
+    // 3. Delete the page block
+    await supabase
+      .from("creator_page_blocks")
+      .delete()
+      .eq("id", block.id);
+  }
+
+  // 4. Delete associated digital products (if any)
+  await supabase
+    .from("digital_products")
+    .delete()
+    .eq("offer_id", offerId)
+    .eq("workspace_id", workspace.id);
+
+  // 5. Delete the offer itself
+  const { error: offerError } = await supabase
+    .from("offers")
+    .delete()
+    .eq("id", offerId)
+    .eq("workspace_id", workspace.id);
+
+  if (offerError) return apiError("offer_delete_failed", offerError.message, 400);
+
+  return apiOk({ deleted: true });
+}
+

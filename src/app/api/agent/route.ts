@@ -6,10 +6,21 @@ import { runOrchestratorAgent } from "@/server/agents/orchestratorAgent";
 import { getSession } from "@/server/auth/getSession";
 import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
+import { rateLimit } from "@/server/security/rateLimiter";
 
 export async function POST(req: Request) {
   const { user } = await getSession();
   if (!user) return apiError("unauthorized", "Sign in to use the agent.", 401);
+
+  // Apply Redis sliding-window rate limit (10 requests per minute per user)
+  const rateLimitResult = await rateLimit(`ai_agent:${user.id}`, 10, 60);
+  if (!rateLimitResult.success) {
+    return apiError(
+      "rate_limited",
+      "You have exceeded the speed limit for AI Operator queries. Please take a 60-second breath and try again.",
+      429
+    );
+  }
 
   const body = await parseJsonBody(req, agentRequestSchema);
   if (isApiResponse(body)) return body;

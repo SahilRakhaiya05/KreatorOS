@@ -162,7 +162,12 @@ export function getThemeClasses(mode = "dark", accent = "coral", customTheme?: a
   if (mode === "custom" && customTheme) {
     const bgType = customTheme.bgType || "color";
     const bgStyle: React.CSSProperties = {};
-    if (bgType === "gradient" && customTheme.bgGradient) {
+    if (bgType === "image" && customTheme.bgImageUrl) {
+      bgStyle.backgroundImage = `linear-gradient(rgba(0,0,0,0.38), rgba(0,0,0,0.62)), url(${customTheme.bgImageUrl})`;
+      bgStyle.backgroundPosition = "center";
+      bgStyle.backgroundRepeat = "no-repeat";
+      bgStyle.backgroundSize = "cover";
+    } else if (bgType === "gradient" && customTheme.bgGradient) {
       bgStyle.background = customTheme.bgGradient;
     } else {
       bgStyle.backgroundColor = customTheme.bgColor || "#000000";
@@ -379,16 +384,36 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
   }, [visitorId]);
 
   // Booking system state hooks
-  const [activeBookingModal, setActiveBookingModal] = useState<any | null>(null);
+  const isQuerySuccess = searchParams.get("booking_success") === "true";
+  const queryTitle = searchParams.get("title") || "Booking Session";
+  const queryEmail = searchParams.get("email") || "";
+  const queryPhone = searchParams.get("phone") || "";
+  const queryName = searchParams.get("name") || "";
+
+  const [activeBookingModal, setActiveBookingModal] = useState<any | null>(() => {
+    if (isQuerySuccess) {
+      return {
+        title: queryTitle,
+        description: "Your secure booking payment has completed successfully.",
+        config: {
+          emailConfirm: true,
+          emailTemplate: "Hey {customer_name}, look forward to our meeting! Coordinates: {meeting_url}.",
+          whatsappConfirm: !!queryPhone,
+          whatsappTemplate: "Hi {customer_name}! Your booking session is confirmed."
+        }
+      };
+    }
+    return null;
+  });
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [selectedSlotStartAt, setSelectedSlotStartAt] = useState<string>("");
-  const [guestName, setGuestName] = useState("");
-  const [guestEmail, setGuestEmail] = useState("");
-  const [guestPhone, setGuestPhone] = useState("");
+  const [guestName, setGuestName] = useState(() => queryName);
+  const [guestEmail, setGuestEmail] = useState(() => queryEmail);
+  const [guestPhone, setGuestPhone] = useState(() => queryPhone);
   const [guestNote, setGuestNote] = useState("");
   const [paymentProcessing, setPaymentProcessing] = useState(false);
-  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [bookingSuccess, setBookingSuccess] = useState(() => isQuerySuccess);
 
   // stripe payment details
   const [cardNumber, setCardNumber] = useState("");
@@ -398,6 +423,7 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
   const mode = page.theme?.mode || "dark";
   const accent = page.theme?.accent || "coral";
   const styling = getThemeClasses(mode, accent, page.theme?.custom);
+  const hasCustomPageBackground = mode === "custom" && page.theme?.custom?.bgType === "image" && page.theme?.custom?.bgImageUrl;
   const bookingDateGroups = useMemo(() => {
     const groups = new Map<string, { key: string; label: string; shortLabel: string; slots: Array<Record<string, any>> }>();
     for (const slot of data.calendarSlots ?? []) {
@@ -439,11 +465,11 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
             href={`/u/${page.username || page.slug}`}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-black/60 backdrop-blur-md border border-white/10 text-white shadow-lg hover:bg-black/80 hover:scale-105 transition-all"
           >
-            <span>🏠 View Main Storefront</span>
+            <span>View main page</span>
           </Link>
         </div>
       )}
-      {page.background_image_url ? (
+      {page.background_image_url && !hasCustomPageBackground ? (
         <div 
           className="absolute inset-0 bg-cover bg-center filter blur-3xl opacity-[0.12] pointer-events-none scale-110" 
           style={{ backgroundImage: `url(${page.background_image_url})` }}
@@ -451,7 +477,7 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
       ) : null}
       <section className="relative mx-auto max-w-md px-4 pb-12 z-10">
         <div className={styling.bannerClass}>
-          {page.background_image_url ? <img src={page.background_image_url} alt="" className="h-full w-full object-cover opacity-75" /> : null}
+          {page.background_image_url && !hasCustomPageBackground ? <img src={page.background_image_url} alt="" className="h-full w-full object-cover opacity-75" /> : null}
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/30" />
         </div>
 
@@ -889,54 +915,14 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
 
                   {/* Payment checkout deposit for Paid session */}
                   {activeBookingModal.price_cents > 0 && (
-                    <div className="space-y-3 pt-2 border-t border-white/5">
+                    <div className="space-y-2 pt-2 border-t border-white/5">
                       <div className="flex items-center justify-between text-xs font-black">
                         <span className="text-zinc-400">Stripe Escrow Deposit:</span>
                         <span className={styling.accentTextClass}>{money(activeBookingModal.price_cents, activeBookingModal.currency)}</span>
                       </div>
-                      
-                      {/* Premium mock Card input */}
-                      <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/10 grid gap-3">
-                        <label className="flex flex-col gap-1 text-[9px] uppercase tracking-wider text-zinc-400">
-                          Credit Card Number
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={cardNumber}
-                              onChange={(e) => setCardNumber(e.target.value)}
-                              placeholder="4242 •••• •••• 4242"
-                              maxLength={19}
-                              className="h-9 w-full rounded-xl border border-white/10 bg-black/60 px-3 pl-9 text-xs text-white outline-none font-mono focus:border-primary/50"
-                            />
-                            <CreditCard className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
-                          </div>
-                        </label>
-                        
-                        <div className="grid grid-cols-2 gap-2">
-                          <label className="flex flex-col gap-1 text-[9px] uppercase tracking-wider text-zinc-400">
-                            Expiry
-                            <input
-                              type="text"
-                              value={cardExpiry}
-                              onChange={(e) => setCardExpiry(e.target.value)}
-                              placeholder="MM/YY"
-                              maxLength={5}
-                              className="h-9 w-full rounded-xl border border-white/10 bg-black/60 px-3 text-xs text-white outline-none font-mono focus:border-primary/50"
-                            />
-                          </label>
-                          <label className="flex flex-col gap-1 text-[9px] uppercase tracking-wider text-zinc-400">
-                            CVC
-                            <input
-                              type="password"
-                              value={cardCvc}
-                              onChange={(e) => setCardCvc(e.target.value)}
-                              placeholder="•••"
-                              maxLength={4}
-                              className="h-9 w-full rounded-xl border border-white/10 bg-black/60 px-3 text-xs text-white outline-none font-mono focus:border-primary/50"
-                            />
-                          </label>
-                        </div>
-                      </div>
+                      <p className="text-[11px] text-zinc-400 leading-normal font-sans">
+                        You will be securely redirected to Stripe checkout to complete payment and lock in your session slot.
+                      </p>
                     </div>
                   )}
 
@@ -1002,7 +988,7 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
                               email: guestEmail,
                               name: guestName,
                             },
-                            returnUrl: window.location.origin + "/u/" + (data.page.username || data.page.slug),
+                            returnUrl: window.location.origin + "/u/" + (data.page.username || data.page.slug) + "?booking_success=true&title=" + encodeURIComponent(activeBookingModal.title) + "&email=" + encodeURIComponent(guestEmail) + "&phone=" + encodeURIComponent(guestPhone) + "&name=" + encodeURIComponent(guestName),
                           }),
                         });
 
@@ -1012,17 +998,13 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
                         }
 
                         const checkoutData = await checkoutRes.json();
-                        const { order, intent } = checkoutData.data || checkoutData;
+                        const { checkout } = checkoutData.data || checkoutData;
 
-                        // Simulate payment completion via mock checkout
-                        const completeRes = await fetch(`/api/payments/checkout/mock-complete?order_id=${order.id}&intent_id=${intent.id}`);
-                        if (!completeRes.ok) {
-                          const compErr = await completeRes.json();
-                          throw new Error(compErr.error || "Mock payment simulation failed.");
+                        if (checkout && checkout.url) {
+                          window.location.href = checkout.url;
+                        } else {
+                          throw new Error("Could not retrieve checkout session URL.");
                         }
-
-                        setBookingSuccess(true);
-                        track(data, visitorId, "booking.confirmed", "offer", activeBookingModal.id);
                       }
                     } catch (err: any) {
                       console.error("[Booking flow error]", err);
@@ -1036,12 +1018,9 @@ export function PublicSmartLinkPage({ data }: { data: PublicData }) {
                   style={styling.buttonStyle}
                 >
                   {paymentProcessing ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <RefreshCw className="h-4 w-4 animate-spin text-zinc-900" /> 
-                      {activeBookingModal.price_cents > 0 ? "Authorizing Stripe Payment..." : "Processing booking..."}
-                    </span>
+                    <span>{activeBookingModal.price_cents > 0 ? "Redirecting to Stripe..." : "Processing booking..."}</span>
                   ) : (
-                    <span>{activeBookingModal.price_cents > 0 ? `Pay ${money(activeBookingModal.price_cents, activeBookingModal.currency)} & Schedule Session` : "Schedule Free Session"}</span>
+                    <span>{activeBookingModal.price_cents > 0 ? `Pay & Schedule Session` : "Schedule Free Session"}</span>
                   )}
                 </Button>
               </div>
@@ -1083,7 +1062,7 @@ export function PublicShopPage({ data }: { data: PublicData }) {
             href={`/u/${page.username || page.slug}`}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-black/60 backdrop-blur-md border border-white/10 text-white shadow-lg hover:bg-black/80 hover:scale-105 transition-all"
           >
-            <span>🏠 View Main Storefront</span>
+            <span>View main page</span>
           </Link>
         </div>
       )}

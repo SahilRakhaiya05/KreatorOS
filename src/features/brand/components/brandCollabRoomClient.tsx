@@ -33,6 +33,13 @@ type BrandDeal = {
   deliverables: string[];
   due_date: string | null;
   metadata?: any;
+  workspaces?: {
+    name: string | null;
+    slug: string | null;
+    creator_profiles?: {
+      display_name: string;
+    } | null;
+  } | null;
 };
 
 export function BrandCollabRoomClient() {
@@ -41,7 +48,6 @@ export function BrandCollabRoomClient() {
   const [chatMode, setChatMode] = useState<"ai" | "human">("ai");
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
-  const [deliverableUrl, setDeliverableUrl] = useState("");
   const [loadingDeals, setLoadingDeals] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
@@ -130,22 +136,12 @@ export function BrandCollabRoomClient() {
     fetchMessages(selectedDeal.id);
   };
 
-  const handleSubmitDeliverable = async () => {
-    if (!selectedDeal || !deliverableUrl.trim()) return;
-    const url = deliverableUrl.trim();
-    setDeliverableUrl("");
-    await updateDealStatus("delivered");
-    await postCollabMessage(`🚀 Creator submitted deliverable URL for review: ${url}. Initiating automated creative review...`, "system");
-    await postCollabMessage(`Perfect! I've received your deliverable draft. Let me run our automated brand compliance check on this URL.`, "brand");
-    
+  const handleApproveDeliverable = async () => {
+    if (!selectedDeal) return;
+    await updateDealStatus("paid");
+    await postCollabMessage(`🎉 Sponsorship deliverable approved by Brand. Stripe Connect escrow payment of $${(selectedDeal.rate_cents / 100).toFixed(2)} USD successfully released to Creator Wallet.`, "system");
+    await postCollabMessage(`Excellent work! The deliverable has been approved. Sponsorship payout has been released. Looking forward to our next collaboration!`, "brand");
     fetchMessages(selectedDeal.id);
-
-    setTimeout(async () => {
-      await updateDealStatus("paid");
-      await postCollabMessage(`🎉 Automated Creative Review Passed! Deliverable matches brief and guidelines. Stripe Connect escrow payment of $${(selectedDeal.rate_cents / 100).toFixed(2)} USD successfully released to Creator Wallet.`, "system");
-      await postCollabMessage(`Excellent work! The video check passed and the draft is approved. Sponsorship payout has been released. Looking forward to our next collaboration!`, "brand");
-      fetchMessages(selectedDeal.id);
-    }, 2500);
   };
 
   async function fetchMessages(campaignId: string) {
@@ -398,12 +394,31 @@ export function BrandCollabRoomClient() {
                 </p>
               ) : selectedDeal.status === "approved" ? (
                 <p className="text-xs font-semibold text-foreground mt-1 leading-relaxed">
-                  Sponsorship Escrow secured! Enter your published deliverable video/post draft URL below.
+                  Sponsorship Escrow secured! Waiting for creator partner to submit published deliverable video/post draft URL.
                 </p>
               ) : selectedDeal.status === "delivered" ? (
-                <p className="text-xs font-semibold text-foreground mt-1 leading-relaxed flex items-center gap-1.5">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary shrink-0" /> Deliverable submitted. Running automated AI brand safety & compliance reviews...
-                </p>
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs font-semibold text-foreground mt-1 leading-relaxed flex items-center gap-1.5">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary shrink-0" /> Deliverable draft submitted by Creator Partner!
+                  </p>
+                  {selectedDeal.metadata?.creator_submission?.url ? (
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Draft Link:{" "}
+                      <a
+                        href={selectedDeal.metadata.creator_submission.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary hover:underline font-mono"
+                      >
+                        {selectedDeal.metadata.creator_submission.url}
+                      </a>
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">
+                      Draft Link: https://youtube.com/watch?v=demo-deliverable-draft
+                    </p>
+                  )}
+                </div>
               ) : selectedDeal.status === "paid" ? (
                 <p className="text-xs font-bold text-emerald-500 mt-1 leading-relaxed flex items-center gap-1.5">
                   <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500 animate-bounce" /> Sponsorship funds securely released and settled in Creator Wallet!
@@ -436,25 +451,19 @@ export function BrandCollabRoomClient() {
                   </Button>
                 </>
               ) : selectedDeal.status === "approved" ? (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="https://youtube.com/watch?..."
-                    value={deliverableUrl}
-                    onChange={(e) => setDeliverableUrl(e.target.value)}
-                    className="h-9 px-3 text-xs font-semibold rounded-xl border border-input bg-background outline-none focus:ring-4 focus:ring-primary/10 w-44"
-                  />
+                <Badge variant="outline" className="px-3 py-1.5 font-bold text-[10px] bg-secondary/80 text-muted-foreground border-none">
+                  Waiting for Creator
+                </Badge>
+              ) : selectedDeal.status === "delivered" ? (
+                <div className="flex items-center gap-2">
                   <Button 
                     size="sm" 
-                    onClick={handleSubmitDeliverable} 
-                    disabled={!deliverableUrl.trim()}
-                    className="font-bold h-9"
+                    onClick={handleApproveDeliverable} 
+                    className="font-bold h-9 bg-emerald-600 hover:bg-emerald-700 text-white"
                   >
-                    Submit URL
+                    Approve & Pay
                   </Button>
                 </div>
-              ) : selectedDeal.status === "delivered" ? (
-                <Badge variant="accent" className="px-3 py-1.5 font-bold animate-pulse text-[10px]">Compliance Reviewing</Badge>
               ) : selectedDeal.status === "paid" ? (
                 <Badge variant="accent" className="px-3 py-1.5 bg-emerald-500/10 text-emerald-500 font-bold border border-emerald-500/25 text-[10px]">Escrow Settled</Badge>
               ) : null}
@@ -508,12 +517,12 @@ export function BrandCollabRoomClient() {
                   >
                     {isCreator && (
                       <p className="text-[9px] font-black tracking-wider uppercase text-primary mb-1">
-                        Creator Partner
+                        {selectedDeal?.workspaces?.creator_profiles?.display_name || "Creator Partner"}
                       </p>
                     )}
                     {!isCreator && isBrand && (
                       <p className="text-[9px] font-black tracking-wider uppercase opacity-75 mb-1">
-                        {chatMode === "ai" ? "Brand AI Agent (Me)" : "Brand Rep (Me)"}
+                        {chatMode === "ai" ? "Brand AI Agent (Me)" : `${selectedDeal?.brand_name || "Brand Manager"} (Me)`}
                       </p>
                     )}
                     <p className="font-semibold leading-relaxed">{m.body}</p>

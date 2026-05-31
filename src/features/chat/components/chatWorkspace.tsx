@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Bot } from "lucide-react";
+import { AlertCircle, Bot, Shield, ShieldAlert, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatController } from "../lib/useChatController";
 import type { ProviderCatalogEntry } from "../lib/types";
@@ -8,6 +8,12 @@ import { ConversationSidebar } from "./conversationSidebar";
 import { ChatThread } from "./chatThread";
 import { ChatComposer } from "./chatComposer";
 import { getAgent } from "../lib/agents";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function ChatWorkspace({ catalog }: { catalog: ProviderCatalogEntry[] }) {
   const chat = useChatController(catalog);
@@ -42,6 +48,61 @@ export function ChatWorkspace({ catalog }: { catalog: ProviderCatalogEntry[] }) 
               <p className="truncate text-sm font-semibold">{agent.name}</p>
               <p className="truncate text-xs text-muted-foreground">{agent.tagline}</p>
             </div>
+          </div>
+
+          {/* Access Mode Selector */}
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className={cn(
+                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shadow-soft ring-1 transition-all duration-200 outline-none hover:bg-secondary/40",
+                  chat.accessMode === "full" 
+                    ? "bg-orange-500/10 ring-orange-500/30 text-orange-500" 
+                    : "bg-secondary/20 ring-border/80 text-muted-foreground"
+                )}>
+                  {chat.accessMode === "full" ? (
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                  ) : (
+                    <Shield className="h-3.5 w-3.5" />
+                  )}
+                  <span>{chat.accessMode === "full" ? "Full access" : "Needs approval"}</span>
+                  <ChevronDown className="h-3 w-3 opacity-60" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80 p-2 rounded-2xl bg-card border-border/80 shadow-soft">
+                <DropdownMenuItem
+                  onClick={() => chat.setAccessMode("approval")}
+                  className={cn(
+                    "flex flex-col items-start gap-1 p-2.5 rounded-xl transition-all cursor-pointer",
+                    chat.accessMode === "approval" ? "bg-secondary/60 text-foreground" : "text-muted-foreground hover:bg-secondary/30"
+                  )}
+                >
+                  <div className="flex items-center gap-1.5 font-semibold text-xs text-foreground">
+                    <Shield className="h-3.5 w-3.5 text-blue-500" />
+                    Needs approval
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    Operator queues suggestions in the thread. Safe and gated—nothing goes live without your consent.
+                  </p>
+                </DropdownMenuItem>
+                <div className="h-px bg-border/40 my-1" />
+                <DropdownMenuItem
+                  onClick={() => chat.setAccessMode("full")}
+                  className={cn(
+                    "flex flex-col items-start gap-1 p-2.5 rounded-xl transition-all cursor-pointer",
+                    chat.accessMode === "full" ? "bg-orange-500/10 text-orange-600 dark:text-orange-400" : "text-muted-foreground hover:bg-secondary/30"
+                  )}
+                >
+                  <div className="flex items-center gap-1.5 font-semibold text-xs text-orange-600 dark:text-orange-400">
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    Full access
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    Allows the AI to automatically edit and update your store, smart-link, or layouts without requiring manual approval.
+                  </p>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 

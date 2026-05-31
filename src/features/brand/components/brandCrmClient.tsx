@@ -1039,7 +1039,16 @@ function MessagesView({
                         mine ? "bg-foreground text-background" : "border border-border bg-card text-foreground"
                       )}
                     >
-                      <p>{message.body}</p>
+                      {mine ? (
+                        <p className="text-[9px] font-black tracking-wider uppercase text-slate-400 mb-1">
+                          Creator Partner (Me)
+                        </p>
+                      ) : (
+                        <p className="text-[9px] font-black tracking-wider uppercase text-primary mb-1">
+                          {selectedDeal?.brand_name || "Brand Partner"}
+                        </p>
+                      )}
+                      <p className="leading-relaxed">{message.body}</p>
                       <p className={cn("mt-1 text-[10px]", mine ? "text-background/60" : "text-muted-foreground")}>
                         {new Date(message.created_at).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
                       </p>

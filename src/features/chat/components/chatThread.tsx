@@ -110,7 +110,8 @@ function ApprovalCards({
       {approvals.map((approval) => {
         const applied = approval.status === "applied";
         const rejected = approval.status === "rejected";
-        const disabled = applied || rejected;
+        const applying = approval.status === "applying";
+        const disabled = applied || rejected || applying;
         return (
           <div key={approval.id} className="rounded-2xl border border-border bg-card/90 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -127,6 +128,8 @@ function ApprovalCards({
                     ? "Applied. The related store, smart-link, page, or workflow record has been updated."
                     : rejected
                     ? "Rejected. Nothing was changed."
+                    : applying
+                    ? "Applying automatically..."
                     : approval.explanation || "Review this action before it changes your workspace."}
                 </p>
               </div>
@@ -136,8 +139,14 @@ function ApprovalCards({
                   Reject
                 </Button>
                 <Button size="sm" disabled={disabled} onClick={() => onApprove(approval.id)}>
-                  {applied ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <Loader2 className="mr-1.5 h-3.5 w-3.5" />}
-                  {applied ? "Applied" : "Approve"}
+                  {applied ? (
+                    <Check className="mr-1.5 h-3.5 w-3.5" />
+                  ) : applying ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {applied ? "Applied" : applying ? "Applying..." : "Approve"}
                 </Button>
               </div>
             </div>

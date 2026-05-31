@@ -18,4 +18,11 @@ export const analyticsEvents = {
   chatResponseCompleted: "chat.response_completed",
   chatResponseFailed: "chat.response_failed",
   publicLinkClicked: "public_link.clicked",
+  bookingCreated: "booking.created",
+  bookingFailed: "booking.failed",
+  checkoutStarted: "checkout.started",
+  offerPurchased: "offer.purchased",
+  operatorFullAccessToggled: "operator.full_access_toggled",
+  operatorRunStarted: "operator.run_started",
+  settingsUpdated: "settings.updated",
 };

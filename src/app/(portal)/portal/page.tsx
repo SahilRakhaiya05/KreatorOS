@@ -27,7 +27,7 @@ export default async function PortalHome() {
         <PageHeader
           eyebrow="Client portal"
           title={`Welcome, ${customer.name || customer.email}`}
-          description="View, manage, and access all your booked calls, products, memberships, and course lessons in one place."
+          description="Access all your booked consulting sessions, purchases, and memberships."
         />
         <div className="flex items-center gap-2">
           <Badge variant="success" className="px-3 py-1 text-xs">

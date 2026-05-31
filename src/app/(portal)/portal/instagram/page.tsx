@@ -21,7 +21,7 @@ export default async function PortalInstagramPage() {
       <PageHeader
         eyebrow="Client portal"
         title="My Instagram Saves"
-        description="View and organize all your saved Instagram posts and reels. Save items using the browser extension to build your swipe library."
+        description="Curate, search, and manage your saved Instagram posts and swipes."
       />
       <InstagramLibrary captures={rows} />
     </AppShell>

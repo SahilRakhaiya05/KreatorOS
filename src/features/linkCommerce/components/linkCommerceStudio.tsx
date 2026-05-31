@@ -68,7 +68,7 @@ type Mode =
   | "settings";
 
 type LinkCommerceData = {
-  workspace: { id: string; type: string };
+  workspace: { id: string; type: string; plan?: string };
   page: Record<string, any>;
   socialLinks: Array<Record<string, any>>;
   customLinks: Array<Record<string, any>>;
@@ -426,6 +426,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
   const [dialogCustomBgType, setDialogCustomBgType] = useState("color");
   const [dialogCustomBgColor, setDialogCustomBgColor] = useState("#0f172a");
   const [dialogCustomBgGradient, setDialogCustomBgGradient] = useState("linear-gradient(135deg, #1f1c2c 0%, #928dab 100%)");
+  const [dialogCustomBgImageUrl, setDialogCustomBgImageUrl] = useState("");
   const [dialogCustomCardBg, setDialogCustomCardBg] = useState("rgba(30, 41, 59, 0.5)");
   const [dialogCustomCardBorder, setDialogCustomCardBorder] = useState("rgba(255, 255, 255, 0.08)");
   const [dialogCustomCardText, setDialogCustomCardText] = useState("#f8fafc");
@@ -900,6 +901,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
         bgType: String(formData.get("customBgType") || "color"),
         bgColor: String(formData.get("customBgColor") || "#0f172a"),
         bgGradient: String(formData.get("customBgGradient") || ""),
+        bgImageUrl: String(formData.get("customBgImageUrl") || ""),
         cardBg: String(formData.get("customCardBg") || ""),
         cardBorder: String(formData.get("customCardBorder") || ""),
         cardText: String(formData.get("customCardText") || ""),
@@ -1096,6 +1098,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
           bgType: dialogCustomBgType,
           bgColor: dialogCustomBgColor,
           bgGradient: dialogCustomBgGradient,
+          bgImageUrl: dialogCustomBgImageUrl,
           cardBg: dialogCustomCardBg,
           cardBorder: dialogCustomCardBorder,
           cardText: dialogCustomCardText,
@@ -2815,9 +2818,9 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
             <section className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                  <h2 className="text-2xl font-black text-foreground">Campaign Short Links</h2>
+                  <h2 className="text-2xl font-black text-foreground">Custom Short Links</h2>
                   <p className="text-xs font-semibold text-muted-foreground mt-1">
-                    Generate custom links with redirection targets, click tracking, and custom storefront theme overrides.
+                    Create tracked links with optional campaign-only storefront themes.
                   </p>
                 </div>
                 <Button
@@ -2832,6 +2835,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                     setDialogCustomBgType(customBgType);
                     setDialogCustomBgColor(customBgColor);
                     setDialogCustomBgGradient(customBgGradient);
+                    setDialogCustomBgImageUrl("");
                     setDialogCustomCardBg(customCardBg);
                     setDialogCustomCardBorder(customCardBorder);
                     setDialogCustomCardText(customCardText);
@@ -2880,7 +2884,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                             </Badge>
                             {isOverride ? (
                               <Badge variant="accent" className="rounded-full text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                                Storefront Override
+                                Custom Page
                               </Badge>
                             ) : (
                               <Badge variant="outline" className="rounded-full text-[10px] bg-sky-500/10 text-sky-400 border-sky-500/20">
@@ -2916,7 +2920,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                           <div className="text-xs font-medium text-muted-foreground leading-relaxed">
                             {isOverride ? (
                               <span>
-                                Lands on customized profile layout: <strong className="text-foreground">{(link.metadata as any)?.displayName || state.page.display_name}</strong>
+                                Opens custom page: <strong className="text-foreground">{(link.metadata as any)?.displayName || state.page.display_name}</strong>
                               </span>
                             ) : (
                               <span className="truncate block max-w-lg">
@@ -2972,6 +2976,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                                 setDialogCustomBgType(link.metadata?.custom_theme?.custom?.bgType || customBgType);
                                 setDialogCustomBgColor(link.metadata?.custom_theme?.custom?.bgColor || customBgColor);
                                 setDialogCustomBgGradient(link.metadata?.custom_theme?.custom?.bgGradient || customBgGradient);
+                                setDialogCustomBgImageUrl(link.metadata?.custom_theme?.custom?.bgImageUrl || "");
                                 setDialogCustomCardBg(link.metadata?.custom_theme?.custom?.cardBg || customCardBg);
                                 setDialogCustomCardBorder(link.metadata?.custom_theme?.custom?.cardBorder || customCardBorder);
                                 setDialogCustomCardText(link.metadata?.custom_theme?.custom?.cardText || customCardText);
@@ -3030,6 +3035,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                         setDialogCustomBgType(customBgType);
                         setDialogCustomBgColor(customBgColor);
                         setDialogCustomBgGradient(customBgGradient);
+                        setDialogCustomBgImageUrl("");
                         setDialogCustomCardBg(customCardBg);
                         setDialogCustomCardBorder(customCardBorder);
                         setDialogCustomCardText(customCardText);
@@ -3153,6 +3159,28 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
               {/* Sub-tab 2: Payments & Stripe */}
               {settingsSubTab === "payments" && (
                 <div className="space-y-5 animate-in fade-in duration-300">
+                  <div className={panelClass()}>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Subscription</p>
+                        <h3 className="mt-2 text-lg font-black text-foreground">
+                          {String(state.workspace?.plan || "free").replace(/\b\w/g, (letter) => letter.toUpperCase())}
+                        </h3>
+                        <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                          Manage your KreatorOS plan and billing from here.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button asChild variant="outline" className="font-bold">
+                          <a href="/api/billing/checkout?plan=free">Use Free</a>
+                        </Button>
+                        <Button asChild className="font-bold">
+                          <a href="/api/billing/checkout?plan=pro">Upgrade to $20</a>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className={panelClass()}>
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
@@ -3367,7 +3395,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                         className="h-4.5 w-4.5 rounded border-input text-primary focus:ring-primary/20 cursor-pointer"
                       />
                       <label htmlFor="isStorefrontOverride" className="text-xs font-black text-foreground select-none cursor-pointer">
-                        Storefront Layout Override
+                        Custom page theme
                       </label>
                     </div>
                   </div>
@@ -3387,7 +3415,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                     </label>
                   ) : (
                     <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-4 text-xs font-semibold text-emerald-600 leading-relaxed">
-                      ✨ Storefront Override Mode active. This shortlink will point to your storefront, but when opened, it will load the custom branding, layout styling, and custom theme designed below.
+                      Override mode is active. This short link opens your storefront with this campaign-only theme.
                     </div>
                   )}
 
@@ -3528,6 +3556,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                                 >
                                   <option value="color">Solid Background Color</option>
                                   <option value="gradient">Gradient Background</option>
+                                  <option value="image">Image Background</option>
                                 </select>
                               </label>
 
@@ -3550,7 +3579,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                                     />
                                   </div>
                                 </label>
-                              ) : (
+                              ) : dialogCustomBgType === "gradient" ? (
                                 <label className="space-y-1 block">
                                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Background Gradient CSS</span>
                                   <input 
@@ -3561,6 +3590,19 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
                                     className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none" 
                                     placeholder="linear-gradient(135deg, #1f1c2c 0%, #928dab 100%)" 
                                   />
+                                </label>
+                              ) : (
+                                <label className="space-y-1 block">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Background Image URL</span>
+                                  <input
+                                    type="url"
+                                    name="customBgImageUrl"
+                                    value={dialogCustomBgImageUrl}
+                                    onChange={(e) => setDialogCustomBgImageUrl(e.target.value)}
+                                    className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground outline-none"
+                                    placeholder="https://images..."
+                                  />
+                                  <span className="block text-[10px] text-muted-foreground">Only this short link uses this image.</span>
                                 </label>
                               )}
                             </div>
@@ -3829,7 +3871,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
 
                               {/* Add campaign-only Custom Link form */}
                               <div className="rounded-xl border border-dashed border-border/60 bg-background/20 p-3.5 space-y-3">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-foreground block">✨ Add Campaign-Only Custom Link</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-foreground block">Add Campaign-Only Custom Link</span>
                                 
                                 <div className="grid gap-3 sm:grid-cols-2">
                                   <label className="space-y-1 block">
@@ -3986,7 +4028,7 @@ export function LinkCommerceStudio({ data, mode = "dashboard" }: { data: LinkCom
 
                               {/* Add campaign-only Product form */}
                               <div className="rounded-xl border border-dashed border-border/60 bg-background/20 p-3.5 space-y-3">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-foreground block">✨ Add Campaign-Only Product Offer</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-foreground block">Add Campaign-Only Product Offer</span>
                                 
                                 <div className="grid gap-3 sm:grid-cols-3">
                                   <label className="space-y-1 block sm:col-span-2">

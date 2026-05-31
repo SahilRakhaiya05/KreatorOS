@@ -23,7 +23,7 @@ export async function runBuiltInHandlers(event: CreatorEvent): Promise<Automatio
         channel: "email",
         customerId: (event.payload as any)?.customerId,
         subject: "Welcome to KreatorOS!",
-        body: `Hi ${(event.payload as any)?.name || "there"},\n\nThank you for chatting with my AI Guide on my page! As a special thanks, here is a mock 15% discount coupon code for your next storefront purchase: KREATOR15\n\nExplore my digital products and coaching sessions, and let me know if you have any questions!\n\nBest,\nDemo Creator`,
+        body: `Hi ${(event.payload as any)?.name || "there"},\n\nThank you for chatting with my AI Guide on my page! As a special thanks, here is a mock 15% discount coupon code for your next storefront purchase: KREATOR15\n\nExplore my digital products and coaching sessions, and let me know if you have any questions!\n\nBest,\nMarcus Chen`,
         refType: "lead_captured",
       });
       logs.push({ level: "info", message: "Automated onboarding welcome email successfully dispatched." });

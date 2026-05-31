@@ -7,7 +7,7 @@ export default function BrandCampaigns() {
       <PageHeader
         eyebrow="Program builder"
         title="Create programs creators can apply to"
-        description="Publish marketplace programs, set budgets and deliverables, then review creator applications and chat inside collaboration rooms."
+        description="Publish campaigns, define deliverables, and coordinate creator pitches."
       />
       <BrandProgramBuilderClient />
     </AppShell>

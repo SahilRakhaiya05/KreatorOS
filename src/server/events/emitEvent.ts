@@ -1,10 +1,29 @@
 import { writeAuditLog } from "@/server/audit/writeAuditLog";
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
 import { runAutomation } from "@/server/automation/runAutomation";
+import { capturePostHogEvent } from "@/server/posthog/client";
 import { eventIdempotencyKey } from "./idempotency";
 import type { CreatorEvent } from "./types";
 
 export async function emitEvent(event: CreatorEvent) {
+  // Capture the backend workflow event in PostHog server-side
+  try {
+    await capturePostHogEvent({
+      distinctId: event.actorId ?? event.ownerId ?? event.workspaceId ?? "anonymous",
+      event: event.type,
+      properties: {
+        workspace_id: event.workspaceId,
+        page_id: event.pageId,
+        owner_id: event.ownerId,
+        actor_type: event.actorType,
+        actor_id: event.actorId,
+        ...(event.payload ?? {}),
+      },
+    });
+  } catch (err: any) {
+    console.warn("[PostHog Server Telemetry Warn] Failed to record server event:", err.message);
+  }
+
   const supabase = await createSupabaseServerClient();
   const idempotencyKey = eventIdempotencyKey(event);
 

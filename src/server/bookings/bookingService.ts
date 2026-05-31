@@ -247,6 +247,11 @@ export const bookingService = {
       body: notifyBody,
       refType: "booking",
       refId: bookingId,
+      metadata: {
+        eventTitle: offerObj?.title || "Booking Session",
+        dateString: formattedDate,
+        meetingUrl: calResult.meetingUrl || "",
+      },
     });
 
     // Dispatch WhatsApp Notification (if phone available)

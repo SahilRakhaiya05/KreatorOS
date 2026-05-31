@@ -56,7 +56,7 @@ export async function GET(req: Request) {
     return apiOk({ programs: data ?? [] });
   }
   
-  let query = supabase.from("brand_deals").select("*, campaign_short_link_id(*)");
+  let query = supabase.from("brand_deals").select("*, campaign_short_link_id(*), workspaces(*, creator_profiles(*))");
   
   if (workspace.type === "brand") {
     // Brand user wants to see all deals in workspaces where they are a member

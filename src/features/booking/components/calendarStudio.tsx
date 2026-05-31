@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useMemo, useState, useTransition } from "react";
+import { analyticsEvents, captureClientEvent } from "@/client/posthog/events";
 import {
   CalendarCheck,
   Check,
@@ -349,14 +350,56 @@ export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
       const json = await response.json();
 
       if (!json?.ok) {
-        setNotice(json?.error?.message || "Could not save calendar.");
+        const errMsg = json?.error?.message || "Could not save calendar.";
+        setNotice(errMsg);
+        captureClientEvent(analyticsEvents.bookingFailed, {
+          reason: errMsg,
+          title,
+        });
         return;
       }
 
       const saved = json.data.offer as BookingOffer;
+      
+      // Capture successful booking type creation/update
+      captureClientEvent(analyticsEvents.bookingCreated, {
+        offer_id: saved.id,
+        title: saved.title,
+        price_cents: saved.price_cents ?? 0,
+        duration_minutes: durationMinutes,
+        status: saved.status ?? "published",
+      });
+
       setOffers((current) => [saved, ...current.filter((offer) => offer.id !== selectedOffer.id && offer.id !== "new")]);
       setSelectedId(saved.id);
       setNotice("Saved. Your public page, checkout gate, slots, and confirmations are in sync.");
+    });
+  }
+
+  function deleteCalendar() {
+    if (!window.confirm("Are you sure you want to delete this booking type? This will permanently delete all associated slots and page blocks.")) return;
+    
+    setNotice("");
+    startTransition(async () => {
+      const response = await fetch(`/api/creator/calendar?offerId=${selectedOffer.id}&pageId=${data?.page?.id}`, {
+        method: "DELETE",
+      });
+      const json = await response.json();
+
+      if (!json?.ok) {
+        setNotice(json?.error?.message || "Could not delete booking type.");
+        return;
+      }
+
+      const remaining = offers.filter((offer) => offer.id !== selectedOffer.id);
+      setOffers(remaining);
+      setNotice("Booking type successfully deleted.");
+      
+      if (remaining.length) {
+        selectOffer(remaining[0]);
+      } else {
+        createNewOffer();
+      }
     });
   }
 
@@ -519,74 +562,90 @@ export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
         <main className="space-y-4">
           {activeTab === "booking" ? (
             <Panel>
-            <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.2fr)_320px]">
-              <div className="grid gap-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-base font-semibold text-foreground">Event Setup</h2>
-                    <p className="text-sm text-muted-foreground">Details shown on the public booking page.</p>
-                  </div>
-                  <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border">
-                    {(["published", "draft"] as const).map((item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => setStatus(item)}
-                        className={cn(
-                          "h-9 px-4 text-sm font-semibold capitalize transition",
-                          status === item ? "bg-foreground text-background" : "bg-card text-muted-foreground hover:bg-secondary"
-                        )}
-                      >
-                        {item === "published" ? "Live" : "Draft"}
-                      </button>
-                    ))}
-                  </div>
+              {/* Header section spanning full width */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border p-4">
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">Event Setup</h2>
+                  <p className="text-sm text-muted-foreground">Details shown on the public booking page.</p>
                 </div>
-
-                <Field label="Event name">
-                  <input className={inputClass} value={title} onChange={(event) => setTitle(event.target.value)} />
-                </Field>
-                <Field label="Description">
-                  <textarea className={textAreaClass} value={description} onChange={(event) => setDescription(event.target.value)} />
-                </Field>
+                <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border bg-background shadow-sm shrink-0">
+                  {(["published", "draft"] as const).map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setStatus(item)}
+                      className={cn(
+                        "h-9 px-4 text-sm font-semibold capitalize transition",
+                        status === item ? "bg-foreground text-background" : "bg-card text-muted-foreground hover:bg-secondary"
+                      )}
+                    >
+                      {item === "published" ? "Live" : "Draft"}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="grid gap-3 rounded-md border border-border bg-secondary/30 p-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Duration">
-                    <select className={inputClass} value={durationMinutes} onChange={(event) => setDurationMinutes(Number(event.target.value))}>
-                      {[15, 20, 30, 45, 60, 90].map((value) => (
-                        <option key={value} value={value}>
-                          {value} min
-                        </option>
-                      ))}
+              {/* Form content with grid layout */}
+              <div className="grid gap-6 p-4 lg:grid-cols-[1fr_320px]">
+                <div className="space-y-4">
+                  <Field label="Event name">
+                    <input className={inputClass} value={title} onChange={(event) => setTitle(event.target.value)} />
+                  </Field>
+                  <Field label="Description">
+                    <textarea className={textAreaClass} value={description} onChange={(event) => setDescription(event.target.value)} />
+                  </Field>
+                </div>
+
+                <div className="grid gap-4 rounded-md border border-border bg-secondary/30 p-4 h-fit">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Duration">
+                      <select className={inputClass} value={durationMinutes} onChange={(event) => setDurationMinutes(Number(event.target.value))}>
+                        {[15, 20, 30, 45, 60, 90].map((value) => (
+                          <option key={value} value={value}>
+                            {value} min
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Price">
+                      <div className="relative flex items-center">
+                        <span className="absolute left-3 text-sm text-muted-foreground">$</span>
+                        <input
+                          className={cn(inputClass, "w-full pl-7")}
+                          type="number"
+                          min="0"
+                          value={Math.round(priceCents / 100)}
+                          onChange={(event) => setPriceCents(Math.max(0, Number(event.target.value) * 100))}
+                        />
+                      </div>
+                    </Field>
+                  </div>
+                  <Field label="Meeting">
+                    <select className={inputClass} value={meetingProvider} onChange={(event) => setMeetingProvider(event.target.value)}>
+                      <option value="google_meet">Google Meet</option>
+                      <option value="zoom">Zoom</option>
+                      <option value="manual">Manual link</option>
                     </select>
                   </Field>
-                  <Field label="Price">
-                    <input
-                      className={inputClass}
-                      type="number"
-                      min="0"
-                      value={Math.round(priceCents / 100)}
-                      onChange={(event) => setPriceCents(Math.max(0, Number(event.target.value) * 100))}
-                    />
+                  <Field label="Checkout">
+                    <select className={inputClass} value={paymentProvider} onChange={(event) => setPaymentProvider(event.target.value)}>
+                      <option value="stripe">Stripe checkout</option>
+                      <option value="manual">Manual invoice</option>
+                    </select>
                   </Field>
+                  {!isNew && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      className="w-full mt-2 font-semibold bg-red-600/10 text-red-500 border border-red-500/20 hover:bg-red-600 hover:text-white hover:border-transparent transition-all"
+                      disabled={isPending}
+                      onClick={deleteCalendar}
+                    >
+                      Delete Booking Type
+                    </Button>
+                  )}
                 </div>
-                <Field label="Meeting">
-                  <select className={inputClass} value={meetingProvider} onChange={(event) => setMeetingProvider(event.target.value)}>
-                    <option value="google_meet">Google Meet</option>
-                    <option value="zoom">Zoom</option>
-                    <option value="manual">Manual link</option>
-                  </select>
-                </Field>
-                <Field label="Checkout">
-                  <select className={inputClass} value={paymentProvider} onChange={(event) => setPaymentProvider(event.target.value)}>
-                    <option value="stripe">Stripe checkout</option>
-                    <option value="manual">Manual invoice</option>
-                  </select>
-                </Field>
               </div>
-            </div>
             </Panel>
           ) : null}
 
@@ -596,7 +655,7 @@ export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
               <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-foreground">Weekly Availability</h2>
-                  <p className="text-sm text-muted-foreground">Click any open slot to block it. Saved slots publish three rolling weeks.</p>
+                  <p className="text-sm text-muted-foreground">Click any open slot to book it. Saved slots publish three rolling weeks.</p>
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <Field label="Timezone">
@@ -682,7 +741,7 @@ export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
                                 disabled ? "bg-muted text-muted-foreground" : blocked ? "bg-stone-200 text-stone-600" : "bg-emerald-100 text-emerald-700"
                               )}
                             >
-                              {disabled ? "Off" : blocked ? "Blocked" : "Open"}
+                              {disabled ? "Off" : blocked ? "Booked" : "Open"}
                             </span>
                           </button>
                         );
@@ -776,7 +835,7 @@ export function CalendarStudio({ data }: { data?: CalendarStudioData }) {
                   <p className="mt-1 text-2xl font-semibold text-foreground">{activeSlotCount}</p>
                 </div>
                 <div className="rounded-md border border-border bg-background p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Blocked</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Booked</p>
                   <p className="mt-1 text-2xl font-semibold text-foreground">{blockedCount}</p>
                 </div>
               </div>

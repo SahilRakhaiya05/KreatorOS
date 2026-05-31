@@ -58,7 +58,7 @@ export default async function BrandHQ() {
       <PageHeader
         eyebrow="Brand HQ"
         title="Plan, book, pay, and manage creator campaigns"
-        description="Brands get their own portal: creator discovery, campaign briefs, collaboration rooms, deliverable approvals, escrow/payment, and performance reports."
+        description="Plan, execute, and track active creator campaigns and marketing spend."
         action={
           <Button asChild>
             <Link href="/brand/discover">Find Creators <ArrowUpRight className="h-4 w-4" /></Link>

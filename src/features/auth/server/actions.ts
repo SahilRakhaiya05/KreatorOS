@@ -86,6 +86,25 @@ export async function completeOnboardingAction(_previousState: ActionState, form
     return { status: "error", message: error.message || defaultError };
   }
 
+  // Auto-register creator profile on onboarding
+  if (workspaceType === "creator") {
+    const username = user.email ? user.email.split("@")[0].replace(/[^a-z0-9]/gi, "_").toLowerCase() : "creator";
+    try {
+      await supabase.from("creator_profiles").upsert({
+        owner_id: user.id,
+        workspace_id: workspaceResult.workspace.id,
+        display_name: fullName,
+        username: username,
+        niche: focus || "AI Productivity & Systems Architect",
+        audience: audience || "tech founders, solo creators, systems engineers",
+        promise: primaryGoal || "Scale your business operations using custom-built AI-driven automation workflows and integrations.",
+        status: "published"
+      }, { onConflict: "workspace_id" });
+    } catch (e) {
+      console.error("Auto-register creator profile on onboarding failed:", e);
+    }
+  }
+
   revalidatePath("/");
   redirect(getDashboardForAccountType(accountType));
 }
@@ -126,6 +145,21 @@ export async function updateProfileAction(_previousState: ActionState, formData:
 
   if (error) {
     return { status: "error", message: error.message || defaultError };
+  }
+
+  // Also update creator profile record if exists in the database
+  try {
+    await supabase
+      .from("creator_profiles")
+      .update({
+        display_name: fullName,
+        niche: focus || undefined,
+        audience: audience || undefined,
+        promise: primaryGoal || undefined,
+      })
+      .eq("owner_id", user.id);
+  } catch (e) {
+    console.error("Update creator profile record failed:", e);
   }
 
   revalidatePath(authRoutes.profileSettings);

@@ -66,7 +66,7 @@ export default async function PortalProducts() {
       <PageHeader
         eyebrow="My products"
         title="Purchased Files & Templates"
-        description="Access and download secure assets delivered to your portal account immediately after purchase."
+        description="Instantly download and access your purchased digital assets."
       />
 
       <div className="mt-6">

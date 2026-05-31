@@ -157,7 +157,7 @@ export default async function PortalMembership() {
       <PageHeader
         eyebrow="Membership & Learning"
         title="Exclusive Content & Course Curricula"
-        description="Access exclusive subscriber benefits and view your enrolled course lessons from your centralized dashboard."
+        description="Centralized dashboard for exclusive subscriber benefits and active courses."
       />
 
       <div className="mt-6">

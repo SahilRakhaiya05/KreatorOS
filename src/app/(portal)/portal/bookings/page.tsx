@@ -103,7 +103,7 @@ export default async function PortalBookings() {
       <PageHeader
         eyebrow="My bookings"
         title="Your Scheduled Sessions"
-        description="Select available hours to book strategy, mentoring, or business audit consulting calls instantly."
+        description="Schedule strategy, mentoring, or advisory consulting sessions."
       />
 
       <PortalBookingClient
