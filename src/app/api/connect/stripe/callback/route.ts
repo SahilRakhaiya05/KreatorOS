@@ -4,6 +4,7 @@ import { apiError } from "@/server/api/responses";
 import { getSession } from "@/server/auth/getSession";
 import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
 import { getStripe } from "@/server/payments/stripeClient";
+import { getRequestOrigin } from "@/server/utils/url";
 import {
   STRIPE_CONNECT_STATE_COOKIE,
   accountMetadata,
@@ -15,7 +16,7 @@ export const runtime = "nodejs";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const origin = url.origin;
+  const origin = getRequestOrigin(req);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");

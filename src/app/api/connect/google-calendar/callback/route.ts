@@ -4,13 +4,14 @@ import { apiError } from "@/server/api/responses";
 import { getSession } from "@/server/auth/getSession";
 import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
+import { getRequestOrigin } from "@/server/utils/url";
 const GOOGLE_CONNECT_STATE_COOKIE = "google_connect_state";
 
 export const runtime = "nodejs";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || url.origin;
+  const origin = getRequestOrigin(req);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");

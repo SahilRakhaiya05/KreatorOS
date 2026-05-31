@@ -5,6 +5,7 @@ import { getSession } from "@/server/auth/getSession";
 import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
 import { getStripe } from "@/server/payments/stripeClient";
+import { getRequestOrigin } from "@/server/utils/url";
 import {
   STRIPE_CONNECT_STATE_COOKIE,
   accountMetadata,
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
   if ("error" in auth) return auth.error;
 
   try {
-    const origin = new URL(req.url).origin;
+    const origin = getRequestOrigin(req);
     const clientId = process.env.STRIPE_CONNECT_CLIENT_ID || process.env.STRIPE_CLIENT_ID;
 
     if (!clientId) {

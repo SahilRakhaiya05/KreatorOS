@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { apiError, apiOk } from "@/server/api/responses";
 import { getSession } from "@/server/auth/getSession";
 import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
+import { getRequestOrigin } from "@/server/utils/url";
 
 export const runtime = "nodejs";
 
@@ -17,7 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ provide
   const workspace = await getActiveWorkspace(user.id);
   if (!workspace) return apiError("missing_workspace", "No active workspace found.", 400);
 
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
+  const origin = getRequestOrigin(req);
 
   if (provider === "google-calendar" || provider === "google-meet" || provider === "google_calendar") {
     const clientId = process.env.GOOGLE_CLIENT_ID;
