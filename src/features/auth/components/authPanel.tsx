@@ -136,8 +136,8 @@ export function AuthPanel() {
       {/* Visual panel */}
       <div className="relative hidden overflow-hidden lg:block">
         <img
-          src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=85"
-          alt="Clean desk with a laptop and notes"
+          src="/images/login-creator-workspace.png"
+          alt="Creator workspace with business dashboard screens"
           className="h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-br from-primary/70 via-primary/40 to-accent/40" />
@@ -145,18 +145,7 @@ export function AuthPanel() {
           <Sparkles className="h-4 w-4" />
           KreatorOS
         </div>
-        <div className="absolute bottom-8 left-8 right-8 rounded-xl border border-white/20 bg-white/10 p-6 text-white backdrop-blur-2xl">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide">
-            <Sparkles className="h-4 w-4" />
-            Unified account
-          </p>
-          <h2 className="mt-3 max-w-md font-display text-2xl font-semibold tracking-tight">
-            One login for creator, business, and client work.
-          </h2>
-          <p className="mt-2 max-w-lg text-sm leading-6 text-white/85">
-            Choose your account type after auth, then change it any time from profile settings.
-          </p>
-        </div>
+      
       </div>
 
       {/* Form panel */}
@@ -173,7 +162,7 @@ export function AuthPanel() {
             disabled={status === "loading" || isPending}
             className="mt-7 w-full"
           >
-            <span className="grid h-5 w-5 place-items-center rounded-full text-base font-semibold">G</span>
+            <img src="/google.svg" alt="Google" className="h-5 w-5" />
             Continue with Google
           </Button>
 
