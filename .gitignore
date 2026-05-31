@@ -26,5 +26,6 @@ coverage/
 .DS_Store
 Thumbs.db
 all.md
+docs/
 KreatorOS_AI_Context.md
 plan.md

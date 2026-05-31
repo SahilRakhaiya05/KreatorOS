@@ -2,17 +2,22 @@
 
 import {
   ArrowRight,
+  BrainCircuit,
   Bot,
+  BookmarkCheck,
   CalendarDays,
   Check,
   ChevronDown,
+  ClipboardCheck,
   CreditCard,
+  FileSearch,
   Fingerprint,
   LayoutDashboard,
   Link2,
-  LockKeyhole,
   MessageSquareText,
   Play,
+  Search,
+  ShieldCheck,
   Sparkles,
   Store,
   Users,
@@ -23,13 +28,36 @@ import {
   type CSSProperties,
   type FormEvent,
   type PointerEvent as ReactPointerEvent,
+  type SVGProps,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 type BillingInterval = "monthly" | "annual";
+
+function Instagram(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+    </svg>
+  );
+}
 
 const navItems = [
   { label: "Product", href: "#product" },
@@ -37,6 +65,14 @@ const navItems = [
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
 ] as const;
+
+const AUTH_ROUTES = {
+  SIGNUP: "/login?mode=signup",
+  LOGIN: "/login",
+  DASHBOARD: "/creator",
+} as const;
+
+const EXTENSION_URL = "https://github.com/SahilRakhaiya05/KreatorOS/tree/main/extensions";
 
 const heroMetrics = [
   ["$18.4k", "tracked revenue"],
@@ -49,25 +85,31 @@ const trustItems = ["Bio page", "Store", "Bookings", "Brand CRM", "Client portal
 const surfaces = [
   {
     icon: Store,
-    title: "Public creator page",
-    text: "A polished front door where followers can buy products, book time, join memberships, and message you.",
-    tags: ["Smart Link", "Shop", "Bookings"],
+    title: "Creator storefront",
+    text: "A public page built for real conversion: products, paid sessions, lead capture, and member-only access in one polished buyer path.",
+    tags: ["Smart link", "Shop", "Bookings"],
     accent: "#d9f3f6",
   },
   {
     icon: Users,
     title: "Brand workspace",
-    text: "Campaign rooms, creator discovery, applications, deal notes, and payout status organized around real collaborations.",
+    text: "Campaign rooms, creator discovery, deal notes, files, approvals, and payout status organized around real collaboration.",
     tags: ["Campaigns", "CRM", "Payouts"],
     accent: "#e8f7cf",
   },
   {
-    icon: LockKeyhole,
+    icon: FileSearch,
     title: "Client portal",
-    text: "Give clients and members a calm place for files, product access, booking history, support, and follow-ups.",
-    tags: ["Files", "Access", "Delivery"],
+    text: "A calm client space for purchased files, booking history, product access, support updates, and delivery follow-ups.",
+    tags: ["Files", "Access", "Support"],
     accent: "#f5d5b9",
   },
+] as const;
+
+const extensionCards = [
+  [Instagram, "Save Instagram content", "Clients and everyday users can save posts, Reels, captions, and profile context from the browser without breaking their research flow."],
+  [Search, "Search it later", "Saved content becomes a searchable library, so ideas, examples, creators, and campaign references are easy to find when work begins."],
+  [BookmarkCheck, "Turn saves into action", "Creators and teams can convert saved references into briefs, client notes, product ideas, or campaign research inside the workspace."],
 ] as const;
 
 const operatorActions = [
@@ -80,17 +122,17 @@ const operatorActions = [
 const workflowSteps = [
   {
     n: "01",
-    title: "Connect the business pieces",
+    title: "Connect all tools",
     text: "Bring your public page, products, calendar, members, brand deals, and customer access into one operating layer.",
   },
   {
     n: "02",
-    title: "Let AI prepare the next move",
+    title: "AI drafts actions",
     text: "KreatorOS drafts offers, replies, checkout flows, CRM updates, and follow-ups while keeping everything reviewable.",
   },
   {
     n: "03",
-    title: "Approve, launch, measure",
+    title: "Approve & run",
     text: "You stay in control. The system ships approved actions, tracks revenue, and keeps the next priority visible.",
   },
 ] as const;
@@ -141,11 +183,12 @@ const plans = [
 ] as const;
 
 const faqs = [
-  ["What does KreatorOS replace?", "It replaces the scattered stack of bio link tools, booking pages, product checkout, CRM sheets, client delivery folders, and manual follow-up lists."],
-  ["Does the AI operator take actions automatically?", "No. It prepares actions and recommendations, but paid actions, outbound messages, calendar changes, and campaign updates stay approval-first."],
-  ["Can I keep my current public links?", "Yes. The landing surface is designed to support stable URLs, short links, creator pages, products, bookings, and client portal routes."],
-  ["Is Stripe required?", "Stripe is the checkout path for paid products, bookings, subscriptions, and campaign payments. Free pages and basic setup can still be prepared first."],
-  ["Who is this for?", "Creators, educators, consultants, agencies, and brands that need a cleaner way to sell, book, manage relationships, and deliver paid access."],
+  ["What is KreatorOS?", "KreatorOS is an operating layer for creator businesses: storefront, bookings, product delivery, brand CRM, client portal, analytics, and supervised AI workflows in one workspace."],
+  ["How does the browser extension help?", "The extension lets users save Instagram content and web references into a searchable library, then use those saves for briefs, creator research, client work, and campaign planning."],
+  ["Does the AI operator take actions automatically?", "No. KreatorOS is approval-first. It can draft follow-ups, offer updates, campaign notes, and workflow suggestions, but outbound messages, payments, calendar changes, and public updates require review."],
+  ["Can I use it before connecting payments?", "Yes. You can build the public page, organize products, collect leads, manage content research, and prepare workflows before enabling Stripe checkout."],
+  ["Who is it built for?", "Creators, educators, consultants, agencies, and brands that need a professional way to sell, book, manage relationships, deliver paid access, and keep client context organized."],
+  ["Where do clients and members go?", "Clients use the portal to access files, products, bookings, membership materials, support updates, and delivery history without digging through message threads."],
 ] as const;
 
 const dashboardRows = [
@@ -153,6 +196,10 @@ const dashboardRows = [
   ["Downloads", "$860", "46%", "#9bd466"],
   ["Calls", "$1.2k", "62%", "#f4ba63"],
 ] as const;
+
+const revealViewport = { once: true, margin: "-48px", amount: 0.22 } as const;
+const revealTransition = { duration: 0.72, ease: [0.16, 1, 0.3, 1] } as const;
+const cardHover = { y: -6, scale: 1.01, boxShadow: "0 28px 58px rgba(21,21,25,0.11)" } as const;
 
 /* ─── Helpers ─── */
 
@@ -177,7 +224,7 @@ function useInView(threshold = 0.12) {
 function LogoMark() {
   return (
     <span className="logo-mark" aria-hidden="true">
-      <span /><span /><span />
+      <img src="/logo.png" alt="" />
     </span>
   );
 }
@@ -325,12 +372,25 @@ function Modal({ onClose }: { onClose: () => void }) {
     setTimeout(() => { setLoading(false); setDone(true); }, 800);
   };
   return (
-    <div className="modal-bg" role="dialog" aria-modal="true">
-      <div className="modal-card">
+    <motion.div 
+      className="modal-bg" 
+      role="dialog" 
+      aria-modal="true"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div 
+        className="modal-card"
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ type: "spring", stiffness: 140, damping: 17 }}
+      >
         <button className="modal-x" onClick={onClose} type="button" aria-label="Close">×</button>
         {!done ? (
           <>
-            <span className="kicker">Private beta</span>
+            <span className="kicker">Early access</span>
             <h3>Get your creator workspace ready.</h3>
             <p>Enter your business email and we'll reserve a polished KreatorOS setup for your launch.</p>
             <form onSubmit={submit}>
@@ -347,8 +407,8 @@ function Modal({ onClose }: { onClose: () => void }) {
             <button className="btn btn-primary" type="button" onClick={onClose}>Done</button>
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -428,15 +488,28 @@ export default function MarketingPage() {
 
         .kreo h1, .kreo h2, .kreo h3 {
           font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
-          letter-spacing: -0.06em;
-          line-height: 1;
+        }
+
+        .kreo h1 {
+          letter-spacing: 0;
+          line-height: 1.02;
+        }
+
+        .kreo h2 {
+          letter-spacing: 0;
+          line-height: 1.12;
+        }
+
+        .kreo h3 {
+          letter-spacing: 0;
+          line-height: 1.22;
         }
 
         /* ─── Utility ─── */
         .container { max-width: 1180px; margin: 0 auto; }
 
         .section {
-          padding: 104px 24px;
+          padding: 120px 32px;
           position: relative;
         }
 
@@ -517,7 +590,7 @@ export default function MarketingPage() {
           text-decoration: none;
           font-family: 'Plus Jakarta Sans', sans-serif;
           font-weight: 900;
-          letter-spacing: -0.04em;
+          letter-spacing: 0;
           font-size: 21px;
           white-space: nowrap;
         }
@@ -532,12 +605,15 @@ export default function MarketingPage() {
           background: #fff;
           border: 1px solid rgba(21,21,25,0.10);
           box-shadow: inset 0 -5px 10px rgba(21,21,25,0.04), 0 10px 18px rgba(21,21,25,0.07);
+          overflow: hidden;
         }
 
-        .logo-mark span { position: absolute; border-radius: 999px; }
-        .logo-mark span:nth-child(1) { width: 17px; height: 17px; left: 7px; top: 8px; background: var(--grass); }
-        .logo-mark span:nth-child(2) { width: 15px; height: 15px; right: 6px; bottom: 6px; background: var(--blue); opacity: 0.92; }
-        .logo-mark span:nth-child(3) { width: 10px; height: 10px; left: 9px; bottom: 7px; background: var(--orange); }
+        .logo-mark img {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: cover;
+        }
 
         .nav-links { display: flex; align-items: center; gap: 6px; }
 
@@ -566,6 +642,9 @@ export default function MarketingPage() {
           border-radius: 999px;
           cursor: pointer;
           transition: background 0.2s ease, color 0.2s ease;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
         }
 
         .nav-sign:hover { background: rgba(21,21,25,0.05); color: var(--ink); }
@@ -600,6 +679,14 @@ export default function MarketingPage() {
 
         .btn-primary:hover { background: #000; box-shadow: 0 16px 34px rgba(21,21,25,0.20); }
 
+        .btn-icon {
+          width: 19px;
+          height: 19px;
+          display: block;
+          object-fit: contain;
+          flex: 0 0 auto;
+        }
+
         .btn-soft {
           background: rgba(255,255,255,0.78);
           color: var(--ink);
@@ -618,7 +705,7 @@ export default function MarketingPage() {
         .btn-green:hover { box-shadow: 0 18px 44px rgba(100,164,45,0.24); }
 
         /* ─── Hero ─── */
-        .hero { position: relative; padding: 128px 24px 0; perspective: 1800px; }
+        .hero { position: relative; padding: 140px 24px 0; perspective: 1800px; }
 
         .hero-inner {
           position: relative;
@@ -651,18 +738,18 @@ export default function MarketingPage() {
           z-index: 8;
           max-width: 900px;
           margin: 0 auto;
-          padding: 68px 22px 0;
+          padding: 82px 32px 0;
           text-align: center;
           transform: translateZ(80px);
         }
 
         .hero-copy h1 {
-          margin: 24px auto 20px;
-          font-size: clamp(48px, 7vw, 98px);
-          line-height: 0.94;
+          margin: 30px auto 26px;
+          font-size: clamp(46px, 6.3vw, 88px);
+          line-height: 1.04;
           font-weight: 900;
-          letter-spacing: -0.08em;
-          max-width: 980px;
+          letter-spacing: 0;
+          max-width: 920px;
           text-wrap: balance;
         }
 
@@ -673,15 +760,15 @@ export default function MarketingPage() {
         }
 
         .hero-copy > p {
-          max-width: 670px;
-          margin: 0 auto 28px;
+          max-width: 720px;
+          margin: 0 auto 46px;
           color: #4c5963;
           font-size: clamp(16px, 2vw, 20px);
-          line-height: 1.7;
-          font-weight: 650;
+          line-height: 1.86;
+          font-weight: 620;
         }
 
-        .hero-ctas { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-bottom: 22px; }
+        .hero-ctas { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-bottom: 54px; }
 
         .hero-badges { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
 
@@ -727,6 +814,7 @@ export default function MarketingPage() {
           transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
           transform-style: preserve-3d;
           transition: transform 0.16s ease-out;
+          will-change: transform;
         }
 
         .cityscape {
@@ -785,6 +873,7 @@ export default function MarketingPage() {
           transform: translateZ(130px) rotateX(4deg);
           animation: deviceFloat 6s ease-in-out infinite;
           transform-style: preserve-3d;
+          will-change: transform;
         }
 
         .laptop-screen {
@@ -885,7 +974,7 @@ export default function MarketingPage() {
           box-shadow: 0 18px 34px rgba(48,91,116,0.07);
         }
 
-        .bal-card strong { display: block; font-size: 31px; margin: 5px 0 12px; letter-spacing: -0.05em; }
+        .bal-card strong { display: block; font-size: 31px; margin: 5px 0 12px; letter-spacing: 0; }
 
         .blue-bar { height: 11px; border-radius: 999px; background: #e5e7f0; overflow: hidden; }
 
@@ -1050,7 +1139,7 @@ export default function MarketingPage() {
         .phone h4 {
           margin: 2px 0 0;
           font-size: 20px;
-          letter-spacing: -0.05em;
+          letter-spacing: 0;
           font-family: 'Plus Jakarta Sans', sans-serif;
         }
 
@@ -1074,7 +1163,7 @@ export default function MarketingPage() {
         .ph-budget strong {
           display: block;
           font-size: 28px;
-          letter-spacing: -0.06em;
+          letter-spacing: 0;
           margin: 4px 0 13px;
         }
 
@@ -1180,7 +1269,7 @@ export default function MarketingPage() {
         .revenue-fc strong {
           display: block;
           font-size: 38px;
-          letter-spacing: -0.07em;
+          letter-spacing: 0;
           font-family: 'Plus Jakarta Sans', sans-serif;
         }
 
@@ -1211,31 +1300,20 @@ export default function MarketingPage() {
         .section-head {
           position: relative;
           z-index: 1;
-          display: grid;
-          grid-template-columns: 1.08fr 0.72fr;
-          gap: 40px;
-          align-items: end;
-          margin-bottom: 48px;
-        }
-
-        .section-head.center {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
           text-align: center;
-          max-width: 780px;
-          margin-left: auto;
-          margin-right: auto;
+          max-width: 840px;
+          margin: 0 auto 72px;
         }
 
         .section-head h2,
         .overview-copy h2,
         .download-copy h2,
         .final-panel h2 {
-          margin: 16px 0 0;
-          font-size: clamp(36px, 5vw, 66px);
-          line-height: 1;
+          margin: 0 0 20px;
+          font-size: clamp(40px, 5vw, 64px);
+          line-height: 1.1;
           font-weight: 900;
+          letter-spacing: 0;
           text-wrap: balance;
         }
 
@@ -1243,36 +1321,39 @@ export default function MarketingPage() {
         .overview-copy p,
         .download-copy p,
         .final-panel p {
-          color: #666d78;
-          line-height: 1.75;
-          font-size: 16px;
-          font-weight: 650;
+          color: #5a6169;
+          line-height: 1.7;
+          font-size: 18px;
+          font-weight: 500;
           margin: 0;
+          max-width: 720px;
+          margin-left: auto;
+          margin-right: auto;
         }
-
-        .section-head.center p { max-width: 660px; }
 
         /* ─── Feature Grid ─── */
         .feature-grid {
           position: relative;
           z-index: 1;
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 18px;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 22px;
         }
 
         .feature-card {
           background: rgba(255,255,255,0.72);
           border: 1px solid rgba(21,21,25,0.08);
-          border-radius: 32px;
+          border-radius: 34px;
           overflow: hidden;
           box-shadow: 0 18px 42px rgba(21,21,25,0.06);
-          transition: transform 0.32s cubic-bezier(0.16,1,0.3,1), box-shadow 0.32s ease, border-color 0.32s ease;
+          transition: transform 0.36s cubic-bezier(0.16,1,0.3,1), box-shadow 0.36s ease, border-color 0.36s ease;
+          animation: fadeInUp 0.6s cubic-bezier(0.16,1,0.3,1) both;
+          backface-visibility: hidden;
+          will-change: transform, opacity;
         }
 
         .feature-card:hover {
-          transform: translateY(-10px) rotateX(2deg);
-          box-shadow: 0 34px 70px rgba(21,21,25,0.12);
+          box-shadow: 0 28px 58px rgba(21,21,25,0.11);
           border-color: rgba(21,21,25,0.16);
         }
 
@@ -1295,7 +1376,7 @@ export default function MarketingPage() {
 
         .feature-vis svg { position: relative; z-index: 1; color: var(--ink); opacity: 0.7; }
 
-        .feature-body { padding: 24px 24px 28px; }
+        .feature-body { padding: 28px 28px 32px; }
 
         .feature-body small {
           color: #737b85;
@@ -1306,13 +1387,13 @@ export default function MarketingPage() {
         }
 
         .feature-body h3 {
-          margin: 10px 0 10px;
-          font-size: 22px;
-          line-height: 1.08;
-          letter-spacing: -0.055em;
+          margin: 12px 0 12px;
+          font-size: 23px;
+          line-height: 1.1;
+          letter-spacing: 0;
         }
 
-        .feature-body p { margin: 0; color: #66707a; line-height: 1.62; font-size: 14px; font-weight: 620; }
+        .feature-body p { margin: 0; color: #66707a; line-height: 1.68; font-size: 15px; font-weight: 620; }
 
         .feature-tags {
           display: flex;
@@ -1336,35 +1417,36 @@ export default function MarketingPage() {
         .overview-layout {
           display: grid;
           grid-template-columns: 0.9fr 1.1fr;
-          gap: 48px;
+          gap: 64px;
           align-items: center;
           position: relative;
           z-index: 1;
         }
 
-        .overview-copy p { margin-top: 20px; }
+        .overview-copy p { margin-top: 24px; }
 
-        .mini-list { margin-top: 28px; display: grid; gap: 12px; }
+        .mini-list { margin-top: 32px; display: grid; gap: 14px; }
 
         .mini-list div {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
           font-weight: 850;
           color: #3d444c;
-          font-size: 14px;
+          font-size: 15px;
         }
 
         .mini-list span {
-          width: 28px; height: 28px;
+          width: 30px; height: 30px;
           display: grid;
           place-items: center;
           border-radius: 50%;
           background: var(--grass);
           box-shadow: 0 12px 22px rgba(105,170,48,0.16);
           color: #15210e;
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 900;
+          flex-shrink: 0;
         }
 
         .dash-card {
@@ -1395,7 +1477,7 @@ export default function MarketingPage() {
         .mock-panel h3 {
           margin: 0;
           font-size: 24px;
-          letter-spacing: -0.06em;
+          letter-spacing: 0;
         }
 
         .mock-panel header span {
@@ -1424,7 +1506,7 @@ export default function MarketingPage() {
         }
 
         .money-grid small { color: #7b838d; font-weight: 850; }
-        .money-grid strong { display: block; margin-top: 8px; font-size: 28px; font-family: 'Plus Jakarta Sans'; letter-spacing: -0.06em; }
+        .money-grid strong { display: block; margin-top: 8px; font-size: 28px; font-family: 'Plus Jakarta Sans'; letter-spacing: 0; }
 
         .chart-box {
           height: 250px;
@@ -1468,24 +1550,27 @@ export default function MarketingPage() {
         .steps-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 18px;
+          gap: 24px;
           position: relative;
           z-index: 1;
         }
 
         .step-card {
           position: relative;
-          min-height: 310px;
-          padding: 34px;
+          min-height: 330px;
+          padding: 38px;
           overflow: hidden;
-          border-radius: 34px;
+          border-radius: 36px;
           background: rgba(255,255,255,0.72);
           border: 1px solid rgba(21,21,25,0.08);
           box-shadow: 0 18px 42px rgba(21,21,25,0.06);
-          transition: transform 0.3s ease, box-shadow 0.3s ease;
+          transition: transform 0.34s ease, box-shadow 0.34s ease;
+          animation: fadeInUp 0.6s cubic-bezier(0.16,1,0.3,1) both;
+          backface-visibility: hidden;
+          will-change: transform, opacity;
         }
 
-        .step-card:hover { transform: translateY(-8px); box-shadow: 0 34px 70px rgba(21,21,25,0.12); }
+        .step-card:hover { box-shadow: 0 28px 58px rgba(21,21,25,0.11); }
 
         .step-card::after {
           content: attr(data-n);
@@ -1494,7 +1579,7 @@ export default function MarketingPage() {
           font-family: 'Plus Jakarta Sans';
           font-size: 140px;
           font-weight: 900;
-          letter-spacing: -0.1em;
+          letter-spacing: 0;
           color: rgba(21,21,25,0.045);
         }
 
@@ -1512,10 +1597,10 @@ export default function MarketingPage() {
 
         .step-card h3 {
           position: relative;
-          margin: 24px 0 12px;
-          font-size: 26px;
-          line-height: 1.08;
-          letter-spacing: -0.06em;
+          margin: 28px 0 14px;
+          font-size: 27px;
+          line-height: 1.1;
+          letter-spacing: 0;
           z-index: 1;
         }
 
@@ -1523,25 +1608,26 @@ export default function MarketingPage() {
           position: relative;
           margin: 0;
           color: #68707a;
-          line-height: 1.72;
+          line-height: 1.76;
+          font-size: 15px;
           font-weight: 650;
           z-index: 1;
         }
 
         /* ─── Download Panel ─── */
-        .download-section { padding: 32px 24px 104px; }
+        .download-section { padding: 48px 32px 120px; }
 
         .download-panel {
           max-width: 1180px;
           margin: 0 auto;
           display: grid;
-          grid-template-columns: 0.7fr 1.3fr;
-          gap: 36px;
+          grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+          gap: 48px;
           align-items: center;
-          border-radius: 44px;
-          padding: 48px;
+          border-radius: 34px;
+          padding: 64px;
           background:
-            radial-gradient(circle at 15% 20%, rgba(155,212,102,0.28), transparent 30%),
+            radial-gradient(circle at 18% 18%, rgba(155,212,102,0.22), transparent 30%),
             linear-gradient(135deg, #151519, #2a2f38);
           color: #fff;
           overflow: hidden;
@@ -1559,41 +1645,85 @@ export default function MarketingPage() {
           filter: blur(10px);
         }
 
-        .qr-card {
+        .extension-preview {
           position: relative;
           z-index: 1;
-          width: 286px;
-          aspect-ratio: 1;
-          border-radius: 34px;
-          background: rgba(255,255,255,0.08);
+          border-radius: 28px;
+          background: rgba(255,255,255,0.09);
           border: 1px solid rgba(255,255,255,0.14);
-          display: grid;
-          place-items: center;
-          align-content: center;
-          gap: 16px;
+          padding: 18px;
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 26px 50px rgba(0,0,0,0.22);
-          transform: perspective(800px) rotateY(12deg) rotateX(5deg);
+          transform: perspective(900px) rotateY(8deg) rotateX(3deg);
         }
 
-        .qr-grid {
-          width: 150px; height: 150px;
+        .extension-topbar {
+          height: 38px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 0 12px;
+          border-radius: 16px;
+          background: rgba(255,255,255,0.12);
+          color: rgba(255,255,255,0.72);
+          font-size: 12px;
+          font-weight: 850;
+        }
+
+        .extension-dot {
+          width: 9px;
+          height: 9px;
+          border-radius: 999px;
+          background: #9bd466;
+          box-shadow: 16px 0 0 #f4ba63, 32px 0 0 #5c7cfa;
+          margin-right: 34px;
+        }
+
+        .extension-card-list {
           display: grid;
-          grid-template-columns: repeat(7, 1fr);
-          gap: 6px;
-          padding: 10px;
-          border-radius: 22px;
-          background: #fff;
+          gap: 12px;
+          margin-top: 16px;
         }
 
-        .qr-grid span { border-radius: 5px; background: var(--ink); opacity: 0.12; }
-        .qr-grid span:nth-child(2n), .qr-grid span:nth-child(5n), .qr-grid span:nth-child(9n) { opacity: 0.95; }
-        .qr-card p { margin: 0; color: rgba(255,255,255,0.72); font-weight: 850; }
+        .extension-card {
+          display: grid;
+          grid-template-columns: 44px 1fr;
+          gap: 14px;
+          padding: 16px;
+          border-radius: 20px;
+          background: rgba(255,255,255,0.1);
+          border: 1px solid rgba(255,255,255,0.12);
+        }
+
+        .extension-card svg {
+          width: 44px;
+          height: 44px;
+          padding: 10px;
+          border-radius: 16px;
+          background: rgba(255,255,255,0.92);
+          color: var(--ink);
+        }
+
+        .extension-card h3 {
+          margin: 0 0 4px;
+          color: #fff;
+          font-size: 16px;
+          line-height: 1.25;
+          letter-spacing: 0;
+        }
+
+        .extension-card p {
+          margin: 0;
+          color: rgba(255,255,255,0.68);
+          font-size: 13px;
+          line-height: 1.55;
+          font-weight: 650;
+        }
 
         .download-copy { position: relative; z-index: 1; }
-        .download-copy h2 { color: #fff; margin-top: 0; max-width: 690px; }
-        .download-copy p { color: rgba(255,255,255,0.68); max-width: 680px; margin-top: 20px; }
+        .download-copy h2 { color: #fff; margin-top: 0; max-width: 720px; }
+        .download-copy p { color: rgba(255,255,255,0.68); max-width: 700px; margin-top: 24px; line-height: 1.8; }
 
-        .dark-badges { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 28px; }
+        .dark-badges { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 32px; }
 
         .dark-badges .store-badge {
           background: rgba(255,255,255,0.08);
@@ -1608,7 +1738,7 @@ export default function MarketingPage() {
         .pricing-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 18px;
+          gap: 24px;
           position: relative;
           z-index: 1;
           align-items: start;
@@ -1644,26 +1774,29 @@ export default function MarketingPage() {
 
         .plan-card {
           position: relative;
-          border-radius: 34px;
-          padding: 32px;
+          border-radius: 36px;
+          padding: 36px;
           background: rgba(255,255,255,0.78);
           border: 1px solid rgba(21,21,25,0.08);
           box-shadow: 0 18px 42px rgba(21,21,25,0.06);
           display: flex;
           flex-direction: column;
-          min-height: 570px;
-          transition: transform 0.28s ease, box-shadow 0.28s ease;
+          min-height: 590px;
+          transition: transform 0.32s ease, box-shadow 0.32s ease;
+          animation: fadeInUp 0.6s cubic-bezier(0.16,1,0.3,1) both;
+          backface-visibility: hidden;
+          will-change: transform, opacity;
         }
 
-        .plan-card:hover { transform: translateY(-10px); box-shadow: 0 34px 70px rgba(21,21,25,0.13); }
+        .plan-card:hover { box-shadow: 0 28px 58px rgba(21,21,25,0.12); }
 
         .plan-card.featured {
           background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(232,247,207,0.72));
           border-color: rgba(113,176,54,0.3);
-          transform: translateY(-14px);
+          transform: translateY(-16px);
         }
 
-        .plan-card.featured:hover { transform: translateY(-20px); }
+        .plan-card.featured:hover { box-shadow: 0 32px 66px rgba(21,21,25,0.14); }
 
         .badge {
           position: absolute;
@@ -1687,37 +1820,37 @@ export default function MarketingPage() {
         }
 
         .plan-card h3 {
-          margin: 18px 0 10px;
-          font-size: 32px;
-          letter-spacing: -0.065em;
+          margin: 20px 0 12px;
+          font-size: 34px;
+          letter-spacing: 0;
         }
 
-        .price { display: flex; align-items: baseline; gap: 6px; margin-bottom: 12px; }
+        .price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
 
         .price strong {
           font-family: 'Plus Jakarta Sans';
           font-size: 52px;
-          letter-spacing: -0.075em;
+          letter-spacing: 0;
         }
 
         .price span { color: #6a727b; font-weight: 800; }
 
-        .plan-card p { margin: 0 0 24px; color: #66707a; line-height: 1.6; font-weight: 650; }
+        .plan-card p { margin: 0 0 28px; color: #66707a; line-height: 1.68; font-weight: 650; font-size: 15px; }
 
         .plan-card ul {
           list-style: none;
           padding: 0;
-          margin: 0 0 28px;
+          margin: 0 0 32px;
           display: grid;
-          gap: 13px;
+          gap: 15px;
         }
 
         .plan-card li {
           display: flex;
-          gap: 10px;
+          gap: 12px;
           align-items: flex-start;
           color: #414851;
-          font-size: 14px;
+          font-size: 15px;
           font-weight: 750;
         }
 
@@ -1742,22 +1875,25 @@ export default function MarketingPage() {
         .security-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 18px;
+          gap: 24px;
           position: relative;
           z-index: 1;
         }
 
         .security-tile {
-          border-radius: 34px;
-          padding: 32px;
+          border-radius: 36px;
+          padding: 36px;
           background: rgba(255,255,255,0.76);
           border: 1px solid rgba(21,21,25,0.08);
           box-shadow: 0 18px 42px rgba(21,21,25,0.06);
-          min-height: 260px;
-          transition: transform 0.28s ease, box-shadow 0.28s ease;
+          min-height: 280px;
+          transition: transform 0.32s ease, box-shadow 0.32s ease;
+          animation: fadeInUp 0.6s cubic-bezier(0.16,1,0.3,1) both;
+          backface-visibility: hidden;
+          will-change: transform, opacity;
         }
 
-        .security-tile:hover { transform: translateY(-8px); box-shadow: 0 34px 70px rgba(21,21,25,0.12); }
+        .security-tile:hover { box-shadow: 0 28px 58px rgba(21,21,25,0.11); }
 
         .security-tile > span {
           width: 56px; height: 56px;
@@ -1765,53 +1901,60 @@ export default function MarketingPage() {
           place-items: center;
           border-radius: 20px;
           background: var(--ink);
-          font-size: 24px;
+          color: #fff;
           box-shadow: 0 18px 30px rgba(21,21,25,0.17);
         }
 
-        .security-tile h3 {
-          margin: 24px 0 12px;
-          font-size: 25px;
-          line-height: 1.1;
-          letter-spacing: -0.06em;
+        .security-tile > span svg {
+          width: 25px;
+          height: 25px;
+          stroke-width: 2.2;
         }
 
-        .security-tile p { margin: 0; color: #68707a; line-height: 1.72; font-weight: 650; }
+        .security-tile h3 {
+          margin: 28px 0 14px;
+          font-size: 26px;
+          line-height: 1.12;
+          letter-spacing: 0;
+        }
+
+        .security-tile p { margin: 0; color: #68707a; line-height: 1.76; font-weight: 650; font-size: 15px; }
 
         /* ─── FAQ ─── */
         .faq-list {
-          max-width: 900px;
+          max-width: 920px;
           margin: 0 auto;
           display: grid;
-          gap: 14px;
+          gap: 16px;
           position: relative;
           z-index: 1;
         }
 
         .faq-item {
-          border-radius: 24px;
+          border-radius: 26px;
           background: rgba(255,255,255,0.76);
           border: 1px solid rgba(21,21,25,0.08);
           overflow: hidden;
           box-shadow: 0 14px 30px rgba(21,21,25,0.05);
+          animation: fadeInUp 0.5s cubic-bezier(0.16,1,0.3,1) both;
         }
 
         .faq-item button {
           width: 100%;
           border: 0;
           background: transparent;
-          padding: 24px;
+          padding: 28px;
           display: flex;
           justify-content: space-between;
           align-items: center;
-          gap: 20px;
+          gap: 24px;
           text-align: left;
           cursor: pointer;
           color: var(--ink);
           font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 18px;
+          font-size: 19px;
           font-weight: 900;
-          letter-spacing: -0.04em;
+          letter-spacing: 0;
         }
 
         .faq-toggle {
@@ -1830,22 +1973,22 @@ export default function MarketingPage() {
 
         .faq-item p {
           margin: 0;
-          padding: 0 24px 24px;
+          padding: 0 28px 28px;
           color: #66707a;
-          line-height: 1.7;
+          line-height: 1.76;
           font-weight: 650;
-          font-size: 15px;
+          font-size: 16px;
         }
 
         /* ─── Final CTA ─── */
-        .final-cta { padding: 0 24px 104px; }
+        .final-cta { padding: 0 32px 120px; }
 
         .final-panel {
           max-width: 1180px;
           margin: 0 auto;
           text-align: center;
-          border-radius: 48px;
-          padding: 82px 28px;
+          border-radius: 52px;
+          padding: 96px 40px;
           position: relative;
           overflow: hidden;
           background: linear-gradient(180deg, #d9f3f6, #e8f7cf);
@@ -1860,11 +2003,11 @@ export default function MarketingPage() {
           filter: blur(3px);
         }
 
-        .final-panel::before { width: 220px; height: 220px; background: rgba(92,124,250,0.18); left: -70px; bottom: -80px; }
-        .final-panel::after { width: 260px; height: 260px; background: rgba(244,186,99,0.22); right: -80px; top: -100px; }
+        .final-panel::before { width: 240px; height: 240px; background: rgba(92,124,250,0.18); left: -80px; bottom: -90px; }
+        .final-panel::after { width: 280px; height: 280px; background: rgba(244,186,99,0.22); right: -90px; top: -110px; }
         .final-panel > * { position: relative; z-index: 1; }
-        .final-panel h2 { max-width: 850px; margin-left: auto; margin-right: auto; }
-        .final-panel p { max-width: 650px; margin: 20px auto 32px; }
+        .final-panel h2 { max-width: 880px; margin-left: auto; margin-right: auto; }
+        .final-panel p { max-width: 680px; margin: 24px auto 36px; }
 
         /* ─── Footer ─── */
         .site-footer {
@@ -1918,6 +2061,19 @@ export default function MarketingPage() {
           font-weight: 700;
         }
 
+        .legal-links {
+          display: inline-flex;
+          align-items: center;
+          gap: 14px;
+          flex-wrap: wrap;
+        }
+
+        .site-footer .legal-links a {
+          margin: 0;
+          color: rgba(255,255,255,0.56);
+          font-size: 13px;
+        }
+
         /* ─── Modal ─── */
         .modal-bg {
           position: fixed;
@@ -1959,7 +2115,7 @@ export default function MarketingPage() {
           margin: 20px 0 10px;
           font-size: 34px;
           line-height: 1;
-          letter-spacing: -0.07em;
+          letter-spacing: 0;
         }
 
         .modal-card p { margin: 0 0 22px; color: #66707a; line-height: 1.7; font-weight: 650; }
@@ -2017,12 +2173,13 @@ export default function MarketingPage() {
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes popIn { from { opacity: 0; transform: translateY(18px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes riseIn { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: translateY(0); } }
 
         /* ─── Responsive ─── */
         @media (max-width: 1120px) {
           .feature-grid, .pricing-grid, .security-grid { grid-template-columns: repeat(2, 1fr); }
           .overview-layout, .download-panel { grid-template-columns: 1fr; }
-          .qr-card { width: 100%; max-width: 320px; }
+          .extension-preview { width: 100%; max-width: 520px; transform: none; }
           .footer-inner { grid-template-columns: 1fr 1fr; }
           .phone-float { right: calc(50% - 340px); transform: translateZ(240px) rotateY(-15deg) rotateZ(2deg) scale(0.9); }
           .revenue-fc { left: calc(50% - 430px); }
@@ -2033,9 +2190,11 @@ export default function MarketingPage() {
           .nav-links { display: none; }
           .hero-inner { min-height: 920px; }
           .hero-copy { padding-top: 50px; }
+          .hero-copy > p { margin-bottom: 42px; }
+          .hero-ctas { margin-bottom: 48px; }
           .device-stage { height: 510px; }
-          .device-layer { inset: 160px 0 0; }
-          .laptop { width: 82vw; }
+          .device-layer { inset: 176px 0 0; }
+          .laptop { width: 74vw; }
           .revenue-fc, .approval-fc { display: none; }
           .phone-float { right: 20px; bottom: 20px; transform: translateZ(240px) rotateY(-13deg) rotateZ(2deg) scale(0.72); transform-origin: bottom right; }
           .steps-grid { grid-template-columns: 1fr; }
@@ -2052,12 +2211,12 @@ export default function MarketingPage() {
           .hero-inner { border-radius: 28px; min-height: 820px; }
           .hero-copy { padding: 42px 18px 0; }
           .hero-copy h1 { font-size: clamp(42px, 14vw, 64px); }
-          .hero-copy > p { font-size: 15px; }
-          .hero-ctas { flex-direction: column; align-items: stretch; max-width: 310px; margin-left: auto; margin-right: auto; }
+          .hero-copy > p { font-size: 15px; margin-bottom: 38px; }
+          .hero-ctas { flex-direction: column; align-items: stretch; max-width: 310px; margin-left: auto; margin-right: auto; margin-bottom: 46px; }
           .hero-badges { display: none; }
           .device-stage { height: 430px; }
-          .device-layer { inset: 142px 0 0; }
-          .laptop { width: 95vw; }
+          .device-layer { inset: 162px 0 0; }
+          .laptop { width: 78vw; }
           .phone-float { right: 4px; bottom: 10px; transform: translateZ(240px) rotateY(-12deg) rotateZ(2deg) scale(0.62); }
           .desk-app { grid-template-columns: 82px 1fr; }
           .desk-app aside { padding: 10px 8px; }
@@ -2107,8 +2266,8 @@ export default function MarketingPage() {
             ))}
           </div>
           <div className="nav-actions">
-            <button className="nav-sign" type="button" onClick={() => setShowModal(true)}>Sign in</button>
-            <button className="btn btn-primary" type="button" onClick={() => setShowModal(true)}>Get Started</button>
+            <a className="nav-sign" href={AUTH_ROUTES.LOGIN}>Sign in</a>
+            <a className="btn btn-primary" href={AUTH_ROUTES.SIGNUP}>Get Started</a>
           </div>
         </nav>
       </header>
@@ -2116,16 +2275,21 @@ export default function MarketingPage() {
       {/* ─── Hero ─── */}
       <section id="top" className="hero" onPointerMove={onHeroMove} onPointerLeave={() => setTilt({ rx: 0, ry: 0 })} style={heroVars}>
         <div className="hero-inner">
-          <div className="hero-copy">
+          <motion.div 
+            className="hero-copy"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 60, damping: 14 }}
+          >
             <span className="kicker">Creator business operator</span>
             <h1>Run your creator business on the <em>right track.</em></h1>
             <p>
-              A calm operating dashboard for products, bookings, members, and brand deals — with a supervised AI operator that turns messy admin into approved workflows.
+              A calm operating dashboard for products, bookings, members, and brand deals, with a supervised AI operator that turns messy admin into approved workflows.
             </p>
             <div className="hero-ctas">
-              <button className="btn btn-primary" type="button" onClick={() => setShowModal(true)}>Get Started →</button>
+              <a className="btn btn-primary" href={AUTH_ROUTES.SIGNUP}>Get Started →</a>
             </div>
-          </div>
+          </motion.div>
           <HeroDeviceStack />
         </div>
       </section>
@@ -2133,18 +2297,30 @@ export default function MarketingPage() {
       {/* ─── Features ─── */}
       <section id="product" className="section">
         <div className="container">
-          <div className="section-head">
-            <div>
-              <span className="kicker">Product surfaces</span>
-              <h2>Everything your creator business needs, inside one soft control room.</h2>
-            </div>
+          <motion.div 
+            className="section-head"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px", amount: 0.15 }}
+            transition={{ type: "spring", stiffness: 60, damping: 14 }}
+          >
+            <span className="kicker">Product surfaces</span>
+            <h2>Everything your creator business needs, inside one soft control room.</h2>
             <p>
-              A premium app-like system with clear hierarchy, friendly colors, animated mockups, and dashboards that make complex creator workflows feel simple.
+              A complete platform for products, bookings, memberships, and brand deals with clean dashboards and simple workflows.
             </p>
-          </div>
+          </motion.div>
           <div className="feature-grid">
             {surfaces.map(({ icon: Icon, title, text, tags, accent }, i) => (
-              <article className="feature-card" key={title} style={{ animationDelay: `${i * 80}ms` } as CSSProperties}>
+              <motion.article 
+                className="feature-card" 
+                key={title}
+                initial={{ opacity: 0, y: 34, scale: 0.975 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                viewport={revealViewport}
+                transition={{ ...revealTransition, delay: i * 0.07 }}
+                whileHover={cardHover}
+              >
                 <div className="feature-vis" style={{ background: accent }}>
                   <Icon size={48} />
                 </div>
@@ -2156,7 +2332,7 @@ export default function MarketingPage() {
                     {tags.map(tag => <span className="feature-tag" key={tag}>{tag}</span>)}
                   </div>
                 </div>
-              </article>
+              </motion.article>
             ))}
           </div>
         </div>
@@ -2165,7 +2341,13 @@ export default function MarketingPage() {
       {/* ─── Overview ─── */}
       <section className="section overview-section">
         <div className="container overview-layout">
-          <div className="overview-copy">
+          <motion.div 
+            className="overview-copy"
+            initial={{ opacity: 0, x: -40 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-80px", amount: 0.15 }}
+            transition={{ type: "spring", stiffness: 60, damping: 14 }}
+          >
             <span className="kicker">Financial overview</span>
             <h2>Peace of mind for every product, payout, and campaign.</h2>
             <p>Replace scattered checkout links, untracked deals, and calendar back-and-forth with a single overview that shows what is live, what is earning, and what needs approval.</p>
@@ -2174,8 +2356,14 @@ export default function MarketingPage() {
                 <div key={item}><span>✓</span>{item}</div>
               ))}
             </div>
-          </div>
-          <div className="dash-card">
+          </motion.div>
+          <motion.div 
+            className="dash-card"
+            initial={{ opacity: 0, scale: 0.96, y: 30 }}
+            whileInView={{ opacity: 1, scale: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px", amount: 0.15 }}
+            transition={{ type: "spring", stiffness: 50, damping: 13 }}
+          >
             <div className="mock-panel">
               <header>
                 <h3>Creator overview</h3>
@@ -2192,25 +2380,40 @@ export default function MarketingPage() {
                 ))}
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* ─── Workflows ─── */}
       <section id="workflows" className="section workflow-section">
         <div className="container">
-          <div className="section-head center">
-            <span className="kicker">System pipeline</span>
+          <motion.div 
+            className="section-head"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px", amount: 0.15 }}
+            transition={{ type: "spring", stiffness: 60, damping: 14 }}
+          >
+            <span className="kicker">How it works</span>
             <h2>From idea to production in three guided steps.</h2>
-            <p>Keep the interface light, the automation supervised, and the business logic clear from first connection to approved launch.</p>
-          </div>
+            <p>Connect your business tools, let AI prepare your next moves, and approve what matters.</p>
+          </motion.div>
           <div className="steps-grid">
-            {workflowSteps.map(step => (
-              <article className="step-card" key={step.n} data-n={step.n}>
+            {workflowSteps.map((step, i) => (
+              <motion.article 
+                className="step-card" 
+                key={step.n} 
+                data-n={step.n}
+                initial={{ opacity: 0, y: 34, scale: 0.975 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                viewport={revealViewport}
+                transition={{ ...revealTransition, delay: i * 0.07 }}
+                whileHover={cardHover}
+              >
                 <span>{step.n}</span>
                 <h3>{step.title}</h3>
                 <p>{step.text}</p>
-              </article>
+              </motion.article>
             ))}
           </div>
         </div>
@@ -2219,19 +2422,31 @@ export default function MarketingPage() {
       {/* ─── Download Panel ─── */}
       <section className="download-section">
         <div className="download-panel">
-          <div className="qr-card">
-            <div className="qr-grid" aria-label="Decorative QR code">
-              {Array.from({ length: 49 }).map((_, i) => <span key={i} />)}
+          <div className="extension-preview" aria-label="KreatorOS browser extension preview">
+            <div className="extension-topbar">
+              <span className="extension-dot" />
+              KreatorOS Web Extension
             </div>
-            <p>Scan to join the beta</p>
+            <div className="extension-card-list">
+              {extensionCards.map(([Icon, title, text]) => (
+                <article className="extension-card" key={title}>
+                  <Icon aria-hidden="true" />
+                  <div>
+                    <h3>{title}</h3>
+                    <p>{text}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
           <div className="download-copy">
-            <h2>Join the creator operations revolution today.</h2>
-            <p>Launch your mobile creator storefront, open the web dashboard, and keep the AI operator close while you approve high-impact work from anywhere.</p>
-            <div style={{ marginTop: "28px" }}>
-              <button className="btn btn-primary" type="button" onClick={() => setShowModal(true)}>
-                Reserve Workspace →
-              </button>
+            <h2>Research, save, and find creator content without losing context.</h2>
+            <p>The KreatorOS extension helps users save Instagram content and useful web references, then search them later by creator, topic, campaign, client, or idea. It turns scattered browsing into organized material your workspace can act on.</p>
+            <div style={{ marginTop: "32px" }}>
+              <a className="btn btn-primary" href={EXTENSION_URL} target="_blank" rel="noreferrer">
+                <img className="btn-icon" src="/webstore.svg" alt="" aria-hidden="true" />
+                Chrome Web Store
+              </a>
             </div>
           </div>
         </div>
@@ -2240,13 +2455,28 @@ export default function MarketingPage() {
       {/* ─── Features Grid ─── */}
       <section className="section">
         <div className="container">
-          <div className="section-head center">
-            <span className="kicker">Details that matter</span>
+          <motion.div 
+            className="section-head"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px", amount: 0.15 }}
+            transition={{ type: "spring", stiffness: 60, damping: 14 }}
+          >
+            <span className="kicker">Core features</span>
             <h2>Feature-complete enough to run the day, simple enough to scan before coffee.</h2>
-          </div>
+            <p>Professional tools that work together seamlessly.</p>
+          </motion.div>
           <div className="feature-grid">
             {featureGrid.map(([Icon, title, text, accent], i) => (
-              <article className="feature-card" key={title} style={{ animationDelay: `${i * 80}ms` } as CSSProperties}>
+              <motion.article 
+                className="feature-card" 
+                key={title}
+                initial={{ opacity: 0, y: 34, scale: 0.975 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                viewport={revealViewport}
+                transition={{ ...revealTransition, delay: i * 0.07 }}
+                whileHover={cardHover}
+              >
                 <div className="feature-vis" style={{ background: accent }}>
                   <Icon size={44} />
                 </div>
@@ -2254,7 +2484,7 @@ export default function MarketingPage() {
                   <h3>{title}</h3>
                   <p>{text}</p>
                 </div>
-              </article>
+              </motion.article>
             ))}
           </div>
         </div>
@@ -2263,22 +2493,44 @@ export default function MarketingPage() {
       {/* ─── Pricing ─── */}
       <section id="pricing" className="section">
         <div className="container">
-          <div className="section-head center">
+          <motion.div 
+            className="section-head"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px", amount: 0.15 }}
+            transition={{ type: "spring", stiffness: 60, damping: 14 }}
+          >
             <span className="kicker">Pricing</span>
-            <h2>Plans sized for creator leverage.</h2>
+            <h2>Plans sized for creator leverage</h2>
+            <p>Choose the plan that fits your business stage.</p>
             <div className="billing-toggle" role="group" aria-label="Billing interval">
               <button className={billing === "monthly" ? "active" : ""} type="button" onClick={() => setBilling("monthly")}>Monthly</button>
               <button className={billing === "annual" ? "active" : ""} type="button" onClick={() => setBilling("annual")}>Annual · Save 20%</button>
             </div>
-          </div>
+          </motion.div>
           <div className="pricing-grid">
-            {visiblePlans.map(plan => (
-              <article className={plan.featured ? "plan-card featured" : "plan-card"} key={plan.name}>
+            {visiblePlans.map((plan, i) => (
+              <motion.article 
+                className={plan.featured ? "plan-card featured" : "plan-card"} 
+                key={plan.name}
+                initial={{ opacity: 0, y: 34, scale: 0.975 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                viewport={revealViewport}
+                transition={{ ...revealTransition, delay: i * 0.07 }}
+                whileHover={plan.featured ? { ...cardHover, y: -10 } : cardHover}
+              >
                 {plan.featured && <span className="badge">Popular</span>}
                 <small>{plan.eyebrow}</small>
                 <h3>{plan.name}</h3>
                 <div className="price">
-                  <strong>{plan.price === 0 ? "$0" : `$${plan.price}`}</strong>
+                  <motion.strong
+                    key={plan.price}
+                    initial={{ opacity: 0, y: -12, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ type: "spring", stiffness: 120, damping: 14 }}
+                  >
+                    {plan.price === 0 ? "$0" : `$${plan.price}`}
+                  </motion.strong>
                   <span>{plan.price === 0 ? "/ forever" : "/ month"}</span>
                 </div>
                 <p>{plan.description} {billing === "annual" && plan.price > 0 ? "Annual billing shown as monthly equivalent." : ""}</p>
@@ -2286,7 +2538,7 @@ export default function MarketingPage() {
                   {plan.features.map(f => <li key={f}>{f}</li>)}
                 </ul>
                 <a className={plan.featured ? "btn btn-green" : "btn btn-soft"} href={plan.href}>{plan.cta}</a>
-              </article>
+              </motion.article>
             ))}
           </div>
         </div>
@@ -2295,24 +2547,36 @@ export default function MarketingPage() {
       {/* ─── Security ─── */}
       <section className="section security-section">
         <div className="container">
-          <div className="section-head">
-            <div>
-              <span className="kicker">Maximum control</span>
-              <h2>Secure, supervised, and built for serious creator businesses.</h2>
-            </div>
-            <p>The UI feels soft and approachable while the workflows stay explicit: you see what the operator generated, approve it, and keep ownership of the business surface.</p>
-          </div>
+          <motion.div 
+            className="section-head"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px", amount: 0.15 }}
+            transition={{ type: "spring", stiffness: 60, damping: 14 }}
+          >
+            <span className="kicker">Security & Control</span>
+            <h2>Secure, supervised, and built for serious creator businesses.</h2>
+            <p>You stay in control. Every action requires your approval before it goes live.</p>
+          </motion.div>
           <div className="security-grid">
-            {[
-              ["🔒", "Approval-first actions", "No emails, invoices, calendar syncs, or CRM updates are sent without your final approval."],
-              ["🧾", "Readable audit trails", "Every generated task, suggested reply, and checkout change is visible inside a clean activity timeline."],
-              ["🧠", "Human-in-the-loop AI", "The operator handles repetitive work while you keep strategic control over brand and revenue decisions."],
-            ].map(([icon, title, text]) => (
-              <article className="security-tile" key={title}>
-                <span>{icon}</span>
+            {([
+              [ShieldCheck, "Approval-first actions", "No emails, invoices, calendar syncs, or CRM updates are sent without your final approval."],
+              [ClipboardCheck, "Readable audit trails", "Every generated task, suggested reply, and checkout change is visible inside a clean activity timeline."],
+              [BrainCircuit, "Human-in-the-loop AI", "The operator handles repetitive work while you keep strategic control over brand and revenue decisions."],
+            ] as const).map(([Icon, title, text], i) => (
+              <motion.article 
+                className="security-tile" 
+                key={title}
+                initial={{ opacity: 0, y: 34, scale: 0.975 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                viewport={revealViewport}
+                transition={{ ...revealTransition, delay: i * 0.07 }}
+                whileHover={cardHover}
+              >
+                <span><Icon aria-hidden="true" /></span>
                 <h3>{title}</h3>
                 <p>{text}</p>
-              </article>
+              </motion.article>
             ))}
           </div>
         </div>
@@ -2321,18 +2585,36 @@ export default function MarketingPage() {
       {/* ─── FAQ ─── */}
       <section id="faq" className="section">
         <div className="container">
-          <div className="section-head center">
+          <motion.div 
+            className="section-head center"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px", amount: 0.15 }}
+            transition={{ type: "spring", stiffness: 60, damping: 14 }}
+          >
             <span className="kicker">Knowledge base</span>
             <h2>Frequently asked questions</h2>
-          </div>
+          </motion.div>
           <div className="faq-list">
             {faqs.map(([q, a], i) => (
-              <article className={openFaq === i ? "faq-item open" : "faq-item"} key={q}>
+              <article className={openFaq === i ? "faq-item open" : "faq-item"} key={q} style={{ animationDelay: `${i * 80}ms` } as CSSProperties}>
                 <button type="button" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
                   <span>{q}</span>
                   <span className="faq-toggle">+</span>
                 </button>
-                {openFaq === i && <p>{a}</p>}
+                <AnimatePresence initial={false}>
+                  {openFaq === i && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.24, ease: "easeInOut" }}
+                      style={{ overflow: "hidden" }}
+                    >
+                      <p>{a}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </article>
             ))}
           </div>
@@ -2341,12 +2623,17 @@ export default function MarketingPage() {
 
       {/* ─── Final CTA ─── */}
       <section className="final-cta">
-        <div className="final-panel">
-          <span className="kicker">Private onboarding</span>
+        <motion.div 
+          className="final-panel"
+          initial={{ opacity: 0, scale: 0.96, y: 40 }}
+          whileInView={{ opacity: 1, scale: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px", amount: 0.15 }}
+          transition={{ type: "spring", stiffness: 50, damping: 14 }}
+        >
           <h2>Create the creator business you deserve.</h2>
           <p>Give your audience a clean buying path, give sponsors a professional room, and give yourself one calm place to run the whole operation.</p>
-          <button className="btn btn-primary" type="button" onClick={() => setShowModal(true)}>Reserve Workspace →</button>
-        </div>
+          <a className="btn btn-primary" href={AUTH_ROUTES.SIGNUP}>Create your workspace</a>
+        </motion.div>
       </section>
 
       {/* ─── Footer ─── */}
@@ -2377,11 +2664,17 @@ export default function MarketingPage() {
         </div>
         <div className="footer-bottom">
           <span>&copy; {new Date().getFullYear()} KreatorOS. All rights reserved.</span>
-          <span>Privacy · Terms · AI Policy</span>
+          <span className="legal-links">
+            <a href="/privacy">Privacy</a>
+            <a href="/terms">Terms</a>
+            <a href="/ai-policy">AI Policy</a>
+          </span>
         </div>
       </footer>
 
-      {showModal && <Modal onClose={() => setShowModal(false)} />}
+      <AnimatePresence>
+        {showModal && <Modal onClose={() => setShowModal(false)} />}
+      </AnimatePresence>
     </main>
   );
 }

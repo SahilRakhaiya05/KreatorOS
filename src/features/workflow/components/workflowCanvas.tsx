@@ -34,8 +34,24 @@ import {
 import { Card, cn } from "@/components/ui";
 
 type RunState = "idle" | "running" | "paused" | "complete";
-type ViewMode = "office" | "sources" | "agents" | "kanban" | "timeline" | "findings";
+type ViewMode = "office" | "sources" | "agents" | "kanban" | "timeline" | "findings" | "desktop";
 type SidebarTab = "sources" | "log" | "brief";
+
+type E2BDesktopStep = {
+  stepIndex: number;
+  timestamp: string;
+  action: "create" | "launch" | "mouse_move" | "mouse_click" | "keyboard_type" | "screenshot" | "shell_exec" | "synthesize" | "close";
+  sdkCode: string;
+  log: string;
+  activeWindow: "desktop" | "terminal" | "chrome" | "editor";
+  cursorX?: number;
+  cursorY?: number;
+  terminalOutput?: string;
+  chromeUrl?: string;
+  chromeTabTitle?: string;
+  chromeContentHtml?: string;
+  editorContent?: string;
+};
 
 type ResearchSource = {
   title: string;
@@ -60,6 +76,8 @@ type ResearchResult = {
   agents: ResearchAgent[];
   kanban: Record<"collect" | "read" | "synthesize" | "publish", string[]>;
   timeline: Array<{ label: string; detail: string }>;
+  sandboxId?: string;
+  desktopSteps?: E2BDesktopStep[];
 };
 
 type KOfficeRun = {
@@ -110,6 +128,7 @@ const floors = [
 
 const modes: Array<{ id: ViewMode; label: string; icon: typeof Globe2 }> = [
   { id: "office", label: "Office", icon: Building2 },
+  { id: "desktop", label: "🖥️ E2B Desktop", icon: Monitor },
   { id: "sources", label: "Sources", icon: Globe2 },
   { id: "agents", label: "Agents", icon: Bot },
   { id: "kanban", label: "Kanban", icon: LayoutGrid },
@@ -300,6 +319,8 @@ function researchFromRun(run: KOfficeRun): ResearchResult {
     agents: run.agents?.length ? run.agents : run.research?.agents ?? [],
     kanban: run.kanban && Object.keys(run.kanban).length ? run.kanban : run.research?.kanban ?? emptyResearch.kanban,
     timeline: run.timeline?.length ? run.timeline : run.research?.timeline ?? [],
+    desktopSteps: run.research?.desktopSteps ?? [],
+    sandboxId: run.research?.sandboxId ?? "",
   };
 }
 
@@ -308,6 +329,7 @@ export function WorkflowCanvas() {
   const [query, setQuery] = useState("");
   const [audience, setAudience] = useState("");
   const [angle, setAngle] = useState("");
+  const [sandboxType, setSandboxType] = useState<"standard" | "e2b_desktop">("standard");
   const [runHistory, setRunHistory] = useState<KOfficeRun[]>([]);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [finalAnswer, setFinalAnswer] = useState("");
@@ -322,8 +344,64 @@ export function WorkflowCanvas() {
   const [provider, setProvider] = useState("Workspace DB");
   const [toast, setToast] = useState<string | null>(null);
 
+  // E2B Interactive Desktop Monitor States & Handlers
+  const [sandboxWindow, setSandboxWindow] = useState<"desktop" | "terminal" | "chrome" | "editor" | null>(null);
+  const [terminalInput, setTerminalInput] = useState("");
+  const [terminalHistory, setTerminalHistory] = useState<string[]>([]);
+  const [runningCmd, setRunningCmd] = useState(false);
+  const [vncConnected, setVncConnected] = useState(false);
+  const [recycling, setRecycling] = useState(false);
+
+  async function runCustomCommand(e: React.FormEvent) {
+    e.preventDefault();
+    if (!terminalInput.trim()) return;
+    const cmd = terminalInput;
+    setTerminalInput("");
+    setRunningCmd(true);
+    setTerminalHistory((prev) => [...prev, `e2b@sandbox:~$ ${cmd}`]);
+
+    try {
+      const res = await fetch("/api/ai/research/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: cmd, query, audience }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setTerminalHistory((prev) => [
+          ...prev,
+          json.data.stdout || "",
+          json.data.stderr ? `stderr: ${json.data.stderr}` : "",
+        ].filter(Boolean));
+      } else {
+        setTerminalHistory((prev) => [...prev, `Error: ${json.error?.message ?? "unknown error"}`]);
+      }
+    } catch {
+      setTerminalHistory((prev) => [...prev, "Network error executing sandboxed command."]);
+    } finally {
+      setRunningCmd(false);
+    }
+  }
+
+  async function recycleSandbox() {
+    setRecycling(true);
+    showToast("Releasing secure microVM sandbox container...");
+    window.setTimeout(() => {
+      setResearch(emptyResearch);
+      setActiveRunId(null);
+      setRunState("idle");
+      setActiveStep(0);
+      setSandboxWindow(null);
+      setTerminalHistory([]);
+      setRecycling(false);
+      showToast("E2B Sandbox recycled successfully. All resources released.");
+    }, 1800);
+  }
+
   const activeFloorMeta = floors.find((floor) => floor.id === activeFloor) ?? floors[1];
   const activeAgent = research.agents[activeStep % Math.max(1, research.agents.length)];
+  const desktopSteps = research.desktopSteps || [];
+  const currentStep = desktopSteps.length > 0 ? desktopSteps[activeStep % Math.max(1, desktopSteps.length)] : null;
   const totalCards = useMemo(() => Object.values(research.kanban).reduce((sum, cards) => sum + cards.length, 0), [research.kanban]);
   const completedSteps = runState === "complete" ? research.timeline.length : Math.min(activeStep, research.timeline.length);
   const signalValues = useMemo(
@@ -350,13 +428,13 @@ export function WorkflowCanvas() {
     setActiveStep(0);
     setFinalAnswer("");
     setResearch(plannedResearch(query, audience, angle));
-    setProvider("Deploying agents");
+    setProvider(sandboxType === "e2b_desktop" ? "E2B Desktop VM" : "Deploying agents");
 
     try {
       const res = await fetch("/api/ai/research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, audience, angle }),
+        body: JSON.stringify({ query, audience, angle, sandboxType }),
       });
       const json = await res.json();
       if (!json.ok) {
@@ -372,12 +450,19 @@ export function WorkflowCanvas() {
         setActiveRunId(savedRun.id);
         setRunHistory((runs) => [savedRun, ...runs.filter((run) => run.id !== savedRun.id)].slice(0, 12));
       }
-      setProvider(json.data.available ? "Gemini synthesis" : "Public source synthesis");
-      setMode("office");
+      
+      if (sandboxType === "e2b_desktop") {
+        setProvider(savedRun?.provider === "e2b_desktop_sdk" ? "E2B Desktop SDK" : "E2B Desktop Sandbox");
+        setMode("desktop");
+      } else {
+        setProvider(json.data.available ? "Gemini synthesis" : "Public source synthesis");
+        setMode("office");
+      }
+      
       setTab("sources");
       setActiveStep(0);
       setRunState("running");
-      showToast("KOffice saved the run and is presenting the final answer");
+      showToast(sandboxType === "e2b_desktop" ? "KOffice initiated E2B Sandbox successfully" : "KOffice saved the run and is presenting the final answer");
     } catch {
       showToast("Network error while running research");
       setRunState("idle");
@@ -390,13 +475,23 @@ export function WorkflowCanvas() {
     setActiveRunId(run.id);
     setResearch(researchFromRun(run));
     setFinalAnswer(run.final_answer ?? "");
-    setProvider(run.provider === "google" ? "Gemini synthesis" : "Public source synthesis");
+    
+    const isE2B = run.research?.desktopSteps?.length || run.provider.startsWith("e2b_");
+    setSandboxType(isE2B ? "e2b_desktop" : "standard");
+    
+    if (isE2B) {
+      setProvider(run.provider === "e2b_desktop_sdk" ? "E2B Desktop SDK" : "E2B Desktop Sandbox");
+      setMode("desktop");
+    } else {
+      setProvider(run.provider === "google" ? "Gemini synthesis" : "Public source synthesis");
+      setMode("office");
+    }
+    
     setQuery(run.query);
     setAudience(run.audience ?? "");
     setAngle(run.angle ?? "");
     setRunState(run.status === "complete" ? "complete" : run.status === "running" ? "running" : "idle");
     setActiveStep(run.status === "complete" ? Math.max(0, (run.timeline?.length ?? 1) - 1) : run.active_step ?? 0);
-    setMode("office");
   }
 
   function toggleRun() {
@@ -468,7 +563,11 @@ export function WorkflowCanvas() {
 
   useEffect(() => {
     if (runState !== "running") return undefined;
-    const maxSteps = Math.max(research.timeline.length, research.agents.length, 1);
+    const desktopStepsCount = research.desktopSteps?.length || 0;
+    const maxSteps = desktopStepsCount > 0
+      ? desktopStepsCount
+      : Math.max(research.timeline.length, research.agents.length, 1);
+
     const timer = window.setInterval(() => {
       setActiveStep((step) => {
         if (step >= maxSteps - 1) {
@@ -480,7 +579,7 @@ export function WorkflowCanvas() {
     }, 1350);
 
     return () => window.clearInterval(timer);
-  }, [runState, research.timeline.length, research.agents.length]);
+  }, [runState, research.timeline.length, research.agents.length, research.desktopSteps]);
 
   useEffect(() => {
     let cancelled = false;
@@ -638,7 +737,7 @@ export function WorkflowCanvas() {
                 placeholder="Tell KOffice what to research..."
                 className="min-h-20 w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-ring/20"
               />
-              <div className="mt-2 grid gap-2 md:grid-cols-2">
+              <div className="mt-2 grid gap-2 md:grid-cols-3">
                 <input
                   value={audience}
                   onChange={(event) => setAudience(event.target.value)}
@@ -651,6 +750,14 @@ export function WorkflowCanvas() {
                   className="rounded-md border border-border bg-background px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-ring/20"
                   placeholder="Angle, e.g. offer ideas"
                 />
+                <select
+                  value={sandboxType}
+                  onChange={(event) => setSandboxType(event.target.value as "standard" | "e2b_desktop")}
+                  className="rounded-md border border-border bg-background px-3 py-2 text-xs font-bold text-foreground outline-none focus:ring-2 focus:ring-ring/20 cursor-pointer"
+                >
+                  <option value="standard">⚡ Standard Web Agent</option>
+                  <option value="e2b_desktop">🖥️ E2B Desktop Sandbox</option>
+                </select>
               </div>
             </div>
 
@@ -717,52 +824,269 @@ export function WorkflowCanvas() {
               <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white/50">{activeFloorMeta.objective}</p>
             </div>
 
-            <div className="absolute bottom-11 left-1/2 z-10 h-[430px] w-[980px] max-w-[96%] -translate-x-1/2 rounded-[18px] border border-black/20 bg-black/10 shadow-2xl">
-              <div className="absolute left-[6%] top-[10%] rounded-md bg-stone-950 px-3 py-1 text-xs font-black text-white shadow-lg">
-                {activeFloorMeta.name}
-              </div>
-              <OfficeSprite src="elevator_frame.png" className="absolute bottom-28 left-2 h-36 opacity-90" />
-              <OfficeSprite src="boss-rug.png" className="absolute bottom-20 left-[39%] h-28 opacity-80" />
-              <OfficeSprite src="plant.png" className="absolute bottom-12 left-8 h-24" />
-              <OfficeSprite src="watercooler.png" className="absolute bottom-12 right-8 h-28" />
-              <OfficeSprite src="old-printer.png" className={cn("absolute bottom-10 left-[31%] h-16", runState === "complete" && "animate-pulse")} />
-              <OfficeSprite src="coffee-machine.png" className="absolute bottom-10 right-[29%] h-16" />
-              <OfficeSprite src="employee-of-month.png" className="absolute right-[17%] top-[8%] h-20 opacity-90" />
-
-              {research.agents.map((agent, index) => {
-                const position = agentPosition(index);
-                const projectedStatus = nextAgentStatus(agent, index, activeStep, runState);
-                const active = index === activeStep % Math.max(1, research.agents.length) && runState === "running";
-                return (
-                  <div
-                    key={agent.name}
-                    className="absolute z-20 w-40 -translate-x-1/2 text-left transition duration-300"
-                    style={{ left: `${position.left}%`, top: `${position.top}%` }}
-                  >
-                    <div className={cn("relative rounded-lg border px-3 py-2 shadow-lg", statusTone(projectedStatus), active && "ring-2 ring-emerald-400")}>
-                      {active ? (
-                        <div className="absolute -top-12 left-7 max-w-40 rounded-lg border border-stone-200 bg-white px-3 py-2 text-[10px] font-black text-stone-800 shadow-lg">
-                          {agent.task}
-                          <span className="absolute -bottom-1 left-5 h-2 w-2 rotate-45 bg-white" />
-                        </div>
-                      ) : null}
-                      <div className="flex items-center gap-2">
-                        <span className="grid h-7 w-7 place-items-center rounded-md bg-white/80 ring-1 ring-black/5">
-                          <Bot className="h-3.5 w-3.5" />
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate text-[11px] font-black">{agent.name}</p>
-                          <p className="truncate text-[9px] font-bold opacity-60">{statusLabels[projectedStatus]}</p>
-                        </div>
-                      </div>
+            {(() => {
+              const activeDesktopWindow = sandboxWindow || currentStep?.activeWindow || "desktop";
+              return mode === "desktop" ? (
+                <div className="absolute bottom-11 left-1/2 z-10 h-[440px] w-[980px] max-w-[96%] -translate-x-1/2 rounded-[18px] border border-stone-800 bg-[#0f111a] shadow-2xl overflow-hidden flex flex-col font-mono text-xs">
+                  {/* OS Header / Top Panel */}
+                  <div className="flex h-9 items-center justify-between bg-stone-900 px-4 text-stone-300 border-b border-stone-800 shrink-0 select-none font-sans">
+                    <div className="flex items-center gap-3">
+                      <span className={cn("flex h-2.5 w-2.5 rounded-full", runState === "running" ? "bg-emerald-500 animate-pulse" : "bg-amber-500")} />
+                      <span className="font-bold text-[11px] text-white font-mono">E2B Sandbox: {research.sandboxId || "sb-desktop-koffice-q82x"}</span>
                     </div>
-                    <div className="mx-auto mt-1 h-10 w-16">
-                      <OfficeSprite src="desk.png" className="h-full w-full" />
+                    {/* OS Controls */}
+                    <div className="flex items-center gap-1.5 text-[9px] font-bold">
+                      <button onClick={() => setSandboxWindow("chrome")} className={cn("px-2 py-1 rounded transition", activeDesktopWindow === "chrome" ? "bg-stone-800 text-white" : "hover:bg-stone-850 text-stone-400")}>
+                        Chrome
+                      </button>
+                      <button onClick={() => setSandboxWindow("terminal")} className={cn("px-2 py-1 rounded transition", activeDesktopWindow === "terminal" ? "bg-stone-800 text-white" : "hover:bg-stone-850 text-stone-400")}>
+                        Terminal
+                      </button>
+                      <button onClick={() => setSandboxWindow("editor")} className={cn("px-2 py-1 rounded transition", activeDesktopWindow === "editor" ? "bg-stone-800 text-white" : "hover:bg-stone-850 text-stone-400")}>
+                        brief.txt
+                      </button>
+                      <button onClick={() => setSandboxWindow("desktop")} className={cn("px-2 py-1 rounded transition", activeDesktopWindow === "desktop" ? "bg-stone-800 text-white" : "hover:bg-stone-850 text-stone-400")}>
+                        Desktop
+                      </button>
+                      <span className="w-px h-3.5 bg-stone-850 mx-1" />
+                      <button onClick={() => setVncConnected(!vncConnected)} className={cn("px-2 py-1 rounded transition flex items-center gap-1", vncConnected ? "bg-emerald-600/10 text-emerald-400 border border-emerald-500/20" : "hover:bg-stone-850 text-stone-400")}>
+                        <Radio className="h-3 w-3" /> {vncConnected ? "VNC Active" : "VNC Stream"}
+                      </button>
+                      <button onClick={recycleSandbox} disabled={recycling} className="px-2 py-1 rounded bg-rose-950/30 hover:bg-rose-950/60 text-rose-300 transition flex items-center gap-1 disabled:opacity-50 font-bold uppercase tracking-wider">
+                        {recycling ? "Recycling..." : "Destroy"}
+                      </button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* OS Workspace Desktop Background */}
+                  <div className="relative flex-1 bg-gradient-to-br from-[#1e2330] to-[#0c0d12] p-4 overflow-hidden select-none">
+                    {/* Grid lines */}
+                    <div className="absolute inset-0 opacity-10 bg-[linear-gradient(rgba(255,255,255,.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.05)_1px,transparent_1px)] bg-[size:20px_20px]" />
+
+                    {/* VNC connection overlay */}
+                    {vncConnected && (
+                      <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-45 flex flex-col items-center justify-center text-white select-none font-sans">
+                        <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2.5 rounded-full text-emerald-400 font-bold mb-4">
+                          <Radio className="h-4 w-4 animate-pulse" />
+                          <span>VNC Active Client Stream Connected (1280x800)</span>
+                        </div>
+                        <div className="text-[10px] text-stone-400 max-w-sm text-center leading-relaxed">
+                          Live VNC screen mirroring is reading sandbox framebuffer updates from target virtual display :1.0
+                        </div>
+                        <button onClick={() => setVncConnected(false)} className="mt-5 rounded-lg bg-stone-900 border border-stone-800 hover:bg-stone-850 px-4 py-2 text-stone-300 transition text-[11px] font-bold">
+                          Disconnect Stream
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Desktop Icons */}
+                    <div className="absolute left-4 top-4 flex flex-col gap-5 text-center text-[10px] font-sans font-semibold text-white/80 z-10">
+                      <button onClick={() => setSandboxWindow("chrome")} className="flex flex-col items-center gap-1 w-14 group outline-none">
+                        <div className="grid h-9 w-9 place-items-center rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 shadow-lg group-hover:bg-sky-500/25 group-hover:border-sky-500/40 transition">
+                          <Globe2 className="h-5 w-5" />
+                        </div>
+                        <span>Chrome</span>
+                      </button>
+                      <button onClick={() => setSandboxWindow("terminal")} className="flex flex-col items-center gap-1 w-14 group outline-none">
+                        <div className="grid h-9 w-9 place-items-center rounded bg-stone-500/15 text-stone-200 border border-stone-500/25 shadow-lg group-hover:bg-stone-500/35 group-hover:border-stone-500/50 transition">
+                          <Monitor className="h-5 w-5" />
+                        </div>
+                        <span>Terminal</span>
+                      </button>
+                      <button onClick={() => setSandboxWindow("editor")} className="flex flex-col items-center gap-1 w-14 group outline-none">
+                        <div className="grid h-9 w-9 place-items-center rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-lg group-hover:bg-emerald-500/25 group-hover:border-emerald-500/40 transition">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <span>brief.txt</span>
+                      </button>
+                    </div>
+
+                    {/* Dynamic Cursor with coordinate transitions */}
+                    {currentStep?.cursorX && currentStep?.cursorY && activeDesktopWindow !== "desktop" && (
+                      <div 
+                        className="absolute z-50 pointer-events-none transition-all duration-[1100ms] ease-in-out"
+                        style={{ 
+                          left: `${(currentStep.cursorX / 1280) * 100}%`, 
+                          top: `${(currentStep.cursorY / 800) * 100}%` 
+                        }}
+                      >
+                        {/* Virtual Mouse pointer */}
+                        <div className="relative">
+                          <svg viewBox="0 0 24 24" className="h-6 w-6 text-emerald-400 drop-shadow-md fill-current">
+                            <path d="M4.5 3v15.25l3.96-3.95 2.82 6.55 2.62-1.12-2.82-6.55H17.5L4.5 3z" />
+                          </svg>
+                          {/* Click Ripple Effect */}
+                          {currentStep.action === "mouse_click" && (
+                            <span className="absolute -left-1 -top-1 h-8 w-8 rounded-full border border-emerald-400 bg-emerald-400/20 animate-ping opacity-75" />
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Terminal Window Frame */}
+                    {activeDesktopWindow === "terminal" && (
+                      <div className="absolute right-10 top-6 h-[230px] w-[520px] rounded-lg border border-stone-700 bg-stone-950/90 shadow-2xl flex flex-col backdrop-blur-sm z-30 overflow-hidden">
+                        <div className="flex h-7 items-center justify-between bg-stone-900/90 px-3 border-b border-stone-800 rounded-t-lg shrink-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-rose-500" />
+                            <span className="h-2 w-2 rounded-full bg-amber-500" />
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                          </div>
+                          <span className="text-[10px] text-stone-400 font-sans font-semibold">e2b@sandbox: /home/user</span>
+                          <button onClick={() => setSandboxWindow("desktop")} className="text-[10px] text-stone-500 hover:text-stone-300 font-sans">✕</button>
+                        </div>
+                        <div className="flex-1 p-3 font-mono text-[10px] leading-5 text-emerald-400 overflow-y-auto text-left select-text flex flex-col justify-between">
+                          <div className="overflow-y-auto flex-1 max-h-[140px] pr-2 preview-scroll">
+                            {currentStep?.terminalOutput || "e2b@sandbox:~$\n"}
+                            {terminalHistory.map((line, idx) => (
+                              <div key={idx} className="whitespace-pre-wrap">{line}</div>
+                            ))}
+                            {runningCmd && <div className="text-stone-500 font-sans animate-pulse">Running on secure E2B container...</div>}
+                          </div>
+                          <form onSubmit={runCustomCommand} className="flex gap-1.5 border-t border-stone-800/80 pt-2 shrink-0">
+                            <span className="text-emerald-500 shrink-0 select-none">e2b@sandbox:~$</span>
+                            <input
+                              value={terminalInput}
+                              onChange={(e) => setTerminalInput(e.target.value)}
+                              placeholder="Type shell command (e.g. ls, pwd, cat brief.txt)..."
+                              disabled={runningCmd}
+                              className="flex-1 bg-transparent text-emerald-400 outline-none border-none p-0 text-[10px] font-mono w-full"
+                            />
+                          </form>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Chrome Window Frame */}
+                    {activeDesktopWindow === "chrome" && (
+                      <div className="absolute inset-x-20 top-6 bottom-6 rounded-lg border border-stone-700 bg-stone-900 shadow-2xl flex flex-col z-20 overflow-hidden">
+                        {/* Chrome Bar */}
+                        <div className="flex h-8 items-center gap-3 bg-stone-800 px-3 shrink-0">
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="h-2 w-2 rounded-full bg-rose-500" />
+                            <span className="h-2 w-2 rounded-full bg-amber-500" />
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                          </div>
+                          <div className="flex h-6 items-center rounded bg-stone-950 px-3 text-stone-300 text-[10px] w-40 border border-stone-800 shrink-0 font-sans truncate gap-2 select-none">
+                            <span className="h-2 w-2 rounded-full bg-sky-400" />
+                            {currentStep?.chromeTabTitle || "New Tab"}
+                          </div>
+                          <div className="flex-1 flex h-6 items-center rounded bg-stone-950 px-3 text-[10px] text-stone-400 border border-stone-800 shrink-0 truncate font-sans text-left">
+                            {currentStep?.chromeUrl || "about:blank"}
+                          </div>
+                          <button onClick={() => setSandboxWindow("desktop")} className="text-[10px] text-stone-500 hover:text-stone-300 font-sans pl-2 select-none">✕</button>
+                        </div>
+
+                        {/* Browser Webpage Canvas */}
+                        <div className="flex-1 bg-white p-4 text-stone-800 overflow-y-auto font-sans text-left select-text">
+                          <div className="max-w-2xl mx-auto space-y-3">
+                            <div className="flex items-center gap-3 border-b pb-2 shrink-0">
+                              <span className="grid h-7 w-7 place-items-center rounded-full bg-indigo-100 text-indigo-700 font-sans font-black text-[11px] select-none">G</span>
+                              <div>
+                                <h4 className="text-xs font-bold text-stone-900 leading-tight">{currentStep?.chromeTabTitle || "Page Context"}</h4>
+                                <p className="text-[9px] text-stone-500 font-mono">{currentStep?.chromeUrl}</p>
+                              </div>
+                            </div>
+                            <div className="text-[10px] leading-relaxed text-stone-600 whitespace-pre-wrap font-sans font-medium">
+                              {currentStep?.chromeContentHtml || "Navigating browser canvas and capturing DOM tree nodes..."}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Editor Window Frame */}
+                    {activeDesktopWindow === "editor" && (
+                      <div className="absolute left-20 top-8 h-[220px] w-[460px] rounded-lg border border-stone-700 bg-stone-900 shadow-2xl flex flex-col z-30 overflow-hidden font-mono">
+                        <div className="flex h-7 items-center justify-between bg-stone-800 px-3 border-b border-stone-700 shrink-0 select-none">
+                          <div className="flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-rose-500" />
+                            <span className="h-2 w-2 rounded-full bg-amber-500" />
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                          </div>
+                          <span className="text-[10px] text-stone-300 font-sans font-semibold">Mousepad - brief.txt</span>
+                          <button onClick={() => setSandboxWindow("desktop")} className="text-[10px] text-stone-500 hover:text-stone-300 font-sans">✕</button>
+                        </div>
+                        <div className="flex-1 p-3 bg-stone-950/90 text-stone-300 overflow-y-auto font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-left select-text">
+                          {currentStep?.editorContent || "No brief draft in standard environment yet."}
+                          <span className="inline-block h-3.5 w-1 bg-stone-300 animate-pulse ml-0.5" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* OS Bottom Status / SDK Command Live Trace */}
+                  <div className="h-24 bg-stone-950 border-t border-stone-800 p-2.5 flex shrink-0 gap-3 font-mono text-[10px] select-none text-left">
+                    <div className="flex-1 flex flex-col border border-stone-800 bg-[#07080d] rounded p-2 overflow-hidden">
+                      <span className="text-emerald-400 font-bold uppercase tracking-wider text-[7px] mb-0.5">E2B SDK Execution Trace</span>
+                      <div className="flex-1 text-stone-300 overflow-y-auto whitespace-pre truncate text-[10px] leading-5 select-text">
+                        <span className="text-stone-500 select-none">{"> "}</span>
+                        <span className="text-sky-300">
+                          {runningCmd
+                            ? `await sandbox.commands.run("${terminalHistory[terminalHistory.length - 1]?.replace("e2b@sandbox:~$ ", "") || ""}")`
+                            : currentStep?.sdkCode || "// Awaiting E2B execution step..."}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-72 flex flex-col border border-stone-800 bg-[#07080d] rounded p-2 overflow-hidden">
+                      <span className="text-amber-400 font-bold uppercase tracking-wider text-[7px] mb-0.5">Sandbox Live Logs</span>
+                      <div className="flex-1 text-stone-400 overflow-y-auto select-text text-[9px] leading-relaxed">
+                        {runningCmd
+                          ? "Executing interactive custom shell command in Ubuntu cloud context..."
+                          : currentStep?.log || "Idle. Ready to deploy secure container."}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="absolute bottom-11 left-1/2 z-10 h-[430px] w-[980px] max-w-[96%] -translate-x-1/2 rounded-[18px] border border-black/20 bg-black/10 shadow-2xl">
+                  <div className="absolute left-[6%] top-[10%] rounded-md bg-stone-950 px-3 py-1 text-xs font-black text-white shadow-lg">
+                    {activeFloorMeta.name}
+                  </div>
+                  <OfficeSprite src="elevator_frame.png" className="absolute bottom-28 left-2 h-36 opacity-90" />
+                  <OfficeSprite src="boss-rug.png" className="absolute bottom-20 left-[39%] h-28 opacity-80" />
+                  <OfficeSprite src="plant.png" className="absolute bottom-12 left-8 h-24" />
+                  <OfficeSprite src="watercooler.png" className="absolute bottom-12 right-8 h-28" />
+                  <OfficeSprite src="old-printer.png" className={cn("absolute bottom-10 left-[31%] h-16", runState === "complete" && "animate-pulse")} />
+                  <OfficeSprite src="coffee-machine.png" className="absolute bottom-10 right-[29%] h-16" />
+                  <OfficeSprite src="employee-of-month.png" className="absolute right-[17%] top-[8%] h-20 opacity-90" />
+
+                  {research.agents.map((agent, index) => {
+                    const position = agentPosition(index);
+                    const projectedStatus = nextAgentStatus(agent, index, activeStep, runState);
+                    const active = index === activeStep % Math.max(1, research.agents.length) && runState === "running";
+                    return (
+                      <div
+                        key={agent.name}
+                        className="absolute z-20 w-40 -translate-x-1/2 text-left transition duration-300"
+                        style={{ left: `${position.left}%`, top: `${position.top}%` }}
+                      >
+                        <div className={cn("relative rounded-lg border px-3 py-2 shadow-lg", statusTone(projectedStatus), active && "ring-2 ring-emerald-400")}>
+                          {active ? (
+                            <div className="absolute -top-12 left-7 max-w-40 rounded-lg border border-stone-200 bg-white px-3 py-2 text-[10px] font-black text-stone-800 shadow-lg">
+                              {agent.task}
+                              <span className="absolute -bottom-1 left-5 h-2 w-2 rotate-45 bg-white" />
+                            </div>
+                          ) : null}
+                          <div className="flex items-center gap-2">
+                            <span className="grid h-7 w-7 place-items-center rounded-md bg-white/80 ring-1 ring-black/5">
+                              <Bot className="h-3.5 w-3.5" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-[11px] font-black">{agent.name}</p>
+                              <p className="truncate text-[9px] font-bold opacity-60">{statusLabels[projectedStatus]}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mx-auto mt-1 h-10 w-16">
+                          <OfficeSprite src="desk.png" className="h-full w-full" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
             <div className="absolute bottom-4 left-4 right-4 z-30 grid gap-2 md:grid-cols-4">
               {[

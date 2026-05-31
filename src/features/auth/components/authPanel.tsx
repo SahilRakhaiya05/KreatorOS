@@ -19,7 +19,8 @@ const googleScopes = "openid https://www.googleapis.com/auth/userinfo.email http
 export function AuthPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [mode, setMode] = useState<AuthMode>("signin");
+  const requestedMode = searchParams.get("mode") === "signup" ? "signup" : "signin";
+  const [mode, setMode] = useState<AuthMode>(requestedMode);
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");

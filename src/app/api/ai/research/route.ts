@@ -5,6 +5,7 @@ import { getSession } from "@/server/auth/getSession";
 import { getActiveWorkspace } from "@/server/auth/getActiveWorkspace";
 import { isProviderConfigured, resolveModel } from "@/server/ai/providers";
 import { createSupabaseServerClient } from "@/server/supabase/serverClient";
+import { executeE2BDesktopResearch } from "@/server/ai/e2bService";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,7 @@ const researchRequestSchema = z.object({
   query: z.string().min(3),
   audience: z.string().optional(),
   angle: z.string().optional(),
+  sandboxType: z.enum(["standard", "e2b_desktop"]).default("standard"),
 });
 
 const sourceSchema = z.object({
@@ -224,6 +226,90 @@ export async function POST(req: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
+
+  if (body.sandboxType === "e2b_desktop") {
+    try {
+      const e2bData = await executeE2BDesktopResearch(body.query, body.audience ?? "", body.angle ?? "");
+      
+      const { data: run, error: createError } = await supabase
+        .from("creator_koffice_runs")
+        .insert({
+          workspace_id: workspace.id,
+          owner_id: user.id,
+          query: body.query,
+          audience: body.audience ?? null,
+          angle: body.angle ?? null,
+          status: "complete",
+          provider: e2bData.provider,
+          active_step: e2bData.desktopSteps.length - 1,
+          research: {
+            sandboxId: e2bData.sandboxId,
+            desktopSteps: e2bData.desktopSteps,
+            title: e2bData.title,
+            summary: e2bData.summary,
+            findings: e2bData.findings,
+            sourceQueries: e2bData.sourceQueries,
+            kanban: e2bData.kanban,
+            timeline: e2bData.timeline,
+            provider: e2bData.provider,
+            realSandbox: e2bData.realSandbox,
+          },
+          source_queue: e2bData.sourceQueries.map((q) => ({
+            title: q,
+            url: "",
+            snippet: "E2B Desktop workspace search target",
+            sourceType: "E2B Query",
+          })),
+          agents: e2bData.desktopSteps.map((s) => ({
+            name: s.activeWindow === "terminal" ? "Terminal Scout" : s.activeWindow === "chrome" ? "Browser Agent" : "Brief Editor",
+            desk: s.activeWindow,
+            task: s.sdkCode,
+            status: s.action === "close" ? "done" as const : "reading" as const,
+          })),
+          kanban: e2bData.kanban,
+          timeline: e2bData.timeline,
+          final_answer: e2bData.finalAnswer,
+          started_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+        })
+        .select("*")
+        .single();
+
+      if (createError) return apiError("koffice_run_create_failed", createError.message, 400);
+      
+      return apiOk({
+        run,
+        research: {
+          sandboxId: e2bData.sandboxId,
+          desktopSteps: e2bData.desktopSteps,
+          title: e2bData.title,
+          summary: e2bData.summary,
+          findings: e2bData.findings,
+          sourceQueries: e2bData.sourceQueries,
+          sourceQueue: e2bData.sourceQueries.map((q) => ({
+            title: q,
+            url: "",
+            snippet: "E2B Desktop workspace search target",
+            sourceType: "E2B Query",
+          })),
+          agents: e2bData.desktopSteps.map((s) => ({
+            name: s.activeWindow === "terminal" ? "Terminal Scout" : s.activeWindow === "chrome" ? "Browser Agent" : "Brief Editor",
+            desk: s.activeWindow,
+            task: s.sdkCode,
+            status: s.action === "close" ? "done" as const : "reading" as const,
+          })),
+          kanban: e2bData.kanban,
+          timeline: e2bData.timeline,
+        },
+        finalAnswer: e2bData.finalAnswer,
+        provider: e2bData.provider,
+        available: true,
+      });
+    } catch (e: any) {
+      return apiError("e2b_execution_failed", e.message || "Failed executing E2B Desktop Sandbox research", 500);
+    }
+  }
+
   const { data: run, error: createError } = await supabase
     .from("creator_koffice_runs")
     .insert({
