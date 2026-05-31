@@ -7,6 +7,7 @@ import { authRoutes } from "../config/authRoutes";
 import { hasSupabaseConfig } from "../../../server/supabase/config";
 import { createSupabaseServerClient } from "../../../server/supabase/serverClient";
 import { createWorkspaceForUser } from "../../../server/workspaces/workspaceService";
+import { sendWelcomeEmail } from "@/server/notifications/welcomeEmail";
 import type { WorkspaceType } from "../../../server/auth/permissions";
 import { getDashboardForAccountType, isAccountType } from "../config/accountTypes";
 import type { AccountType } from "../types";
@@ -70,6 +71,27 @@ export async function completeOnboardingAction(_previousState: ActionState, form
     return { status: "error", message: workspaceResult.error.message || defaultError };
   }
 
+  // Load existing profile to preserve details or check welcome email status
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("preferences")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const existingPrefs = (existingProfile?.preferences as Record<string, any>) || {};
+  const isEmailSent = existingPrefs.welcome_email_sent === true;
+  let welcomeEmailSent = isEmailSent;
+
+  if (!isEmailSent) {
+    const welcomeResult = await sendWelcomeEmail({
+      email: user.email || "",
+      fullName,
+    });
+    if (welcomeResult.ok) {
+      welcomeEmailSent = true;
+    }
+  }
+
   const { error } = await supabase.from("profiles").upsert({
     id: user.id,
     email: user.email,
@@ -78,7 +100,14 @@ export async function completeOnboardingAction(_previousState: ActionState, form
     account_type: accountType,
     active_workspace_id: workspaceResult.workspace.id,
     onboarding_completed: true,
-    preferences: { focus, primaryGoal, audience, accountType, workspaceType },
+    preferences: {
+      focus,
+      primaryGoal,
+      audience,
+      accountType,
+      workspaceType,
+      welcome_email_sent: welcomeEmailSent,
+    },
     updated_at: new Date().toISOString(),
   });
 

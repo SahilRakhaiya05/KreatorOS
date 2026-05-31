@@ -10,6 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { captureClientEvent, analyticsEvents } from "@/client/posthog/events";
 
 type CreatorProfile = {
   id: string;
@@ -274,7 +275,15 @@ export function BrandDiscoverClient({ creators }: { creators: CreatorProfile[] }
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    onClick={() => setSelectedCreator(c)}
+                    onClick={() => {
+                      setSelectedCreator(c);
+                      captureClientEvent(analyticsEvents.brandDiscoverCreatorViewed, {
+                        creator_id: c.id,
+                        creator_username: c.username,
+                        creator_name: c.display_name,
+                        creator_niche: c.niche || "unknown"
+                      });
+                    }}
                     className="text-xs font-bold text-violet-600 hover:bg-violet-50/50 hover:text-violet-700 gap-1 w-full"
                   >
                     <Bot className="h-4 w-4" /> Chat with AI Representative
@@ -405,6 +414,10 @@ export function BrandDiscoverClient({ creators }: { creators: CreatorProfile[] }
               </Button>
               <Button 
                 onClick={() => {
+                  captureClientEvent(analyticsEvents.brandDiscoverCollabRoomClicked, {
+                    creator_id: selectedCreator.id,
+                    creator_username: selectedCreator.username
+                  });
                   setSelectedCreator(null);
                   router.push("/brand/collab-room");
                 }}

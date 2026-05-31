@@ -35,6 +35,7 @@ import {
   useState,
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { captureClientEvent, analyticsEvents } from "@/client/posthog/events";
 
 type BillingInterval = "monthly" | "annual";
 
@@ -369,6 +370,7 @@ function Modal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     if (!email.includes("@")) return;
     setLoading(true);
+    captureClientEvent(analyticsEvents.landingEarlyAccessRequested, { email });
     setTimeout(() => { setLoading(false); setDone(true); }, 800);
   };
   return (
@@ -2266,8 +2268,8 @@ export default function MarketingPage() {
             ))}
           </div>
           <div className="nav-actions">
-            <a className="nav-sign" href={AUTH_ROUTES.LOGIN}>Sign in</a>
-            <a className="btn btn-primary" href={AUTH_ROUTES.SIGNUP}>Get Started</a>
+            <a className="nav-sign" href={AUTH_ROUTES.LOGIN} onClick={() => captureClientEvent("landing.header_cta_clicked", { action: "login" })}>Sign in</a>
+            <a className="btn btn-primary" href={AUTH_ROUTES.SIGNUP} onClick={() => captureClientEvent("landing.header_cta_clicked", { action: "signup" })}>Get Started</a>
           </div>
         </nav>
       </header>
@@ -2287,7 +2289,7 @@ export default function MarketingPage() {
               A calm operating dashboard for products, bookings, members, and brand deals, with a supervised AI operator that turns messy admin into approved workflows.
             </p>
             <div className="hero-ctas">
-              <a className="btn btn-primary" href={AUTH_ROUTES.SIGNUP}>Get Started →</a>
+              <a className="btn btn-primary" href={AUTH_ROUTES.SIGNUP} onClick={() => captureClientEvent(analyticsEvents.landingHeroCtaClicked)}>Get Started →</a>
             </div>
           </motion.div>
           <HeroDeviceStack />
@@ -2504,8 +2506,8 @@ export default function MarketingPage() {
             <h2>Plans sized for creator leverage</h2>
             <p>Choose the plan that fits your business stage.</p>
             <div className="billing-toggle" role="group" aria-label="Billing interval">
-              <button className={billing === "monthly" ? "active" : ""} type="button" onClick={() => setBilling("monthly")}>Monthly</button>
-              <button className={billing === "annual" ? "active" : ""} type="button" onClick={() => setBilling("annual")}>Annual · Save 20%</button>
+              <button className={billing === "monthly" ? "active" : ""} type="button" onClick={() => { setBilling("monthly"); captureClientEvent(analyticsEvents.landingPricingIntervalToggled, { interval: "monthly" }); }}>Monthly</button>
+              <button className={billing === "annual" ? "active" : ""} type="button" onClick={() => { setBilling("annual"); captureClientEvent(analyticsEvents.landingPricingIntervalToggled, { interval: "annual" }); }}>Annual · Save 20%</button>
             </div>
           </motion.div>
           <div className="pricing-grid">
@@ -2537,7 +2539,13 @@ export default function MarketingPage() {
                 <ul>
                   {plan.features.map(f => <li key={f}>{f}</li>)}
                 </ul>
-                <a className={plan.featured ? "btn btn-green" : "btn btn-soft"} href={plan.href}>{plan.cta}</a>
+                <a 
+                  className={plan.featured ? "btn btn-green" : "btn btn-soft"} 
+                  href={plan.href}
+                  onClick={() => captureClientEvent(analyticsEvents.landingPricingCtaClicked, { plan: plan.name, price: plan.price, interval: billing })}
+                >
+                  {plan.cta}
+                </a>
               </motion.article>
             ))}
           </div>
@@ -2598,7 +2606,15 @@ export default function MarketingPage() {
           <div className="faq-list">
             {faqs.map(([q, a], i) => (
               <article className={openFaq === i ? "faq-item open" : "faq-item"} key={q} style={{ animationDelay: `${i * 80}ms` } as CSSProperties}>
-                <button type="button" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+                <button 
+                  type="button" 
+                  onClick={() => { 
+                    setOpenFaq(openFaq === i ? null : i); 
+                    if (openFaq !== i) {
+                      captureClientEvent(analyticsEvents.landingFaqOpened, { question: q });
+                    }
+                  }}
+                >
                   <span>{q}</span>
                   <span className="faq-toggle">+</span>
                 </button>
@@ -2632,7 +2648,7 @@ export default function MarketingPage() {
         >
           <h2>Create the creator business you deserve.</h2>
           <p>Give your audience a clean buying path, give sponsors a professional room, and give yourself one calm place to run the whole operation.</p>
-          <a className="btn btn-primary" href={AUTH_ROUTES.SIGNUP}>Create your workspace</a>
+          <a className="btn btn-primary" href={AUTH_ROUTES.SIGNUP} onClick={() => captureClientEvent("landing.footer_cta_clicked")}>Create your workspace</a>
         </motion.div>
       </section>
 

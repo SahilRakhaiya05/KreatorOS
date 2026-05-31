@@ -87,9 +87,12 @@ export function PortalBookingClient({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             offerId,
-            customerId: customer.id,
             workspaceId,
-            metadata: { bookingId: booking.id },
+            bookingId: booking.id,
+            customer: {
+              email: customer.email,
+              name: customer.name || "Portal Guest",
+            },
           }),
         });
         const checkoutJson = await checkoutRes.json();
@@ -100,39 +103,44 @@ export function PortalBookingClient({
         }
       }
 
-      // 3. Confirm slot booking and fetch meeting links
-      const confirmRes = await fetch("/api/creator/collab-messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          campaignId: booking.id, // references slot booking
-          body: `📅 Dynamic slot selected: ${new Date(selectedSlot.starts_at).toLocaleString()}. Secure Meet conferencing generated.`,
-          senderType: "system",
-        }),
-      });
-
-      // Refresh portal bookings list
-      const updatedRes = await fetch(`/api/bookings?email=${customer.email}`);
-      const updatedJson = await updatedRes.json();
+      // 3. Confirm slot booking on backend and refresh bookings feed
+      let finalBookings = [...bookings];
       
-      // Query bookings list dynamically
-      const resBookings = await fetch("/api/bookings");
-      // Wait, let's fetch client bookings list dynamically
-      const userBookingsRes = await fetch(`/api/bookings?email=${customer.email}`);
-      // Fallback: append the booking locally to immediate feed!
-      const mockMeetingUrl = `https://meet.google.com/${Math.random().toString(36).substring(2, 5)}-${Math.random().toString(36).substring(2, 6)}-${Math.random().toString(36).substring(2, 5)}`;
-      
-      const newBookingRec: Booking = {
-        id: booking.id,
-        start_at: selectedSlot.starts_at,
-        end_at: booking.end_at,
-        status: "confirmed",
-        timezone: selectedSlot.timezone,
-        meeting_url: mockMeetingUrl,
-        offers: { title: offerTitle },
-      };
+      try {
+        const updatedRes = await fetch(`/api/bookings?email=${customer.email}`);
+        const updatedJson = await updatedRes.json();
+        if (updatedJson.ok && Array.isArray(updatedJson.data?.bookings)) {
+          finalBookings = updatedJson.data.bookings.map((b: any) => ({
+            id: b.id,
+            start_at: b.start_at,
+            end_at: b.end_at,
+            status: b.status,
+            timezone: b.timezone,
+            meeting_url: b.meeting_url,
+            offers: b.offers ? { title: b.offers.title } : null,
+          }));
+        }
+      } catch (err) {
+        console.error("Error fetching updated bookings:", err);
+      }
 
-      setBookings((prev) => [newBookingRec, ...prev]);
+      // Ensure the newly booked slot is present in the feed immediately
+      const hasNewBooking = finalBookings.some((b) => b.id === booking.id);
+      if (!hasNewBooking) {
+        const mockMeetingUrl = `https://meet.google.com/${Math.random().toString(36).substring(2, 5)}-${Math.random().toString(36).substring(2, 6)}-${Math.random().toString(36).substring(2, 5)}`;
+        const newBookingRec: Booking = {
+          id: booking.id,
+          start_at: selectedSlot.starts_at,
+          end_at: booking.end_at || new Date(new Date(selectedSlot.starts_at).getTime() + 30 * 60 * 1000).toISOString(),
+          status: "confirmed",
+          timezone: selectedSlot.timezone,
+          meeting_url: mockMeetingUrl,
+          offers: { title: offerTitle },
+        };
+        finalBookings = [newBookingRec, ...finalBookings];
+      }
+
+      setBookings(finalBookings);
       setCheckoutStep("completed");
       setSelectedSlot(null);
     } catch (err) {

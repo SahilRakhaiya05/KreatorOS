@@ -5,6 +5,7 @@ import { Badge, Card, cn } from "@/components/ui";
 import { Calendar, FileText, Mic, Send, Sparkles, Upload, Users, Video, Loader2, Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { captureClientEvent, analyticsEvents } from "@/client/posthog/events";
 
 type Study = {
   id: string;
@@ -62,6 +63,7 @@ export function ResearchLab() {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
+    captureClientEvent(analyticsEvents.researchLabStudyCreated, { title: newTitle.trim() });
     setSaving(true);
     try {
       const res = await fetch("/api/creator/research-studies", {
@@ -115,7 +117,13 @@ export function ResearchLab() {
             studies.map((study) => (
               <button
                 key={study.id}
-                onClick={() => setSelected(study)}
+                onClick={() => {
+                  setSelected(study);
+                  captureClientEvent(analyticsEvents.researchLabStudySelected, {
+                    study_id: study.id,
+                    title: study.title,
+                  });
+                }}
                 className={cn(
                   "w-full rounded-2xl border p-4 text-left transition-all",
                   selected?.id === study.id
@@ -150,7 +158,13 @@ export function ResearchLab() {
                   AI can import customers, localize outreach, schedule interviews, join Zoom/Meet, ask adaptive questions, transcribe, summarize themes, extract quotes, and push product decisions into the AI operator.
                 </p>
               </div>
-              <button className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-black text-white shrink-0 hover:bg-slate-800 transition">
+              <button 
+                onClick={() => captureClientEvent(analyticsEvents.researchLabStudyLaunched, {
+                  study_id: selected.id,
+                  title: selected.title,
+                })}
+                className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-black text-white shrink-0 hover:bg-slate-800 transition"
+              >
                 Launch study
               </button>
             </div>

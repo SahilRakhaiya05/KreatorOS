@@ -32,6 +32,7 @@ import {
   Users,
 } from "lucide-react";
 import { Card, cn } from "@/components/ui";
+import { captureClientEvent, analyticsEvents } from "@/client/posthog/events";
 
 type RunState = "idle" | "running" | "paused" | "complete";
 type ViewMode = "office" | "sources" | "agents" | "kanban" | "timeline" | "findings" | "desktop";
@@ -352,6 +353,14 @@ export function WorkflowCanvas() {
   const [vncConnected, setVncConnected] = useState(false);
   const [recycling, setRecycling] = useState(false);
 
+  useEffect(() => {
+    if (sandboxWindow) {
+      captureClientEvent(analyticsEvents.kofficeSandboxWindowChanged, {
+        window: sandboxWindow,
+      });
+    }
+  }, [sandboxWindow]);
+
   async function runCustomCommand(e: React.FormEvent) {
     e.preventDefault();
     if (!terminalInput.trim()) return;
@@ -359,6 +368,9 @@ export function WorkflowCanvas() {
     setTerminalInput("");
     setRunningCmd(true);
     setTerminalHistory((prev) => [...prev, `e2b@sandbox:~$ ${cmd}`]);
+    captureClientEvent(analyticsEvents.kofficeTerminalCommandExecuted, {
+      command: cmd,
+    });
 
     try {
       const res = await fetch("/api/ai/research/command", {
@@ -386,6 +398,9 @@ export function WorkflowCanvas() {
   async function recycleSandbox() {
     setRecycling(true);
     showToast("Releasing secure microVM sandbox container...");
+    captureClientEvent(analyticsEvents.kofficeSandboxRecycled, {
+      sandbox_id: research.sandboxId,
+    });
     window.setTimeout(() => {
       setResearch(emptyResearch);
       setActiveRunId(null);
@@ -429,6 +444,10 @@ export function WorkflowCanvas() {
     setFinalAnswer("");
     setResearch(plannedResearch(query, audience, angle));
     setProvider(sandboxType === "e2b_desktop" ? "E2B Desktop VM" : "Deploying agents");
+    captureClientEvent(analyticsEvents.kofficeSandboxInitiated, {
+      type: sandboxType,
+      query,
+    });
 
     try {
       const res = await fetch("/api/ai/research", {
@@ -553,6 +572,9 @@ export function WorkflowCanvas() {
         showToast(json.error?.message ?? "Workflow save failed");
         return;
       }
+      captureClientEvent(analyticsEvents.kofficeWorkflowSaved, {
+        workflow_id: activeRunId,
+      });
       showToast("Workflow draft saved");
     } catch {
       showToast("Could not save workflow");

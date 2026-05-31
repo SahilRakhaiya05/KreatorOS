@@ -33,6 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { CreatorCalendarSlotRecord, CreatorPageBlockRecord, CreatorPageRecord, PageBlockType } from "@/features/bioBuilder/types";
+import { captureClientEvent, analyticsEvents } from "@/client/posthog/events";
 
 type Theme = { name: string; bg: string; button: string };
 type AddMode = PageBlockType;
@@ -432,6 +433,7 @@ export function BioBuilderClient({
   }
 
   function saveVersion() {
+    captureClientEvent(analyticsEvents.pageBuilderVersionSaved, { page_id: page.id });
     startTransition(async () => {
       const res = await fetch(`/api/pages/${page.id}/versions`, {
         method: "POST",
@@ -454,6 +456,7 @@ export function BioBuilderClient({
   }
 
   function requestRestore(versionId: string) {
+    captureClientEvent(analyticsEvents.pageBuilderVersionRestoreRequested, { version_id: versionId });
     startTransition(async () => {
       const res = await fetch(`/api/pages/${page.id}/versions/${versionId}/restore`, { method: "POST" });
       const json = await res.json();
@@ -490,6 +493,7 @@ export function BioBuilderClient({
     const bio = String(formData.get("bio") ?? "").trim();
     if (!displayName || !username) return;
 
+    captureClientEvent(analyticsEvents.pageBuilderProfileSaved, { handle, slug: username });
     setPageIdentity({ displayName, handle, slug: username, bio });
     persistPage({
       display_name: displayName,
@@ -556,6 +560,7 @@ export function BioBuilderClient({
   }
 
   function deleteBlock(id: string) {
+    captureClientEvent(analyticsEvents.pageBuilderBlockDeleted, { block_id: id });
     setBlocks((prev) => prev.filter((block) => block.id !== id));
     startTransition(async () => {
       await fetch(`/api/pages/${page.id}/blocks/${id}`, { method: "DELETE" });
@@ -622,6 +627,8 @@ export function BioBuilderClient({
     const price = String(formData.get("price") ?? "").trim();
     const nextOrder = blocks.length ? Math.max(...blocks.map((block) => block.sort_order)) + 1 : 0;
 
+    captureClientEvent(analyticsEvents.pageBuilderBlockAdded, { type, title });
+
     startTransition(async () => {
       const metadata = {
         ...defaults.metadata,
@@ -655,6 +662,7 @@ export function BioBuilderClient({
   }
 
   function aiPolishPage() {
+    captureClientEvent(analyticsEvents.pageBuilderAiPolishTriggered);
     const nextTheme = themes.find((item) => item.name === "Research") ?? themes[0];
     setTheme(nextTheme);
     setLayout("Calendar-first");

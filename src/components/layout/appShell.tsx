@@ -5,10 +5,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
+  CheckCheck,
   ChevronsLeft,
   ChevronsRight,
   LogOut,
+  Mail,
   Menu,
+  MessageSquare,
   Settings,
   Sparkles,
   UserRound,
@@ -148,6 +151,100 @@ export function AppShell({ role, children }: { role: Role; children: React.React
   });
   const [livePageHref, setLivePageHref] = useState("/creator/builder");
 
+  interface Notification {
+    id: string;
+    channel: "dashboard" | "email" | "whatsapp";
+    subject?: string;
+    body?: string;
+    created_at: string;
+    metadata?: {
+      read_at?: string;
+      [key: string]: any;
+    };
+  }
+
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  async function fetchNotifications() {
+    try {
+      const res = await fetch("/api/notifications");
+      const json = await res.json();
+      if (json?.ok && json.data?.notifications) {
+        const list = json.data.notifications;
+        setNotifications(list);
+        const unread = list.filter((n: Notification) => !n.metadata || !n.metadata.read_at).length;
+        setUnreadCount(unread);
+      }
+    } catch {
+      /* ignore fetch failures */
+    }
+  }
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  async function markAllAsRead() {
+    const updated = notifications.map(n => ({
+      ...n,
+      metadata: { ...n.metadata, read_at: new Date().toISOString() }
+    }));
+    setNotifications(updated);
+    setUnreadCount(0);
+
+    try {
+      await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ all: true })
+      });
+      fetchNotifications();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function markAsRead(notificationId: string) {
+    const updated = notifications.map(n => {
+      if (n.id === notificationId) {
+        return {
+          ...n,
+          metadata: { ...n.metadata, read_at: new Date().toISOString() }
+        };
+      }
+      return n;
+    });
+    setNotifications(updated);
+    setUnreadCount(prev => Math.max(0, prev - 1));
+
+    try {
+      await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationId })
+      });
+      fetchNotifications();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function formatRelativeTime(dateString: string) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
+  }
+
   useEffect(() => {
     try {
       setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
@@ -284,10 +381,103 @@ export function AppShell({ role, children }: { role: Role; children: React.React
                       <Link href={livePageHref}>Live page</Link>
                     </Button>
                   )}
-                  <Button variant="outline" size="icon" className="relative">
-                    <Bell className="h-[18px] w-[18px]" />
-                    <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-accent" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" className="relative">
+                        <Bell className="h-[18px] w-[18px]" />
+                        {unreadCount > 0 && (
+                          <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-[360px] p-0 overflow-hidden bg-background/95 backdrop-blur-xl border border-border/85 shadow-2xl rounded-xl z-50">
+                      <div className="flex items-center justify-between p-4 border-b border-border/50 bg-secondary/20">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm">Notifications</span>
+                          {unreadCount > 0 && (
+                            <Badge variant="accent" className="px-1.5 py-0.5 text-[10px] font-bold">
+                              {unreadCount} new
+                            </Badge>
+                          )}
+                        </div>
+                        {unreadCount > 0 && (
+                          <button
+                            onClick={markAllAsRead}
+                            className="text-xs text-accent hover:text-accent/80 transition-colors font-medium flex items-center gap-1"
+                          >
+                            <CheckCheck className="h-3 w-3" />
+                            Mark all as read
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="max-h-[360px] overflow-y-auto divide-y divide-border/40">
+                        {notifications.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                            <div className="h-10 w-10 rounded-full bg-secondary/30 flex items-center justify-center mb-3">
+                              <Bell className="h-5 w-5 text-muted-foreground/60" />
+                            </div>
+                            <p className="text-sm font-medium text-foreground">All caught up!</p>
+                            <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
+                              You don't have any notifications right now.
+                            </p>
+                          </div>
+                        ) : (
+                          notifications.map((item) => {
+                            const isUnread = !item.metadata || !item.metadata.read_at;
+                            return (
+                              <div
+                                key={item.id}
+                                onClick={() => isUnread && markAsRead(item.id)}
+                                className={cn(
+                                  "group relative flex items-start gap-3 p-4 text-left transition-all duration-200 cursor-pointer select-none",
+                                  isUnread
+                                    ? "bg-accent/5 hover:bg-accent/10"
+                                    : "hover:bg-secondary/40"
+                                )}
+                              >
+                                {isUnread && (
+                                  <span className="absolute left-2 top-[22px] h-1.5 w-1.5 rounded-full bg-accent" />
+                                )}
+
+                                <div className={cn(
+                                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-sm shadow-sm",
+                                  isUnread
+                                    ? "bg-accent/10 border-accent/20 text-accent"
+                                    : "bg-muted/40 border-border/50 text-muted-foreground"
+                                )}>
+                                  {item.channel === "email" ? (
+                                    <Mail className="h-4 w-4" />
+                                  ) : item.channel === "whatsapp" ? (
+                                    <MessageSquare className="h-4 w-4" />
+                                  ) : (
+                                    <Bell className="h-4 w-4" />
+                                  )}
+                                </div>
+
+                                <div className="flex-1 space-y-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className={cn(
+                                      "text-xs font-semibold truncate",
+                                      isUnread ? "text-foreground" : "text-muted-foreground"
+                                    )}>
+                                      {item.subject || "System Notification"}
+                                    </p>
+                                    <span className="text-[10px] text-muted-foreground shrink-0 font-medium">
+                                      {formatRelativeTime(item.created_at)}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                                    {item.body}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

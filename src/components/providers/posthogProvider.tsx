@@ -5,6 +5,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "@posthog/react";
 
+import "@/instrumentation-client";
+
 function PostHogPageView() {
   const pathname = usePathname();
   const searchParams = useSearchParams();

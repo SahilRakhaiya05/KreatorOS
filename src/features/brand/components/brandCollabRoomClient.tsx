@@ -8,6 +8,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { captureClientEvent, analyticsEvents } from "@/client/posthog/events";
 
 type Message = {
   id: string;
@@ -130,6 +131,10 @@ export function BrandCollabRoomClient() {
 
   const handleAcceptPackage = async () => {
     if (!selectedDeal) return;
+    captureClientEvent(analyticsEvents.collabRoomPackageAccepted, {
+      deal_id: selectedDeal.id,
+      rate_cents: selectedDeal.rate_cents,
+    });
     await updateDealStatus("approved");
     await postCollabMessage(`🤝 Creator accepted the sponsorship package rate of $${(selectedDeal.rate_cents / 100).toFixed(2)} USD. Escrow funds are now securely locked via Stripe Connect.`, "system");
     await postCollabMessage(`Excellent! I've authorized the Stripe Connect hold. The contract is locked, and we are ready for you to create the deliverables. Please upload your draft link here as soon as it's ready!`, "brand");
@@ -138,6 +143,10 @@ export function BrandCollabRoomClient() {
 
   const handleApproveDeliverable = async () => {
     if (!selectedDeal) return;
+    captureClientEvent(analyticsEvents.collabRoomDeliverableApproved, {
+      deal_id: selectedDeal.id,
+      rate_cents: selectedDeal.rate_cents,
+    });
     await updateDealStatus("paid");
     await postCollabMessage(`🎉 Sponsorship deliverable approved by Brand. Stripe Connect escrow payment of $${(selectedDeal.rate_cents / 100).toFixed(2)} USD successfully released to Creator Wallet.`, "system");
     await postCollabMessage(`Excellent work! The deliverable has been approved. Sponsorship payout has been released. Looking forward to our next collaboration!`, "brand");
@@ -161,6 +170,10 @@ export function BrandCollabRoomClient() {
 
   const handleUpdatePrereqValue = async (field: string) => {
     if (!selectedDeal || updatingPrereq) return;
+    captureClientEvent(analyticsEvents.collabRoomPrerequisiteOverridden, {
+      deal_id: selectedDeal.id,
+      field,
+    });
     setUpdatingPrereq(true);
 
     const currentMeta = selectedDeal.metadata || {};
@@ -231,6 +244,12 @@ export function BrandCollabRoomClient() {
     setSending(true);
     const userMessage = inputText.trim();
     setInputText("");
+    
+    captureClientEvent(analyticsEvents.collabRoomMessageSent, {
+      deal_id: selectedDeal.id,
+      chat_mode: chatMode,
+      sender_type: "brand",
+    });
 
     try {
       const res = await fetch("/api/creator/collab-messages", {
@@ -318,7 +337,15 @@ export function BrandCollabRoomClient() {
             return (
               <button
                 key={deal.id}
-                onClick={() => setSelectedDeal(deal)}
+                onClick={() => {
+                  setSelectedDeal(deal);
+                  captureClientEvent(analyticsEvents.collabRoomDealSelected, {
+                    deal_id: deal.id,
+                    brand_name: deal.brand_name,
+                    status: deal.status,
+                    rate_cents: deal.rate_cents
+                  });
+                }}
                 className={`w-full rounded-2xl border p-3 text-left transition-all duration-200 ${
                   isSelected
                     ? "border-primary bg-primary/5 text-primary"
@@ -355,7 +382,10 @@ export function BrandCollabRoomClient() {
           {/* Stunning Toggle Switch */}
           <div className="flex items-center bg-secondary p-1 rounded-xl border border-border shadow-inner shrink-0 w-fit">
             <button
-              onClick={() => setChatMode("ai")}
+              onClick={() => {
+                setChatMode("ai");
+                captureClientEvent(analyticsEvents.collabRoomChatModeToggled, { chat_mode: "ai" });
+              }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black transition-all duration-200 ${
                 chatMode === "ai"
                   ? "bg-primary text-primary-foreground shadow-sm"
@@ -366,7 +396,10 @@ export function BrandCollabRoomClient() {
               <span>AI Autopilot</span>
             </button>
             <button
-              onClick={() => setChatMode("human")}
+              onClick={() => {
+                setChatMode("human");
+                captureClientEvent(analyticsEvents.collabRoomChatModeToggled, { chat_mode: "human" });
+              }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black transition-all duration-200 ${
                 chatMode === "human"
                   ? "bg-accent text-accent-foreground shadow-sm"
