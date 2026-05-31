@@ -15,6 +15,21 @@ import { createSupabaseBrowserClient } from "../../../client/supabase/browserCli
 type AuthMode = "signin" | "signup";
 
 const googleScopes = "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+
+function getAuthCallbackUrl(nextPath = "/onboarding") {
+  const currentOrigin = window.location.origin;
+  const configuredUrl = siteUrl?.trim();
+  const configuredOrigin = configuredUrl
+    ? new URL(configuredUrl.startsWith("http") ? configuredUrl : `https://${configuredUrl}`).origin
+    : null;
+  const origin =
+    currentOrigin.includes("localhost") && configuredOrigin && !configuredOrigin.includes("localhost")
+      ? configuredOrigin
+      : currentOrigin;
+
+  return `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+}
 
 export function AuthPanel() {
   const router = useRouter();
@@ -66,7 +81,7 @@ export function AuthPanel() {
               password,
               options: {
                 data: { full_name: fullName },
-                emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
+                emailRedirectTo: getAuthCallbackUrl("/onboarding"),
               },
             });
 
@@ -110,7 +125,7 @@ export function AuthPanel() {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
-            redirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
+            redirectTo: getAuthCallbackUrl("/onboarding"),
             scopes: googleScopes,
           },
         });
