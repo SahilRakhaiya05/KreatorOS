@@ -13,6 +13,25 @@ import {
 import { hasSupabaseConfig } from "./src/server/supabase/config";
 
 export async function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  if (pathname === "/" && request.nextUrl.searchParams.has("code")) {
+    const callbackUrl = request.nextUrl.clone();
+    callbackUrl.pathname = authRoutes.callback;
+    return NextResponse.redirect(callbackUrl);
+  }
+
+  if (
+    pathname === "/" &&
+    (request.nextUrl.searchParams.has("error") ||
+      request.nextUrl.searchParams.has("error_code") ||
+      request.nextUrl.searchParams.has("error_description"))
+  ) {
+    const errorUrl = request.nextUrl.clone();
+    errorUrl.pathname = authRoutes.error;
+    return NextResponse.redirect(errorUrl);
+  }
+
   if (!hasSupabaseConfig()) {
     return NextResponse.next();
   }
@@ -35,7 +54,6 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  const pathname = request.nextUrl.pathname;
   const { data: claimsData } = await supabase.auth.getClaims();
   const userId = claimsData?.claims?.sub;
 

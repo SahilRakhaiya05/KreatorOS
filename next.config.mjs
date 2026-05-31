@@ -13,6 +13,34 @@ const nextConfig = {
   turbopack: {
     root: __dirname
   },
+  async redirects() {
+    return [
+      {
+        source: "/",
+        has: [{ type: "query", key: "code" }],
+        destination: "/auth/callback",
+        permanent: false,
+      },
+      {
+        source: "/",
+        has: [{ type: "query", key: "error" }],
+        destination: "/auth/error",
+        permanent: false,
+      },
+      {
+        source: "/",
+        has: [{ type: "query", key: "error_code" }],
+        destination: "/auth/error",
+        permanent: false,
+      },
+      {
+        source: "/",
+        has: [{ type: "query", key: "error_description" }],
+        destination: "/auth/error",
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
