@@ -24,7 +24,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "KreatorOS — AI creator business operator",
+  title: "KreatorOS",
   description:
     "Run your entire creator business from one operator: booking, store, brand deals, research automation, and agent workflows.",
 };
