@@ -52,15 +52,11 @@ async function checkAuth() {
     const accountType = profile?.account_type || "user";
     if (accountType === "user" || accountType === "client") {
       roleBadgeEl.textContent = "PORTAL CLIENT";
-      roleBadgeEl.style.background = "rgba(59, 130, 246, 0.1)"; // Slate blue glass badge
-      roleBadgeEl.style.color = "#60a5fa";
-      roleBadgeEl.style.border = "1px solid rgba(59, 130, 246, 0.2)";
+      roleBadgeEl.style.color = "#3b5fe0";
       linkLibraryEl.href = `${apiOrigin}/portal/instagram`;
     } else {
       roleBadgeEl.textContent = accountType.toUpperCase();
-      roleBadgeEl.style.background = "rgba(16, 185, 129, 0.1)";
-      roleBadgeEl.style.color = "#34d399";
-      roleBadgeEl.style.border = "1px solid rgba(16, 185, 129, 0.2)";
+      roleBadgeEl.style.color = "#4f7c2b";
       linkLibraryEl.href = `${apiOrigin}/creator/instagram`;
     }
 
@@ -106,7 +102,7 @@ document.getElementById("btn-capture").addEventListener("click", async () => {
     }
 
     // Update button visual to reflect loading state
-    btn.textContent = "Saving to KreatorOS...";
+    btn.innerHTML = "Saving to KreatorOS...";
     btn.disabled = true;
 
     // Communicate with content script on active tab
@@ -129,21 +125,19 @@ document.getElementById("btn-capture").addEventListener("click", async () => {
 
 // Set button visual feedback
 function showButtonStatus(btn, text, statusType) {
-  btn.textContent = text;
+  btn.innerHTML = text;
   btn.disabled = false;
-  
+  btn.classList.remove("error", "success");
+
   if (statusType === "error") {
-    btn.style.background = "#ef4444";
-    btn.style.boxShadow = "0 4px 12px rgba(239, 68, 68, 0.2)";
+    btn.classList.add("error");
   } else if (statusType === "success") {
-    btn.style.background = "#10b981";
-    btn.style.boxShadow = "0 4px 12px rgba(16, 185, 129, 0.2)";
+    btn.classList.add("success");
   }
 
   setTimeout(() => {
-    btn.textContent = "Save Active Post";
-    btn.style.background = "";
-    btn.style.boxShadow = "";
+    btn.innerHTML = '<span class="btn-icon">↓</span> Save Active Post';
+    btn.classList.remove("error", "success");
   }, 3000);
 }
 
@@ -151,6 +145,7 @@ function showButtonStatus(btn, text, statusType) {
 async function loadRecentCaptures() {
   const container = document.getElementById("recent-container");
   const listEl = document.getElementById("recent-list");
+  if (!container || !listEl) return;
 
   try {
     const res = await fetch(`${apiOrigin}/api/import/instagram`, {
@@ -171,7 +166,6 @@ async function loadRecentCaptures() {
       recents.forEach(cap => {
         const item = document.createElement("div");
         item.className = "recent-item";
-        item.style.cursor = "pointer";
 
         // Thumbnail element
         const img = document.createElement("img");
@@ -181,30 +175,31 @@ async function loadRecentCaptures() {
         img.onerror = () => {
           img.src = "icon-32.png";
         };
-        
+
         // Metadata wrapper
         const txtWrapper = document.createElement("div");
-        txtWrapper.style.flex = "1";
-        txtWrapper.style.minWidth = "0";
+        txtWrapper.className = "recent-text";
 
         const titleText = cap.hook || cap.title || "Instagram Post";
         const title = document.createElement("div");
-        title.style.fontWeight = "600";
-        title.style.overflow = "hidden";
-        title.style.textOverflow = "ellipsis";
-        title.style.whiteSpace = "nowrap";
+        title.className = "recent-name";
         title.textContent = titleText;
 
         const author = document.createElement("div");
-        author.style.fontSize = "10px";
-        author.style.color = "#9ca3af";
+        author.className = "recent-author";
         author.textContent = cap.username ? `@${cap.username}` : "Instagram";
 
         txtWrapper.appendChild(title);
         txtWrapper.appendChild(author);
 
+        // Arrow indicator
+        const arrow = document.createElement("div");
+        arrow.className = "recent-arrow";
+        arrow.textContent = "→";
+
         item.appendChild(img);
         item.appendChild(txtWrapper);
+        item.appendChild(arrow);
 
         // Click to view active post url
         item.addEventListener("click", () => {

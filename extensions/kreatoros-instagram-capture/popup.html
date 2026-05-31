@@ -3,229 +3,496 @@
 <head>
   <meta charset="utf-8">
   <style>
-    body {
-      width: 320px;
-      margin: 0;
-      padding: 16px;
-      background-color: #030712;
-      color: #f3f4f6;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      font-size: 14px;
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap');
+
+    :root {
+      --ink: #151519;
+      --muted: #6e737c;
+      --line: rgba(21,21,25,0.10);
+      --paper: #fffefa;
+      --cream: #fbf7e9;
+      --sky: #d9f3f6;
+      --mint: #e8f7cf;
+      --grass: #9bd466;
+      --blue: #5c7cfa;
+      --orange: #f4ba63;
+      --pink: #f5b7bb;
+      --violet: #8b7cf6;
     }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 340px;
+      min-height: 280px;
+      background:
+        radial-gradient(circle at 10% 4%, rgba(217,243,246,0.5), transparent 40%),
+        radial-gradient(circle at 90% 8%, rgba(232,247,207,0.6), transparent 40%),
+        var(--paper);
+      color: var(--ink);
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      line-height: 1.5;
+    }
+
+    /* ─── Header ─── */
     .header {
       display: flex;
       align-items: center;
-      gap: 10px;
-      border-bottom: 1px solid #1f2937;
-      padding-bottom: 12px;
-      margin-bottom: 16px;
+      gap: 12px;
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid var(--line);
     }
+
     .logo {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #f43f5e, #ec4899);
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid rgba(21,21,25,0.10);
+      box-shadow: inset 0 -5px 10px rgba(21,21,25,0.04), 0 10px 18px rgba(21,21,25,0.07);
       display: grid;
       place-items: center;
-      font-weight: 900;
-      font-size: 18px;
-      color: #fff;
+      position: relative;
+      flex-shrink: 0;
+      overflow: hidden;
     }
+
     .title {
-      font-weight: 800;
-      font-size: 16px;
-      letter-spacing: -0.025em;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 900;
+      font-size: 17px;
+      letter-spacing: -0.04em;
+      color: var(--ink);
     }
+
     .subtitle {
       font-size: 11px;
-      color: #9ca3af;
+      color: var(--muted);
+      font-weight: 600;
       margin-top: 1px;
     }
+
+    /* ─── Cards ─── */
     .card {
-      background: #111827;
-      border: 1px solid #1f2937;
-      border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 14px;
+      margin: 14px 18px;
+      background: rgba(255,255,255,0.78);
+      border: 1px solid rgba(21,21,25,0.08);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 12px 28px rgba(21,21,25,0.05);
+      backdrop-filter: blur(12px);
     }
+
+    /* ─── Auth States ─── */
     .auth-state {
       display: flex;
       flex-direction: column;
       align-items: center;
       text-align: center;
-      gap: 10px;
-      padding: 10px 0;
+      gap: 12px;
+      padding: 8px 0;
     }
+
     .badge {
       display: inline-flex;
       align-items: center;
-      padding: 3px 10px;
-      border-radius: 9999px;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
       font-size: 10px;
-      font-weight: 700;
+      font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.08em;
     }
+
+    .badge::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+    }
+
     .badge-error {
-      background: rgba(239, 68, 68, 0.1);
-      color: #f87171;
-      border: 1px solid rgba(239, 68, 68, 0.2);
+      background: rgba(239, 68, 68, 0.08);
+      color: #dc2626;
+      border: 1px solid rgba(239, 68, 68, 0.15);
     }
+
+    .badge-error::before {
+      background: #ef4444;
+      box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
+    }
+
     .badge-success {
-      background: rgba(16, 185, 129, 0.1);
-      color: #34d399;
-      border: 1px solid rgba(16, 185, 129, 0.2);
+      background: rgba(155, 212, 102, 0.12);
+      color: #4f7c2b;
+      border: 1px solid rgba(155, 212, 102, 0.25);
     }
+
+    .badge-success::before {
+      background: var(--grass);
+      box-shadow: 0 0 0 4px rgba(155, 212, 102, 0.16);
+    }
+
+    .badge-info {
+      background: rgba(92, 124, 250, 0.08);
+      color: #3b5fe0;
+      border: 1px solid rgba(92, 124, 250, 0.15);
+    }
+
+    .badge-info::before {
+      background: var(--blue);
+      box-shadow: 0 0 0 4px rgba(92, 124, 250, 0.12);
+    }
+
     .profile-info {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       width: 100%;
       text-align: left;
     }
+
     .avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 999px;
-      background: #374151;
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
+      background: var(--ink);
       display: grid;
       place-items: center;
-      font-weight: 700;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 800;
       font-size: 14px;
       color: #fff;
+      flex-shrink: 0;
+      box-shadow: 0 8px 18px rgba(21,21,25,0.14);
     }
+
+    .profile-name {
+      font-weight: 700;
+      font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--ink);
+    }
+
+    .profile-role {
+      font-size: 10px;
+      color: var(--grass);
+      font-weight: 800;
+      margin-top: 1px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .auth-text {
+      font-size: 13px;
+      color: var(--muted);
+      margin: 2px 0 8px;
+      line-height: 1.55;
+      font-weight: 500;
+    }
+
+    /* ─── Buttons ─── */
     .btn {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
       width: 100%;
-      height: 40px;
+      height: 44px;
       border: none;
-      border-radius: 8px;
-      font-weight: 700;
+      border-radius: 999px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 800;
       font-size: 13px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, background 0.2s ease;
+      white-space: nowrap;
     }
+
+    .btn:hover { transform: translateY(-2px); }
+    .btn:active { transform: translateY(0); }
+
     .btn-primary {
-      background: #f3f4f6;
-      color: #030712;
-    }
-    .btn-primary:hover {
-      background: #e5e7eb;
-    }
-    .btn-secondary {
-      background: #1f2937;
-      color: #f3f4f6;
-      border: 1px solid #374151;
-    }
-    .btn-secondary:hover {
-      background: #374151;
-    }
-    .btn-action {
-      background: linear-gradient(135deg, #f43f5e, #ec4899);
+      background: var(--ink);
       color: #fff;
-      margin-top: 6px;
-      box-shadow: 0 4px 12px rgba(244, 63, 94, 0.2);
+      box-shadow: 0 8px 20px rgba(21,21,25,0.16);
     }
+
+    .btn-primary:hover {
+      background: #000;
+      box-shadow: 0 12px 28px rgba(21,21,25,0.22);
+    }
+
+    .btn-soft {
+      background: rgba(255,255,255,0.78);
+      color: var(--ink);
+      border: 1px solid rgba(21,21,25,0.10);
+      box-shadow: 0 8px 20px rgba(21,21,25,0.05);
+    }
+
+    .btn-soft:hover {
+      background: #fff;
+      box-shadow: 0 12px 28px rgba(21,21,25,0.08);
+    }
+
+    .btn-action {
+      background: var(--grass);
+      color: #15210e;
+      box-shadow: 0 10px 24px rgba(100,164,45,0.18);
+    }
+
     .btn-action:hover {
-      opacity: 0.92;
+      box-shadow: 0 14px 34px rgba(100,164,45,0.24);
     }
-    .footer {
-      display: flex;
-      justify-content: space-between;
-      font-size: 11px;
-      color: #6b7280;
-      border-top: 1px solid #1f2937;
-      padding-top: 10px;
-      margin-top: 16px;
+
+    .btn-action.error {
+      background: #ef4444;
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(239, 68, 68, 0.2);
     }
-    .footer a {
-      color: #ec4899;
-      text-decoration: none;
-      font-weight: 600;
+
+    .btn-action.success {
+      background: var(--grass);
+      color: #15210e;
+      box-shadow: 0 10px 24px rgba(100,164,45,0.18);
     }
-    .footer a:hover {
-      text-decoration: underline;
+
+    .btn-icon {
+      width: 18px;
+      height: 18px;
+      display: grid;
+      place-items: center;
     }
+
+    /* ─── Recent Captures ─── */
     .recent-title {
-      font-size: 11px;
-      font-weight: 700;
+      font-size: 10px;
+      font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #9ca3af;
-      margin-bottom: 8px;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 12px;
     }
+
     .recent-item {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       font-size: 12px;
-      padding: 6px 0;
-      border-bottom: 1px solid #1f2937;
+      padding: 10px;
+      margin-bottom: 8px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.65);
+      border: 1px solid rgba(21,21,25,0.06);
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
     }
-    .recent-item:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
+
+    .recent-item:last-child { margin-bottom: 0; }
+
+    .recent-item:hover {
+      background: rgba(255,255,255,0.9);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(21,21,25,0.06);
     }
+
     .recent-img {
-      width: 24px;
-      height: 24px;
-      border-radius: 4px;
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
       object-fit: cover;
-      background: #374151;
+      background: #eef0f5;
+      flex-shrink: 0;
+    }
+
+    .recent-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .recent-name {
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--ink);
+      font-size: 12px;
+    }
+
+    .recent-author {
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 600;
+      margin-top: 1px;
+    }
+
+    .recent-arrow {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(21,21,25,0.05);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      color: var(--muted);
+      font-size: 10px;
+      transition: background 0.2s ease;
+    }
+
+    .recent-item:hover .recent-arrow {
+      background: rgba(21,21,25,0.10);
+    }
+
+    /* ─── Footer ─── */
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--muted);
+      padding: 14px 18px 16px;
+      border-top: 1px solid var(--line);
+      margin-top: 14px;
+    }
+
+    .footer-version {
+      font-weight: 600;
+      font-size: 10px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(21,21,25,0.04);
+    }
+
+    .footer a {
+      color: var(--ink);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(21,21,25,0.05);
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .footer a:hover {
+      background: rgba(21,21,25,0.10);
+      transform: translateY(-1px);
+    }
+
+    /* ─── Loading ─── */
+    .loading-state {
+      text-align: center;
+      padding: 24px 0;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .loading-dots {
+      display: inline-flex;
+      gap: 4px;
+      margin-top: 8px;
+    }
+
+    .loading-dots span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--grass);
+      animation: dotPulse 1.2s ease-in-out infinite;
+    }
+
+    .loading-dots span:nth-child(2) { animation-delay: 0.15s; }
+    .loading-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes dotPulse {
+      0%, 100% { opacity: 0.3; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1); }
+    }
+
+    /* ─── Decorative ─── */
+    .hero-pattern {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(21,21,25,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(21,21,25,0.025) 1px, transparent 1px);
+      background-size: 24px 24px;
+      mask-image: linear-gradient(180deg, black, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .content {
+      position: relative;
+      z-index: 1;
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="logo">K</div>
-    <div>
-      <div class="title">KreatorOS</div>
-      <div class="subtitle">Instagram Swipe Engine</div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div id="auth-loading" style="text-align: center; padding: 10px 0; color: #9ca3af;">
-      Checking authorization status...
-    </div>
-
-    <!-- Signed Out State -->
-    <div id="auth-signed-out" class="auth-state" style="display: none;">
-      <span class="badge badge-error">Needs Auth</span>
-      <p style="font-size: 13px; color: #9ca3af; margin: 4px 0 10px 0; line-height: 1.4;">
-        Connect your account to save Instagram posts & reels directly to your database.
-      </p>
-      <button id="btn-login" class="btn btn-primary">Connect Account</button>
-    </div>
-
-    <!-- Signed In State -->
-    <div id="auth-signed-in" class="auth-state" style="display: none;">
-      <div class="profile-info">
-        <div id="avatar" class="avatar">KO</div>
-        <div style="min-width: 0; flex: 1;">
-          <div id="username" style="font-weight: 700; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Loading...</div>
-          <div id="role-badge" style="font-size: 10px; color: #34d399; font-weight: 700; margin-top: 1px;">CREATOR</div>
-        </div>
-        <span class="badge badge-success">Connected</span>
+  <div class="content">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <img src="logo.png" alt="KreatorOS Logo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;" />
       </div>
-      <button id="btn-capture" class="btn btn-action">Save Active Post</button>
+      <div>
+        <div class="title">KreatorOS</div>
+        <div class="subtitle">Instagram Swipe Engine</div>
+      </div>
     </div>
-  </div>
 
-  <!-- Recent Captures -->
-  <div id="recent-container" class="card" style="display: none;">
-    <div class="recent-title">Recent Captures</div>
-    <div id="recent-list">
-      <!-- dynamically populated -->
+    <!-- Auth Card -->
+    <div class="card">
+      <div id="auth-loading" class="loading-state">
+        <div>Checking authorization</div>
+        <div class="loading-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+
+      <!-- Signed Out State -->
+      <div id="auth-signed-out" class="auth-state" style="display: none;">
+        <span class="badge badge-error">Needs Auth</span>
+        <p class="auth-text">
+          Connect your account to save Instagram posts & reels directly to your database.
+        </p>
+        <button id="btn-login" class="btn btn-primary">
+          <span class="btn-icon">↗</span>
+          Connect Account
+        </button>
+      </div>
+
+      <!-- Signed In State -->
+      <div id="auth-signed-in" class="auth-state" style="display: none;">
+        <div class="profile-info">
+          <div id="avatar" class="avatar">KO</div>
+          <div style="min-width: 0; flex: 1;">
+            <div id="username" class="profile-name">Loading...</div>
+            <div id="role-badge" class="profile-role">CREATOR</div>
+          </div>
+          <span class="badge badge-success">Connected</span>
+        </div>
+        <button id="btn-capture" class="btn btn-action">
+          <span class="btn-icon">↓</span>
+          Save Active Post
+        </button>
+      </div>
     </div>
-  </div>
 
-  <div class="footer">
-    <span>v1.0.0</span>
-    <a id="link-library" href="#" target="_blank">View Library</a>
+    <!-- Footer -->
+    <div class="footer">
+      <span class="footer-version">v1.0.0</span>
+      <a id="link-library" href="#" target="_blank">View Library →</a>
+    </div>
   </div>
 
   <script src="config.js"></script>

@@ -38,6 +38,7 @@ export function BrandProgramBuilderClient() {
   const [deliverables, setDeliverables] = useState("1x video, 1x short");
   const [dueDate, setDueDate] = useState("");
   const [description, setDescription] = useState("");
+  const [notice, setNotice] = useState("");
 
   async function loadPrograms() {
     setLoading(true);
@@ -58,6 +59,7 @@ export function BrandProgramBuilderClient() {
     event.preventDefault();
     if (!brandName.trim()) return;
     setSaving(true);
+    setNotice("");
     try {
       const res = await fetch("/api/creator/brand-deals", {
         method: "POST",
@@ -83,33 +85,42 @@ export function BrandProgramBuilderClient() {
       setDeliverables("1x video, 1x short");
       setDueDate("");
       setDescription("");
+      setNotice("Program published successfully! Creators can now view and apply in the Marketplace.");
       await loadPrograms();
+    } catch (err: any) {
+      setNotice(err.message || "Failed to create program.");
     } finally {
       setSaving(false);
     }
   }
 
   async function updateProgram(program: Program, update: Partial<Program>) {
-    const next = { ...program, ...update };
-    const res = await fetch("/api/creator/brand-deals", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: program.id,
-        brandName: next.brand_name,
-        contactName: null,
-        contactEmail: null,
-        status: next.status,
-        rateCents: next.rate_cents,
-        currency: next.currency,
-        deliverables: next.deliverables ?? [],
-        dueDate: next.due_date,
-        metadata: next.metadata || {},
-      }),
-    });
-    const json = await res.json();
-    if (!json.ok) throw new Error(json.error?.message || "Could not update program.");
-    setPrograms((current) => current.map((item) => (item.id === program.id ? { ...item, ...json.data.deal } : item)));
+    setNotice("");
+    try {
+      const next = { ...program, ...update };
+      const res = await fetch("/api/creator/brand-deals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: program.id,
+          brandName: next.brand_name,
+          contactName: null,
+          contactEmail: null,
+          status: next.status,
+          rateCents: next.rate_cents,
+          currency: next.currency,
+          deliverables: next.deliverables ?? [],
+          dueDate: next.due_date,
+          metadata: next.metadata || {},
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error?.message || "Could not update program.");
+      setPrograms((current) => current.map((item) => (item.id === program.id ? { ...item, ...json.data.deal } : item)));
+      setNotice("Program updated successfully.");
+    } catch (err: any) {
+      setNotice(err.message || "Failed to update program.");
+    }
   }
 
   return (
@@ -120,6 +131,17 @@ export function BrandProgramBuilderClient() {
           <h2 className="text-lg font-semibold text-foreground">New program</h2>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">Publish a creator-facing offer.</p>
+
+        {notice ? (
+          <div className={cn(
+            "mt-4 rounded-xl border px-4 py-3 text-xs font-bold transition-all",
+            notice.includes("successfully") 
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800" 
+              : "border-amber-200 bg-amber-50 text-amber-800"
+          )}>
+            {notice}
+          </div>
+        ) : null}
 
         <form onSubmit={createProgram} className="mt-5 grid gap-3">
           <label className="grid gap-1.5">

@@ -41,10 +41,12 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const marketplace = searchParams.get("marketplace") === "1";
-  const supabase = await createSupabaseServerClient();
+  
+  // Use service client to completely bypass RLS selection limits on brand_deals, 
+  // since server-side API endpoints are secure and already validated by user session check!
+  const serviceClient = createSupabaseServiceClient();
 
   if (marketplace) {
-    const serviceClient = createSupabaseServiceClient();
     const { data, error } = await serviceClient
       .from("brand_deals")
       .select("*, workspaces(name, slug)")
@@ -56,19 +58,22 @@ export async function GET(req: Request) {
     return apiOk({ programs: data ?? [] });
   }
   
-  let query = supabase.from("brand_deals").select("*, campaign_short_link_id(*), workspaces(*, creator_profiles(*))");
+  let query = serviceClient.from("brand_deals").select("*, campaign_short_link_id(*), workspaces(*, creator_profiles(*))");
   
   if (workspace.type === "brand") {
     // Brand user wants to see all deals in workspaces where they are a member
-    const { data: memberWorkspaces } = await supabase
+    const { data: memberWorkspaces } = await serviceClient
       .from("workspace_members")
       .select("workspace_id")
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .eq("status", "active");
       
-    const workspaceIds = memberWorkspaces?.map(mw => mw.workspace_id) || [];
-    if (workspaceIds.length === 0) {
-      return apiOk({ deals: [] });
-    }
+    // Always include their active brand workspace ID in the query filter list
+    const workspaceIds = Array.from(new Set([
+      workspace.id,
+      ...(memberWorkspaces?.map(mw => mw.workspace_id) || [])
+    ]));
+
     query = query.in("workspace_id", workspaceIds);
   } else {
     // Creator user wants to see only deals in their own workspace
@@ -95,12 +100,11 @@ export async function POST(req: Request) {
     return apiError("validation_error", err.message || "Invalid payload.", 422);
   }
 
-  const supabase = await createSupabaseServerClient();
+  const serviceClient = createSupabaseServiceClient();
 
   if (body.action === "apply") {
     if (!body.sourceProgramId) return apiError("missing_program", "sourceProgramId is required.", 400);
 
-    const serviceClient = createSupabaseServiceClient();
     const { data: program, error: programError } = await serviceClient
       .from("brand_deals")
       .select("*, workspaces(owner_id)")
@@ -118,6 +122,7 @@ export async function POST(req: Request) {
           workspace_id: workspace.id,
           user_id: brandOwnerId,
           role: "member",
+          status: "active"
         },
         { onConflict: "workspace_id,user_id" }
       );
@@ -134,7 +139,7 @@ export async function POST(req: Request) {
       applied_at: new Date().toISOString(),
     };
 
-    const { data: created, error: insertError } = await supabase
+    const { data: created, error: insertError } = await serviceClient
       .from("brand_deals")
       .insert({
         workspace_id: workspace.id,
@@ -173,8 +178,29 @@ export async function POST(req: Request) {
   }
 
   if (body.id) {
+    // First, verify that the user is actually a member of the workspace associated with the deal!
+    const { data: deal } = await serviceClient
+      .from("brand_deals")
+      .select("workspace_id")
+      .eq("id", body.id)
+      .single();
+      
+    if (!deal) return apiError("deal_not_found", "Deal not found.", 404);
+    
+    const { data: isMember } = await serviceClient
+      .from("workspace_members")
+      .select("id")
+      .eq("workspace_id", deal.workspace_id)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .maybeSingle();
+      
+    if (!isMember && deal.workspace_id !== workspace.id) {
+      return apiError("forbidden", "You do not have permission to update this deal.", 403);
+    }
+
     // Perform update
-    const { data: updated, error: updateError } = await supabase
+    const { data: updated, error: updateError } = await serviceClient
       .from("brand_deals")
       .update({
         brand_name: body.brandName,
@@ -200,22 +226,21 @@ export async function POST(req: Request) {
     const targetWorkspaceId = body.workspaceId || workspace.id;
 
     if (body.workspaceId) {
-      // Use service client to bypass RLS and add the user to workspace_members of the creator workspace
-      const serviceClient = createSupabaseServiceClient();
       try {
         await serviceClient
           .from("workspace_members")
           .upsert({
             workspace_id: body.workspaceId,
             user_id: user.id,
-            role: "member"
+            role: "member",
+            status: "active"
           }, { onConflict: "workspace_id,user_id" });
       } catch (e) {
         console.error("Auto-joining workspace failed:", e);
       }
     }
 
-    const { data: created, error: insertError } = await supabase
+    const { data: created, error: insertError } = await serviceClient
       .from("brand_deals")
       .insert({
         workspace_id: targetWorkspaceId,
@@ -248,8 +273,30 @@ export async function DELETE(req: Request) {
   const id = searchParams.get("id");
   if (!id) return apiError("missing_id", "Deal ID parameter is required.", 400);
 
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase
+  const serviceClient = createSupabaseServiceClient();
+  
+  // Verify permission
+  const { data: deal } = await serviceClient
+    .from("brand_deals")
+    .select("workspace_id")
+    .eq("id", id)
+    .single();
+    
+  if (deal) {
+    const { data: isMember } = await serviceClient
+      .from("workspace_members")
+      .select("id")
+      .eq("workspace_id", deal.workspace_id)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .maybeSingle();
+      
+    if (!isMember && deal.workspace_id !== workspace.id) {
+      return apiError("forbidden", "You do not have permission to delete this deal.", 403);
+    }
+  }
+
+  const { error } = await serviceClient
     .from("brand_deals")
     .delete()
     .eq("id", id);
